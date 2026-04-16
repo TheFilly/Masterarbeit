@@ -2,7 +2,7 @@
 
 Scalable pipeline for injecting synthetic personally identifiable information (PII) into anonymized medical documents. Developed as part of a master's thesis and a larger research project on medical NLP and de-identification evaluation.
 
-The pipeline does the **inverse** of de-identification: it takes already-anonymized documents and re-introduces realistic, fully synthetic PII at controlled positions — producing both the modified document and a ground-truth annotation artifact (JSONL) that records every injection site.
+The pipeline does the **inverse** of de-identification: it takes already-anonymized documents and re-introduces realistic, fully synthetic PII at controlled positions, producing both the modified document and a ground-truth annotation artifact (JSONL) that records every injection site.
 
 ---
 
