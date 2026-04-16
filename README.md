@@ -41,7 +41,6 @@ InjectionPipeline/
 │   └── fixtures/            # Small sample files for tests (no real patient data)
 ├── configs/                 # YAML / JSON pipeline configuration files
 ├── pyproject.toml
-├── CLAUDE.md
 └── README.md
 ```
 
@@ -131,7 +130,7 @@ Pipeline runs are configured via YAML files in `configs/`. Pass the config path 
 uv run python -m injection_pipeline --config configs/default.yaml
 ```
 
-> Configuration format is not yet finalized — this section will be updated as the config schema stabilizes.
+> Configuration format is not yet finalized; this section will be updated as the config schema stabilizes.
 
 ---
 
@@ -148,10 +147,10 @@ Each pipeline run produces two artifacts:
 
 ## What This Project Is Not
 
-- **Not a de-identification tool** — it does the inverse (injection, not removal)
-- **Not responsible for defining PII categories** — those come from an external `IdentifierSchema`
-- **Not a clinical system** — no real patient data is processed or generated
-- **Not a web application** — this is a CLI / library pipeline
+- **Not a de-identification tool** - it does the inverse (injection, not removal)
+- **Not responsible for defining PII categories** - those come from an external `IdentifierSchema`
+- **Not a clinical system** - no real patient data is processed or generated
+- **Not a web application** - this is a CLI / library pipeline
 
 ---
 

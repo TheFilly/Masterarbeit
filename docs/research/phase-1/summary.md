@@ -20,6 +20,7 @@ This summary consolidates the initial format inventory of `DycomData/` and disti
 - `Anonymization/deanonymized_with_labels/` should be treated as a derived and annotated reference family.
 - `Anonymization/deanonymized_without_labels/` should be treated as a derived comparison family.
 - `Anonymization/original_data/` should be treated as a mixed family that requires exception handling for derived files such as `*_deanonymized_2.csv`.
+- The true input scope is now defined per family: raw MIMIC tables, WFDB core `.hea` and `.dat` files, and raw files under `Anonymization/original_data/` are inputs unless excluded by explicit duplicate or derived-file rules.
 
 ## Format Outlook
 
@@ -49,3 +50,6 @@ This summary consolidates the initial format inventory of `DycomData/` and disti
 - `FND-2026-04-15-003` addressable and PII-bearing locations by format
 - `FND-2026-04-15-004` duplicate storage forms and canonicalization risk
 - `FND-2026-04-15-005` family-level input separation and exception rules
+- `FND-2026-04-16-006` true pipeline input scope by dataset family
+- `FND-2026-04-16-007` CSV grouping by requested dataset areas
+- `FND-2026-04-16-008` CSV sample analysis by dataset area
