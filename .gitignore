@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+dist/
+build/
+*.egg-info/
+
+Commands.md
+AGENTS.md
+CLAUDE.md
+PLAN.md
+
+
+#Dycom Data
+DycomData/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Mypy
+.mypy_cache/
+
+# Ruff
+.ruff_cache/
+
+# Editors
+.vscode/
+.idea/
+.codex/
+
+# Test fixtures with real patient data
+tests/fixtures/*.dcm
+tests/fixtures/*.csv
+tests/fixtures/*.txt
