@@ -12,6 +12,8 @@ dependencies = [
     "pydicom>=2.4",
     "pandas>=2.0",
     "pandas-stubs>=2.0",
+    "faker>=25.0",
+    "matplotlib>=3.10.8",
 ]
 
 [project.optional-dependencies]

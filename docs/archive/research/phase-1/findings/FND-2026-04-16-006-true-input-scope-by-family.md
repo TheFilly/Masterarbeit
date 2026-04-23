@@ -34,7 +34,8 @@ For each dataset family under `DycomData/`, the set of true pipeline inputs can 
 - `MIMIC-IV-Note/note/` contains raw note tables such as `discharge.csv` and `radiology.csv`, which should be treated as true inputs.
 - `MIMIC-IV-ECG-subset/files/` contains WFDB core artifacts in `.hea` and `.dat` form, while `record_list.csv`, `waveform_note_links.csv`, `machine_measurements.csv`, `machine_measurements_data_dictionary.csv`, `RECORDS`, and checksums behave as manifest, crosswalk, measurement, or auxiliary files.
 - `MIMIC-IV-Waveform-subset/files/.../waves/` contains WFDB core artifacts in `.hea` and `.dat` form, while `RECORDS`, `index.html`, checksums, and `*n.csv.gz` sidecars behave as auxiliary or reference artifacts.
-- `Anonymization/original_data/` contains mixed-format raw cases in `csv`, `txt`, `dcm`, `hea`, and `dat` form, but also includes derived filenames such as `*_deanonymized_2.csv` that should not be treated as true inputs despite their location.
+- `Anonymization/original_data/` contains mixed-format raw cases in `csv`, `dcm`, `hea`, and `dat` form, but also includes derived filenames such as `*_deanonymized_2.csv` that should not be treated as true inputs despite their location.
+- Standalone note `.txt` files were observed in `deanonymized_with_labels/` and `deanonymized_without_labels/`, not in `Anonymization/original_data/`.
 - `Anonymization/deanonymized_with_labels/` contains annotation-bearing derived bundles, including annotation CSV sidecars and reference copies such as `patient_info.csv`, and should not be treated as primary input.
 - `Anonymization/deanonymized_without_labels/` contains derived comparison artifacts and should not be treated as primary input.
 
@@ -47,7 +48,7 @@ The true input scope can be stated per family as follows:
 - `MIMIC-IV-Note/`: raw note tables are true inputs
 - `MIMIC-IV-ECG-subset/`: only WFDB core files `*.hea` and `*.dat` under `files/` are true inputs
 - `MIMIC-IV-Waveform-subset/`: only WFDB core files `*.hea` and `*.dat` under `files/.../waves/` are true inputs
-- `Anonymization/original_data/`: raw case files in `*.csv`, `*.txt`, `*.dcm`, `*.hea`, and `*.dat` are true inputs unless excluded by an explicit derived filename rule
+- `Anonymization/original_data/`: raw case files in `*.csv`, `*.dcm`, `*.hea`, and `*.dat` are true inputs unless excluded by an explicit derived filename rule
 - `Anonymization/deanonymized_with_labels/`: no files are true inputs
 - `Anonymization/deanonymized_without_labels/`: no files are true inputs
 

@@ -4,11 +4,14 @@
 
 This summary consolidates the initial format inventory of `DycomData/` and distinguishes primary pipeline inputs from reference and auxiliary artifacts.
 
+Phase 1 is materially useful, but parts of the result set are still provisional. In particular, the former standalone-`txt` MVP classification and the DICOM addressability claims require rework before Phase 2 should rely on them as settled fact.
+
 ## Current Findings
 
 - `DycomData/` contains 1,776 files across `Anonymization`, `MIMIC-IV`, `MIMIC-IV-ECG-subset`, `MIMIC-IV-ED`, `MIMIC-IV-Note`, and `MIMIC-IV-Waveform-subset`.
 - Dominant file types are `.dat`, `.hea`, `.csv`, `.dcm`, `.csv.gz`, `.txt`, `.html`, and `.pdf`.
 - Primary pipeline inputs are the raw MIMIC source tables, raw WFDB ECG/waveform pairs, and raw case bundles under `Anonymization/original_data/`.
+- Within `Anonymization/original_data/`, the currently observed raw case inputs are `csv`, `dcm`, `hea`, and `dat`; the note content is represented as CSV files such as `note_discharge_*.csv` and `note_radiology_*.csv`, not as standalone note `.txt` inputs.
 - Derived and annotated reference artifacts are concentrated in `Anonymization/deanonymized_with_labels/` and related sidecar files.
 - Auxiliary or comparison artifacts include `deanonymized_without_labels/`, `index.html`, `RECORDS`, checksums, and `.DS_Store`.
 
@@ -21,27 +24,31 @@ This summary consolidates the initial format inventory of `DycomData/` and disti
 - `Anonymization/deanonymized_without_labels/` should be treated as a derived comparison family.
 - `Anonymization/original_data/` should be treated as a mixed family that requires exception handling for derived files such as `*_deanonymized_2.csv`.
 - The true input scope is now defined per family: raw MIMIC tables, WFDB core `.hea` and `.dat` files, and raw files under `Anonymization/original_data/` are inputs unless excluded by explicit duplicate or derived-file rules.
+- Standalone clinical-note `.txt` files currently appear in derived `deanonymized_*` bundles, not in the primary source families that define MVP input scope.
 
 ## Format Outlook
 
-- High-priority MVP formats: `csv`, `csv.gz`, `txt`
-- Medium-priority later format: `dcm`
+- High-priority MVP formats: `csv`, `csv.gz`
+- Text-span support is still part of the MVP, but it should be derived from note text stored inside CSV inputs rather than from a separate primary `.txt` input format.
+- Medium-priority later format: `dcm` (provisional until raw-tag inspection is completed)
 - Lower-priority later formats: `hea`, `dat`
-- No MVP priority: `pdf`, `html`, `RECORDS`, `.DS_Store`
+- No current MVP priority: standalone derived `.txt`, `pdf`, `html`, `RECORDS`, `.DS_Store`
 
 ## PII-Relevant Observations
 
 - CSV-based annotation bundles explicitly contain fields such as `first_name`, `street_address`, `phone_number`, `email`, and `ssn`.
-- Note artifacts contain inline markup such as `<PER>`, `<DATE>`, and `<AGE>`, indicating span-based addressability for text injection.
-- DICOM-related annotation artifacts point to header-level fields such as patient name, date of birth, patient ID, institution, and physician.
+- Annotated note artifacts and note CSVs indicate span-based addressability for free text, but the primary raw note inputs in this repository are CSV-backed notes rather than standalone `.txt` files.
+- DICOM-related annotation artifacts suggest header-level fields such as patient name, date of birth, patient ID, institution, and physician, but these claims still need confirmation against raw DICOM files with `pydicom`.
 - WFDB `.hea` files include metadata such as record IDs, dates, and subject comments, while `.dat` files appear to be binary signal payloads with no obvious direct PII surface in the initial review.
 
 ## Immediate Consequences
 
-- Phase 2 should first model row/cell and text-span addressing before tackling DICOM tags and WFDB headers.
+- Phase 2 should first model row/cell and text-span addressing for CSV-backed inputs before tackling DICOM tags and WFDB headers.
 - The project should treat annotated artifacts as evidence and reference material, not as primary pipeline input.
 - Classification rules must not rely on folder names alone, especially inside `Anonymization/original_data/`.
 - Input discovery should combine family-level defaults with explicit exclusion rules for manifests, sidecars, crosswalk tables, and derived filename patterns.
+- Standalone `.txt` should not currently be assumed to be a required MVP input format.
+- DICOM statements remain provisional until raw files have been inspected directly with `pydicom`.
 
 ## Linked Findings
 

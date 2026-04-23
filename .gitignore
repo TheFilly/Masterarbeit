@@ -8,10 +8,6 @@ build/
 *.egg-info/
 
 Commands.md
-AGENTS.md
-CLAUDE.md
-PLAN.md
-
 
 #Dycom Data
 DycomData/
@@ -19,6 +15,8 @@ DycomData/
 # Test / coverage
 .pytest_cache/
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
 
 # Mypy
@@ -31,8 +29,14 @@ htmlcov/
 .vscode/
 .idea/
 .codex/
+.claude/
+.DS_Store
+*.orig
 
 # Test fixtures with real patient data
 tests/fixtures/*.dcm
 tests/fixtures/*.csv
 tests/fixtures/*.txt
+
+# Prototype outputs (modified DICOMs, ground truth)
+prototypes/dicom/output/
