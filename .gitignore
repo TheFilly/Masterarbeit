@@ -40,3 +40,5 @@ tests/fixtures/*.txt
 
 # Prototype outputs (modified DICOMs, ground truth)
 prototypes/dicom/output/
+prototypes/dicom/output_review/
+prototypes/dicom/output_review_90/
