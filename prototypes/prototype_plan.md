@@ -46,6 +46,113 @@ und Entscheidungen fuer den aktuellen DICOM-Prototyp.
 
 ## Arbeitspakete
 
+
+### 0. Neue Features
+
+#### A — Variable Schriftgroesse (`--font-size-pct`)
+
+**`inject.py`**
+- Neues CLI-Argument: `--font-size-pct`, Typ `int`, Default `100`, Metavar `PERCENT`.
+  Validation nach `parse_args()`: Wert `< 1` → `ValueError`.
+- Wert durch `_run_pixel_injection()` → `inject_visible_text()` durchreichen.
+- In `_build_record()`: `"font_size_pct"` in `render_metadata` aufnehmen.
+
+**`pixel_injection.py`**
+- Modulkonstante: `_DEFAULT_FONT_SIZE_PX: int = 18` (single source of truth fuer 100 %).
+- Neue Funktion: `_resolve_font_size_px(font_size_pct: int) -> int`
+  → `max(1, round(18 * pct / 100))`, `ValueError` bei `< 1`.
+- `load_default_font()` bekommt Parameter `font_size_px: int`, nutzt ihn statt Hardcode.
+  PIL-Fallback ignoriert den Wert (kein Crash).
+- `_materialize_positions()`, `render_visible_annotations()`, `inject_visible_text()`
+  bekommen `font_size_pct: int` (Default `100`).
+  Alle Bounding-Box-Messungen muessen den aufgeloesten Font nutzen.
+
+**Annotation JSON**
+- Jeder `box_annotation`-Eintrag bekommt `"font_size_pct": <int>`.
+- `render_metadata.visible_annotations[*].render_metadata.font_size` bleibt und traegt
+  die aufgeloeste Pixel-Groesse.
+
+**Akzeptanzkriterien**
+- `--font-size-pct 100` erzeugt identische Ausgabe wie vor der Aenderung.
+- `--font-size-pct 50` erzeugt sichtbar kleineren Text und kleinere Corners in der Annotation.
+- `--font-size-pct 0` crashed mit `ValueError` ohne Dateien zu schreiben.
+- Gleicher Seed + gleicher Prozentwert → identische Ausgabe.
+
+---
+
+#### B — Zufaellige Platzierung (`--placement-mode`)
+
+**`inject.py`**
+- Neues CLI-Argument: `--placement-mode`, Typ `str`, Default `"corners"`,
+  `choices=["free", "corners"]`.
+- `_build_run_id()` bekommt `placement_mode: str`. Neues Format:
+  `seed{seed:04d}-angle{angle:03d}-{placement_mode}-echo-{short_id}`
+  (Beispiel: `seed0042-angle020-corners-echo-91180014`). Breaking change — alte Ordner
+  werden nicht umbenannt.
+- In `_build_record()`: `"placement_mode"` in `run_metadata` und `render_metadata`.
+
+**`pixel_injection.py`**
+- Modulkonstante: `_VALID_PLACEMENT_MODES: tuple[str, ...] = ("free", "corners")`.
+- `inject_visible_text()` bekommt `placement_mode: str` (Default `"corners"`),
+  validiert gegen `_VALID_PLACEMENT_MODES`.
+- `rng = random.Random(seed)` wird direkt vor `_materialize_positions()` konstruiert
+  und als Parameter uebergeben. Kein globales `random.seed()`.
+- `_materialize_positions()` bekommt `placement_mode: str` und `rng: random.Random`:
+  - **"corners"**: Einmaliger `rng.choice(["top_left","top_right","bottom_left","bottom_right"])`.
+    Alle Annotationen werden in dieser Ecke gestapelt (oben → nach unten, unten → nach oben).
+    Margin: `max(24, int(w * 0.03))`.
+  - **"free"**: Pro Annotation ein unabhaengiges `rng.randint(margin, max(margin, limit))`
+    fuer x und y. Rotierte Groesse via `_estimate_rotated_size()` fuer Grenzberechnung.
+  - `"region"`-Feld traegt jetzt den echten Wert (`"top_left"`, `"free"` etc.)
+    statt `"header_overlay"`.
+
+**Annotation JSON**
+- `box_annotations[*].region` traegt den tatsaechlichen Wert, nicht `"header_overlay"`.
+- Neues Top-Level-Feld `"placement_mode": str` in `run_metadata` und `render_metadata`.
+
+**Akzeptanzkriterien**
+- Gleicher Seed + gleicher Modus → gleiche Positionen.
+- Alle vier Ecken sind durch Seed-Variation erreichbar.
+- Ordnername enthaelt den Modus-String.
+- Keine Corner-Koordinaten ausserhalb der Bildgrenzen.
+
+---
+
+#### C — Annotiertes Preview mit roten Bounding Boxes
+
+**`view.py`**
+- Neue private Funktion `_draw_red_bounding_boxes(axis, annotations)`: identisch zu
+  `_draw_annotation_outlines()`, aber `color="red"`, `linewidth=2.0`.
+- Neue public Funktion `create_annotated_preview(dicom_path, box_annotations, output_path,
+  title=None) -> Path`: liest den **injizierten** DICOM, extrahiert Frame, zeichnet rote Boxen,
+  speichert mit `figsize=(8, 8)`, `dpi=150`. Kein `plt.show()`.
+
+**`inject.py`**
+- `create_annotated_preview` importieren.
+- Neuer Output-Pfad: `run_dir / "preview_annotated.png"`.
+- Nach `save_dicom()` aufrufen mit injiziertem DICOM und `pixel_result["box_annotations"]`.
+- `"annotated_preview_file"` in den Record aufnehmen.
+
+**Annotation JSON**
+- Neues Top-Level-Feld `"annotated_preview_file": str` in `ground_truth.jsonl`
+  und `run_manifest.json`.
+
+**Akzeptanzkriterien**
+- Run-Ordner enthaelt `preview.png` (unveraendert, lime) **und** `preview_annotated.png` (neu, rot).
+- Rotierte Annotationen → rotierte Quadrilaterale, keine achsenparallelen Rechtecke.
+- Leere `box_annotations` → valides PNG ohne Crash.
+- `ground_truth.jsonl` und `run_manifest.json` enthalten `"annotated_preview_file"`.
+
+---
+
+**Aenderungen nach Datei**
+
+| Datei | Feature | Was aendert sich |
+|---|---|---|
+| `inject.py` | A, B, C | CLI-Args, Call-Chain, Record, Run-ID-Format, Import |
+| `pixel_injection.py` | A, B | Font-Aufloesung, Placement-Logik, RNG-Kapselung |
+| `view.py` | C | `_draw_red_bounding_boxes`, `create_annotated_preview` |
+
 ### 1. Prototype-Stand sauber einfrieren
 
 - Den aktuellen Tag-Injektions-Stand in `prototypes/dicom/README.md` eindeutig als Ist-Stand

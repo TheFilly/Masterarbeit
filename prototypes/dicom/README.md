@@ -55,11 +55,38 @@ Zum Testen einer anderen diskreten Rotation:
 uv run python prototypes/dicom/inject.py --seed 42 --rotation-angle 90
 ```
 
-Zum Anschauen der erzeugten Artefakte:
+Zum Anschauen der erzeugten Artefakte (oeffnet interaktives Fenster mit Pixelkoordinaten beim Hovern):
 
 ```bash
 uv run python prototypes/dicom/view.py --dicom prototypes/dicom/output/seed0042-angle020-echo-91180014/91180014_0001_injected.dcm --output prototypes/dicom/output/seed0042-angle020-echo-91180014/preview_check.png
 ```
+
+Nur Datei speichern, kein Fenster:
+
+```bash
+uv run python prototypes/dicom/view.py --dicom ... --output ... --no-show
+```
+
+### Parameter von `inject.py`
+
+| Parameter | Pflicht | Default | Beschreibung |
+|---|---|---|---|
+| `--seed` | Nein | `42` | Zufalls-Seed fuer reproduzierbare Identitaets- und Layout-Auswahl |
+| `--input` | Nein | `DycomData/.../91180014_0001.dcm` | Pfad zur DICOM-Quelldatei |
+| `--output-dir` | Nein | `prototypes/dicom/output` | Wurzelverzeichnis; pro Run wird ein Unterordner angelegt |
+| `--rotation-angle` | Nein | `0` | Rotationswinkel des Overlay-Texts in Grad; erlaubte Werte: `0, 20, 90, 180, 270` |
+| `--font-size-pct` | Nein | `100` | Schriftgroesse als Prozentsatz des Standardwerts (100 = Standard, 50 = halb so gross); muss >= 1 sein |
+| `--placement-mode` | Nein | `corners` | Platzierungsmodus: `corners` waehlt eine zufaellige Ecke, `free` platziert den Text frei im Bild |
+
+### Parameter von `view.py`
+
+| Parameter | Pflicht | Default | Beschreibung |
+|---|---|---|---|
+| `--dicom` | Nein | `DycomData/.../91180014_0001.dcm` | Pfad zur DICOM-Eingabedatei |
+| `--output` | Nein | `prototypes/dicom/output/preview.png` | Zielpfad fuer die gespeicherte PNG-Vorschau |
+| `--annotations-json` | Nein | — | Pfad zu einer JSON-Datei mit `corners`-Annotationen; werden als gruene Umrisse eingezeichnet |
+| `--title` | Nein | `PatientName` aus DICOM | Titel ueber dem Bild |
+| `--no-show` | Nein | — | Unterdrueckt das interaktive Matplotlib-Fenster; nur sinnvoll in Scripts |
 
 Nutzliche Dateien nach dem Lauf:
 

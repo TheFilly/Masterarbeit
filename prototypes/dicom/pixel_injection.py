@@ -1,6 +1,7 @@
 """Prototype helpers for visible pixel injection in DICOM ultrasound previews."""
 
 import math
+import random
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,16 @@ from pydicom.uid import ExplicitVRLittleEndian
 # Conservative prototype-only angle set. This keeps annotation geometry easy to
 # validate while still exercising rotated overlays.
 ALLOWED_ROTATIONS_DEGREES: tuple[int, ...] = (0, 20, 90, 180, 270)
+
+_DEFAULT_FONT_SIZE_PX: int = 18
+_VALID_PLACEMENT_MODES: tuple[str, ...] = ("free", "corners")
+
+
+def _resolve_font_size_px(font_size_pct: int) -> int:
+    """Convert a font-size percentage to an absolute pixel size."""
+    if font_size_pct < 1:
+        raise ValueError("font_size_pct must be >= 1")
+    return max(1, round(_DEFAULT_FONT_SIZE_PX * font_size_pct / 100))
 
 
 def extract_preview_frame(ds: pydicom.Dataset) -> np.ndarray:
@@ -57,10 +68,12 @@ def frame_to_image(frame: np.ndarray) -> Image.Image:
     return Image.fromarray(normalized).convert("RGB")
 
 
-def load_default_font() -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
-    """Load a small default font that is available with Pillow."""
+def load_default_font(
+    font_size_px: int = _DEFAULT_FONT_SIZE_PX,
+) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
+    """Load a font at the given pixel size. Falls back to the PIL default if Arial is unavailable."""
     try:
-        return ImageFont.truetype("arial.ttf", size=18)
+        return ImageFont.truetype("arial.ttf", size=font_size_px)
     except OSError:
         return ImageFont.load_default()
 
@@ -110,18 +123,20 @@ def build_visible_text_annotations(
 def render_visible_annotations(
     frame: np.ndarray,
     annotations: list[dict[str, Any]],
+    font_size_px: int = _DEFAULT_FONT_SIZE_PX,
 ) -> tuple[Image.Image, list[dict[str, Any]]]:
     """Render prototype text overlays and return preview plus geometry records.
 
     Args:
         frame: DICOM preview frame.
         annotations: Overlay specs with ``text``, ``position``, and rotation.
+        font_size_px: Absolute pixel size of the font to use.
 
     Returns:
         Tuple of rendered preview image and visible annotation metadata.
     """
     preview = frame_to_image(frame)
-    font = load_default_font()
+    font = load_default_font(font_size_px=font_size_px)
     render_records: list[dict[str, Any]] = []
 
     for annotation in annotations:
@@ -134,9 +149,12 @@ def render_visible_annotations(
 def render_annotations_for_dataset(
     ds: pydicom.Dataset,
     annotations: list[dict[str, Any]],
+    font_size_px: int = _DEFAULT_FONT_SIZE_PX,
 ) -> tuple[Image.Image, list[dict[str, Any]]]:
     """Extract a DICOM preview frame and render visible prototype annotations."""
-    return render_visible_annotations(extract_preview_frame(ds), annotations)
+    return render_visible_annotations(
+        extract_preview_frame(ds), annotations, font_size_px=font_size_px
+    )
 
 
 def save_preview_image(image: Image.Image, output_path: str | Path) -> Path:
@@ -156,6 +174,8 @@ def inject_visible_text(
     seed: int,
     rotation_degrees: int,
     example_type: str,
+    font_size_pct: int = 100,
+    placement_mode: str = "corners",
 ) -> dict[str, Any]:
     """Render visible text into the dataset pixels and save a preview image.
 
@@ -164,9 +184,12 @@ def inject_visible_text(
         visible_injections: Planned visible overlays from the orchestrator.
         output_path: Final DICOM output path.
         preview_path: Preview artifact path.
-        seed: Run seed for traceability.
+        seed: Run seed for traceability and reproducible placement.
         rotation_degrees: Shared rotation applied to the visible overlays.
         example_type: Example family such as ``echo``.
+        font_size_pct: Font size as a percentage of the default (100 = default).
+        placement_mode: ``"corners"`` picks a random corner; ``"free"`` picks a
+            fully random position within the image.
 
     Returns:
         Prototype render result payload for the orchestrator.
@@ -174,18 +197,37 @@ def inject_visible_text(
     del output_path
     del example_type
     _validate_rotation(rotation_degrees)
+    if placement_mode not in _VALID_PLACEMENT_MODES:
+        raise ValueError(
+            f"placement_mode must be one of {_VALID_PLACEMENT_MODES}, got {placement_mode!r}."
+        )
+
+    font_size_px = _resolve_font_size_px(font_size_pct)
+    rng = random.Random(seed)
 
     pixel_array = np.asarray(ds.pixel_array)
     frame_count = int(pixel_array.shape[0]) if pixel_array.ndim == 4 else 1
-    annotations = _materialize_positions(visible_injections, extract_preview_frame(ds))
+    annotations = _materialize_positions(
+        visible_injections,
+        extract_preview_frame(ds),
+        font_size_px=font_size_px,
+        placement_mode=placement_mode,
+        rng=rng,
+    )
 
     if pixel_array.ndim == 4:
         output_array = np.array(pixel_array, copy=True)
-        output_array[0], _ = _render_frame_with_annotations(pixel_array[0], annotations)
+        output_array[0], _ = _render_frame_with_annotations(
+            pixel_array[0], annotations, font_size_px=font_size_px
+        )
     else:
-        output_array, _ = _render_frame_with_annotations(pixel_array, annotations)
+        output_array, _ = _render_frame_with_annotations(
+            pixel_array, annotations, font_size_px=font_size_px
+        )
 
-    preview_image, rendered_annotations = render_annotations_for_dataset(ds, annotations)
+    preview_image, rendered_annotations = render_annotations_for_dataset(
+        ds, annotations, font_size_px=font_size_px
+    )
     preview_file = save_preview_image(preview_image, preview_path)
 
     _write_pixel_array(ds, output_array)
@@ -199,6 +241,7 @@ def inject_visible_text(
                 "corners": rendered["corners"],
                 "rotation_degrees": rendered["rotation_degrees"],
                 "frame_index": 0,
+                "font_size_pct": font_size_pct,
             }
         )
 
@@ -288,47 +331,89 @@ def _render_single_annotation(
 def _render_frame_with_annotations(
     frame: np.ndarray,
     annotations: list[dict[str, Any]],
+    font_size_px: int = _DEFAULT_FONT_SIZE_PX,
 ) -> tuple[np.ndarray, list[dict[str, Any]]]:
-    preview_image, rendered_annotations = render_visible_annotations(frame, annotations)
+    preview_image, rendered_annotations = render_visible_annotations(
+        frame, annotations, font_size_px=font_size_px
+    )
     return np.asarray(preview_image), rendered_annotations
 
 
 def _materialize_positions(
     visible_injections: list[dict[str, Any]],
     frame: np.ndarray,
+    font_size_px: int = _DEFAULT_FONT_SIZE_PX,
+    placement_mode: str = "corners",
+    rng: random.Random | None = None,
 ) -> list[dict[str, Any]]:
-    image_height, image_width = frame.shape[:2]
-    left_margin = max(24, int(image_width * 0.03))
-    top_margin = max(24, int(image_height * 0.03))
-    vertical_gap = max(10, int(image_height * 0.015))
-    current_y = top_margin
-    font = load_default_font()
+    if rng is None:
+        rng = random.Random(0)
 
-    positioned_annotations: list[dict[str, Any]] = []
+    image_height, image_width = frame.shape[:2]
+    h_margin = max(24, int(image_width * 0.03))
+    v_margin = max(24, int(image_height * 0.03))
+    vertical_gap = max(10, int(image_height * 0.015))
+    padding = 4
+    font = load_default_font(font_size_px=font_size_px)
+
+    sizes: list[tuple[int, int, int, int]] = []
     for injection in visible_injections:
         text = str(injection["text"])
         rotation = int(injection.get("rotation_degrees", 0))
         left, top, right, bottom = font.getbbox(text)
-        padding = 4
-        base_width = max(1, right - left) + (padding * 2)
-        base_height = max(1, bottom - top) + (padding * 2)
-        _, rotated_height = _estimate_rotated_size(
-            width=base_width,
-            height=base_height,
-            rotation_degrees=rotation,
+        base_w = max(1, right - left) + (padding * 2)
+        base_h = max(1, bottom - top) + (padding * 2)
+        rot_w, rot_h = _estimate_rotated_size(
+            width=base_w, height=base_h, rotation_degrees=rotation
         )
-        positioned_annotations.append(
-            {
-                **injection,
-                "position": (
-                    left_margin,
-                    current_y,
-                ),
-                "padding": padding,
-                "stroke_width": 1,
-            }
-        )
-        current_y += rotated_height + vertical_gap
+        sizes.append((base_w, base_h, rot_w, rot_h))
+
+    positioned_annotations: list[dict[str, Any]] = []
+
+    if placement_mode == "corners":
+        corner = rng.choice(["top_left", "top_right", "bottom_left", "bottom_right"])
+
+        if corner in ("bottom_left", "bottom_right"):
+            total_height = (
+                sum(rot_h for _, _, _, rot_h in sizes)
+                + vertical_gap * max(0, len(sizes) - 1)
+            )
+            current_y = max(v_margin, image_height - v_margin - total_height)
+        else:
+            current_y = v_margin
+
+        for injection, (_, _, rot_w, rot_h) in zip(visible_injections, sizes):
+            if corner in ("top_right", "bottom_right"):
+                x = max(h_margin, image_width - h_margin - rot_w)
+            else:
+                x = h_margin
+            positioned_annotations.append(
+                {
+                    **injection,
+                    "position": (x, current_y),
+                    "region": corner,
+                    "padding": padding,
+                    "stroke_width": 1,
+                }
+            )
+            current_y += rot_h + vertical_gap
+
+    elif placement_mode == "free":
+        for injection, (_, _, rot_w, rot_h) in zip(visible_injections, sizes):
+            x_max = max(h_margin, image_width - rot_w - h_margin)
+            y_max = max(v_margin, image_height - rot_h - v_margin)
+            x = rng.randint(h_margin, x_max)
+            y = rng.randint(v_margin, y_max)
+            positioned_annotations.append(
+                {
+                    **injection,
+                    "position": (x, y),
+                    "region": "free",
+                    "padding": padding,
+                    "stroke_width": 1,
+                }
+            )
+
     return positioned_annotations
 
 

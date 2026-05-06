@@ -23,6 +23,7 @@ def create_preview(
     output_path: Union[str, Path] = DEFAULT_PREVIEW_PATH,
     visible_annotations: Optional[List[Dict[str, Any]]] = None,
     title: Optional[str] = None,
+    show: bool = False,
 ) -> Path:
     """Render and save a standardized preview for a prototype DICOM file.
 
@@ -49,6 +50,8 @@ def create_preview(
     destination = Path(output_path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(destination, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
     plt.close()
     return destination
 
@@ -85,6 +88,50 @@ def _load_annotations_json(path: Union[str, Path]) -> List[Dict[str, Any]]:
     return payload
 
 
+def _draw_red_bounding_boxes(axis: Any, annotations: List[Dict[str, Any]]) -> None:
+    for annotation in annotations:
+        corners = annotation.get("corners")
+        if not isinstance(corners, list) or len(corners) != 4:
+            continue
+        x_values = [float(corner["x"]) for corner in corners] + [float(corners[0]["x"])]
+        y_values = [float(corner["y"]) for corner in corners] + [float(corners[0]["y"])]
+        axis.plot(x_values, y_values, color="red", linewidth=2.0)
+
+
+def create_annotated_preview(
+    dicom_path: Union[str, Path],
+    box_annotations: List[Dict[str, Any]],
+    output_path: Union[str, Path],
+    title: Optional[str] = None,
+) -> Path:
+    """Render and save a preview with red bounding boxes around injected text.
+
+    Args:
+        dicom_path: Path to the injected DICOM file.
+        box_annotations: Box annotations with ``corners`` geometry.
+        output_path: Destination for the annotated preview image.
+        title: Optional title. Defaults to PatientName if available.
+
+    Returns:
+        Saved preview image path.
+    """
+    ds = pydicom.dcmread(str(dicom_path))
+    frame = extract_preview_frame(ds)
+
+    figure, axis = plt.subplots(figsize=(8, 8))
+    cmap = "gray" if frame.ndim == 2 else None
+    axis.imshow(frame, cmap=cmap)
+    _draw_red_bounding_boxes(axis, box_annotations)
+    axis.set_title(title or str(getattr(ds, "PatientName", "DICOM Preview")))
+    axis.axis("off")
+
+    destination = Path(output_path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(destination, dpi=150, bbox_inches="tight")
+    plt.close(figure)
+    return destination
+
+
 def _draw_annotation_outlines(axis: Any, annotations: List[Dict[str, Any]]) -> None:
     for annotation in annotations:
         corners = annotation.get("corners")
@@ -104,6 +151,7 @@ def main() -> None:
     parser.add_argument("--output", type=str, default=str(DEFAULT_PREVIEW_PATH))
     parser.add_argument("--annotations-json", type=str, default=None)
     parser.add_argument("--title", type=str, default=None)
+    parser.add_argument("--no-show", action="store_true", default=False)
     args = parser.parse_args()
 
     annotations = (
@@ -116,6 +164,7 @@ def main() -> None:
         output_path=args.output,
         visible_annotations=annotations,
         title=args.title,
+        show=not args.no_show,
     )
 
 

@@ -9,6 +9,7 @@ from typing import Any
 from dicom_writer import inject_tags, load_dicom, save_dicom, summarize_dicom
 from identity import generate_identity
 from pixel_injection import ALLOWED_ROTATIONS_DEGREES, inject_visible_text
+from view import create_annotated_preview
 
 _DEFAULT_INPUT = (
     "DycomData/Anonymization/original_data/"
@@ -54,8 +55,14 @@ def _build_short_id(input_path: Path) -> str:
     return normalized[:12] or "sample"
 
 
-def _build_run_id(seed: int, rotation_degrees: int, example_type: str, short_id: str) -> str:
-    return f"seed{seed:04d}-angle{rotation_degrees:03d}-{example_type}-{short_id}"
+def _build_run_id(
+    seed: int,
+    rotation_degrees: int,
+    placement_mode: str,
+    example_type: str,
+    short_id: str,
+) -> str:
+    return f"seed{seed:04d}-angle{rotation_degrees:03d}-{placement_mode}-{example_type}-{short_id}"
 
 
 def _build_output_paths(output_root: Path, run_id: str, source_stem: str) -> dict[str, Path]:
@@ -66,6 +73,7 @@ def _build_output_paths(output_root: Path, run_id: str, source_stem: str) -> dic
         "output_jsonl": run_dir / "ground_truth.jsonl",
         "output_manifest": run_dir / "run_manifest.json",
         "preview_file": run_dir / "preview.png",
+        "annotated_preview_file": run_dir / "preview_annotated.png",
     }
 
 
@@ -110,6 +118,7 @@ def _build_visible_render_plan(
     *,
     tag_map: dict[str, str],
     rotation_degrees: int,
+    placement_mode: str,
 ) -> list[dict[str, Any]]:
     render_plan: list[dict[str, Any]] = []
     for index, keyword in enumerate(_VISIBLE_PIXEL_KEYWORDS):
@@ -118,7 +127,7 @@ def _build_visible_render_plan(
                 "label": keyword,
                 "text": tag_map[keyword],
                 "identity_field": _IDENTITY_FIELD_MAP[keyword],
-                "region": "header_overlay",
+                "region": placement_mode,
                 "rotation_degrees": rotation_degrees,
                 "line_index": index,
             }
@@ -135,6 +144,8 @@ def _run_pixel_injection(
     seed: int,
     rotation_degrees: int,
     example_type: str,
+    font_size_pct: int,
+    placement_mode: str,
 ) -> tuple[Any, dict[str, Any]]:
     result = inject_visible_text(
         ds=ds,
@@ -144,6 +155,8 @@ def _run_pixel_injection(
         seed=seed,
         rotation_degrees=rotation_degrees,
         example_type=example_type,
+        font_size_pct=font_size_pct,
+        placement_mode=placement_mode,
     )
     return result.get("dataset", ds), {
         "status": result.get("status", "rendered"),
@@ -159,10 +172,13 @@ def _build_record(
     run_id: str,
     seed: int,
     rotation_degrees: int,
+    placement_mode: str,
+    font_size_pct: int,
     example_type: str,
     input_path: Path,
     output_path: Path,
     preview_path: Path,
+    annotated_preview_path: Path,
     identity: dict[str, str],
     source_dicom_context: dict[str, Any],
     output_dicom_context: dict[str, Any],
@@ -180,6 +196,7 @@ def _build_record(
         "source_file": str(input_path),
         "output_file": str(output_path),
         "preview_file": pixel_result["preview_file"] or str(preview_path),
+        "annotated_preview_file": str(annotated_preview_path),
         "document_type": "dicom",
         "example_type": example_type,
         "modality": output_dicom_context["modality"],
@@ -189,6 +206,7 @@ def _build_record(
         "dicom_tag_annotations": tag_annotations,
         "run_metadata": {
             "rotation_degrees": rotation_degrees,
+            "placement_mode": placement_mode,
             "pixel_injection_status": pixel_result["status"],
             "pixel_renderer": pixel_result["renderer_name"],
             "visible_identity_fields": [
@@ -202,6 +220,8 @@ def _build_record(
         },
         "render_metadata": {
             "rotation_degrees": rotation_degrees,
+            "placement_mode": placement_mode,
+            "font_size_pct": font_size_pct,
             "visible_render_plan": visible_render_plan,
             **pixel_result["render_metadata"],
         },
@@ -215,18 +235,37 @@ def main() -> None:
     parser.add_argument("--input", type=str, default=_DEFAULT_INPUT)
     parser.add_argument("--output-dir", type=str, default="prototypes/dicom/output")
     parser.add_argument("--rotation-angle", type=int, default=0)
+    parser.add_argument(
+        "--font-size-pct",
+        type=int,
+        default=100,
+        metavar="PERCENT",
+        help="Font size as a percentage of the default size (100 = default, 50 = half size). Must be >= 1.",
+    )
+    parser.add_argument(
+        "--placement-mode",
+        type=str,
+        default="corners",
+        choices=["free", "corners"],
+        help="Placement mode: 'corners' picks a random corner, 'free' picks a fully random position.",
+    )
     args = parser.parse_args()
+
     if args.rotation_angle not in ALLOWED_ROTATIONS_DEGREES:
         allowed = ", ".join(str(angle) for angle in ALLOWED_ROTATIONS_DEGREES)
         raise ValueError(
             f"--rotation-angle must be one of [{allowed}], got {args.rotation_angle}."
         )
+    if args.font_size_pct < 1:
+        raise ValueError("--font-size-pct must be >= 1.")
 
     input_path = Path(args.input)
     output_root = Path(args.output_dir)
     example_type = _derive_example_type(input_path)
     short_id = _build_short_id(input_path)
-    run_id = _build_run_id(args.seed, args.rotation_angle, example_type, short_id)
+    run_id = _build_run_id(
+        args.seed, args.rotation_angle, args.placement_mode, example_type, short_id
+    )
     output_paths = _build_output_paths(output_root, run_id, input_path.stem)
 
     identity_a = generate_identity(args.seed)
@@ -239,6 +278,7 @@ def main() -> None:
     visible_render_plan = _build_visible_render_plan(
         tag_map=tag_map,
         rotation_degrees=args.rotation_angle,
+        placement_mode=args.placement_mode,
     )
     ds, pixel_result = _run_pixel_injection(
         ds=ds,
@@ -248,11 +288,20 @@ def main() -> None:
         seed=args.seed,
         rotation_degrees=args.rotation_angle,
         example_type=example_type,
+        font_size_pct=args.font_size_pct,
+        placement_mode=args.placement_mode,
     )
     output_dicom_context = summarize_dicom(ds)
 
     output_paths["run_dir"].mkdir(parents=True, exist_ok=True)
     save_dicom(ds, output_paths["output_dcm"])
+
+    create_annotated_preview(
+        dicom_path=output_paths["output_dcm"],
+        box_annotations=pixel_result["box_annotations"],
+        output_path=output_paths["annotated_preview_file"],
+        title=run_id,
+    )
 
     tag_annotations = _build_tag_annotations(
         tag_map=tag_map,
@@ -264,10 +313,13 @@ def main() -> None:
         run_id=run_id,
         seed=args.seed,
         rotation_degrees=args.rotation_angle,
+        placement_mode=args.placement_mode,
+        font_size_pct=args.font_size_pct,
         example_type=example_type,
         input_path=input_path,
         output_path=output_paths["output_dcm"],
         preview_path=output_paths["preview_file"],
+        annotated_preview_path=output_paths["annotated_preview_file"],
         identity=identity_a,
         source_dicom_context=source_dicom_context,
         output_dicom_context=output_dicom_context,
@@ -286,7 +338,9 @@ def main() -> None:
     print(
         f"Run {run_id} written to {output_paths['run_dir']}\n"
         f"Injected {len(tag_annotations)} tags into {output_paths['output_dcm']}\n"
-        f"Ground truth written to {output_paths['output_jsonl']}"
+        f"Ground truth written to {output_paths['output_jsonl']}\n"
+        f"Preview:            {output_paths['preview_file']}\n"
+        f"Annotated preview:  {output_paths['annotated_preview_file']}"
     )
     print(f"Pixel injection status: {pixel_result['status']}")
 
