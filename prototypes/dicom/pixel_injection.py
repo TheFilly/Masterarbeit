@@ -497,8 +497,8 @@ def _rotated_corners(
     for x_value, y_value in base_corners:
         translated_x = x_value - original_center[0]
         translated_y = y_value - original_center[1]
-        rotated_x = (translated_x * cosine) - (translated_y * sine)
-        rotated_y = (translated_x * sine) + (translated_y * cosine)
+        rotated_x = (translated_x * cosine) + (translated_y * sine)
+        rotated_y = -(translated_x * sine) + (translated_y * cosine)
         final_x = position[0] + rotated_center[0] + rotated_x
         final_y = position[1] + rotated_center[1] + rotated_y
         rotated_corners.append({"x": round(final_x, 2), "y": round(final_y, 2)})

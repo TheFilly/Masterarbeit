@@ -31,18 +31,23 @@ und Entscheidungen fuer den aktuellen DICOM-Prototyp.
 - Run-Ordner: enthalten mindestens Seed, Winkel, Beispielart und eine kurze ID
 - Preview: standardisiertes Artefakt pro Run, nicht nur Debug-Helfer
 
-## Ist-Stand
+## Ist-Stand (Stand: 2026-05-07)
 
-- Der aktuelle Prototyp injiziert reproduzierbar fuenf DICOM-Tags in genau eine Echo-DICOM-Datei
-- Sichtbare Pixel-Injektion ist fuer `PatientName`, `PatientID` und `AccessionNumber` im
-  Echo-/US-Beispiel umgesetzt
+- Der Prototyp injiziert reproduzierbar fuenf DICOM-Tags in genau eine Echo-DICOM-Datei
+- Sichtbare Pixel-Injektion ist fuer `PatientName`, `PatientID` und `AccessionNumber` umgesetzt
 - `PatientBirthDate` und `PatientSex` bleiben tag-only
-- Das Ground-Truth-Artefakt ist proto-stabil auf Run-Ebene und unterscheidet bereits zwischen
-  `dicom_tag_annotations` und `box_annotations`
-- `inject.py` ist weiterhin Quick-and-Dirty-Orchestrierung und wird nicht als Vorlage fuer die
-  spaetere `src/`-Architektur betrachtet
-- Wiederverwendbare Ideen liegen eher in Hilfslogik wie Identitaetsgenerierung oder DICOM-Schreiben,
-  nicht in der aktuellen Ablaufstruktur
+- Schriftgroesse per `--font-size-pct` (Prozentsatz, Default 100, >= 1)
+- Platzierungsmodus per `--placement-mode`: `corners` (seed-gesteuert zufaellige Ecke) oder
+  `free` (unabhaengige Zufallsposition je Annotation, seed-gesteuert)
+- Run-Ordner-Benennung: `seed{:04d}-angle{:03d}-{mode}-{type}-{short_id}`
+- Pro Run fuenf Artefakte: injiziertes DICOM, `preview.png`, `preview_annotated.png` (rote
+  Bounding Boxes), `ground_truth.jsonl`, `run_manifest.json`
+- Ground-Truth-Schema proto-stabil: `box_annotations` enthalten `corners`, `frame_index`,
+  `font_size_pct`; `run_metadata` und `render_metadata` als eigene Top-Level-Felder
+- DICOM-Quelldatei: 58-Frame Echo/US (708x1016, `YBR_FULL_422`); Ausgabe als `RGB`
+- `inject.py` ist weiterhin Quick-and-Dirty-Orchestrierung, kein Vorlage fuer `src/`
+- Wiederverwendbare Logik: `identity.py`, `dicom_writer.py`, Rendering-Primitives in
+  `pixel_injection.py` (ohne Placement-Heuristik)
 
 ## Arbeitspakete
 
@@ -153,74 +158,50 @@ und Entscheidungen fuer den aktuellen DICOM-Prototyp.
 | `pixel_injection.py` | A, B | Font-Aufloesung, Placement-Logik, RNG-Kapselung |
 | `view.py` | C | `_draw_red_bounding_boxes`, `create_annotated_preview` |
 
-### 1. Prototype-Stand sauber einfrieren
+### 1. Prototype-Stand sauber einfrieren — ERLEDIGT
 
-- Den aktuellen Tag-Injektions-Stand in `prototypes/dicom/README.md` eindeutig als Ist-Stand
-  festhalten
-- Dokumentieren, dass heute genau diese fuenf Tags injiziert werden:
-  `PatientName`, `PatientID`, `PatientBirthDate`, `PatientSex`, `AccessionNumber`
-- Festhalten, dass sichtbare Pixel-Injektion noch aussteht und Teil des beschlossenen MVP ist
-- Trennen, welche Teile prototypische Orchestrierung bleiben und welche Erkenntnisse spaeter in
-  `src/` ueberfuehrt werden koennen
+- README beschreibt den aktuellen Ist-Stand einschliesslich aller neuen Parameter
+- Alle fuenf injizierten Tags sind dokumentiert
+- Wiederverwendbarkeits-Tabelle unterscheidet Prototype-Only von potenziell uebertragbaren Teilen
+- Seed-Strategie und Reproduzierbarkeitsgarantie sind beschrieben
 
-**Akzeptanznahe Outputs**
+**Akzeptanznahe Outputs — erfuellt**
 
-- Input, Output und Seed-Verhalten sind eindeutig beschrieben
-- Ist-Stand und beschlossener MVP sind klar getrennt dokumentiert
-- Prototype-Only-Teile und potenziell uebertragbare Erkenntnisse sind benannt
+- Input, Output und Seed-Verhalten sind beschrieben
+- Ist-Stand und beschlossener MVP sind dokumentiert
+- `pixel_injection.py` als partiell uebertragbar (Rendering-Primitives) benannt
 
-### 2. MVP fuer sichtbare Pixel-Injektion festziehen
+### 2. MVP fuer sichtbare Pixel-Injektion festziehen — ERLEDIGT
 
-- Den Prototyp von reiner DICOM-Tag-Injektion auf sichtbare Injektion im Pixelraum erweitern
-- Als sichtbare MVP-Identifier ausschliesslich `PatientName`, `PatientID` und
-  `AccessionNumber` rendern
-- `PatientBirthDate` und `PatientSex` im MVP nur als DICOM-Tag injizieren
-- Standardmodus so vorbereiten, dass sichtbarer Overlay-Text und DICOM-Tag-Injektion gemeinsam
-  stattfinden
+- `PatientName`, `PatientID`, `AccessionNumber` werden sichtbar gerendert
+- `PatientBirthDate`, `PatientSex` bleiben tag-only
+- Tag-Injektion und sichtbarer Overlay laufen gemeinsam in einem Run
+- Sichtbare PHI wird nur in Frame `0` geschrieben, `frame_index: 0` in `box_annotations`
 
-**Akzeptanznahe Outputs**
+**Akzeptanznahe Outputs — erfuellt**
 
-- Pro injiziertem Run ist klar, welche Identifier sichtbar sind und welche tag-only bleiben
-- Der MVP bleibt zunaechst auf das Echo-/US-Beispiel begrenzt
-- Die Dokumentation unterscheidet sauber zwischen MVP-Verhalten und spaeterer Generalisierung
-- Sichtbare PHI wird im aktuellen Prototype bewusst nur fuer Frame `0` erzeugt und entsprechend
-  annotiert
+### 3. Platzierung und Rotation begrenzt, aber reproduzierbar machen — ERLEDIGT
 
-### 3. Platzierung und Rotation begrenzt, aber reproduzierbar machen
+- Diskrete Rotationsmenge: `(0, 20, 90, 180, 270)` — via `ALLOWED_ROTATIONS_DEGREES`
+- `--placement-mode corners`: seed-gesteuert eine von vier Ecken; alle Annotationen in derselben Ecke
+- `--placement-mode free`: unabhaengige Zufallsposition je Annotation, seed-gesteuert
+- `random.Random(seed)` als lokale Instanz — kein globales State
+- Gleicher Seed + gleiche Args → identische Positionen und Winkel
 
-- Fuer das Echo-/US-Beispiel eine kleine Menge fester Platzierungsregionen definieren
-- Rotation im MVP auf eine kleine diskrete Menge begrenzen; keine freie Rotation und keine dichte
-  Winkelabdeckung
-- Seed-gesteuerte Auswahl von Position und Rotationsvariante festlegen
-- Sicherstellen, dass Injektionen plausibel in headernahen oder overlay-typischen Bereichen liegen,
-  ohne den Bildinhalt unbrauchbar zu machen
-- In den Funktionsparametern den konkret verwendeten Winkel explizit fuehren
+**Akzeptanznahe Outputs — erfuellt**
 
-**Akzeptanznahe Outputs**
+### 4. Ground-Truth-Artefakt auf proto-stabilen MVP-Stand bringen — ERLEDIGT
 
-- Es gibt eine kleine, benannte Menge von Layout- und Positionsvarianten fuer das Echo-Beispiel
-- Die diskrete Rotationsmenge ist dokumentiert und technisch fuehrbar
-- Gleicher Seed und gleiche Quelle fuehren zu gleichem Layout und gleichem Winkel
-- Die aktuellen diskreten Winkel muessen ohne Ueberlappung renderbar bleiben
+- Schema-Version `0.2.0-prototype`; `box_annotations` und `dicom_tag_annotations` getrennt
+- Jede sichtbare Annotation enthaelt `label`, `text`, `region`, `corners` (4 `{x,y}`-Punkte),
+  `rotation_degrees`, `frame_index`, `font_size_pct`
+- `run_metadata` und `render_metadata` als eigene Top-Level-Objekte
+- `annotated_preview_file` als Top-Level-Feld fuer visuell pruefbares Artefakt
+- `preview_annotated.png` als manuell pruefbares Kontrollartefakt mit roten Bounding Boxes
 
-### 4. Ground-Truth-Artefakt auf proto-stabilen MVP-Stand bringen
+**Akzeptanznahe Outputs — erfuellt**
 
-- Das aktuelle `ground_truth.jsonl` vom reinen Tag-Artefakt auf ein proto-stabiles MVP-Artefakt
-  weiterentwickeln
-- Pflichtmetadaten fuer Vergleichbarkeit zwischen Runs festziehen
-- Sichtbare Injektionen als Pflichtbestandteil mit moeglichst genauer Geometrie aufnehmen
-- `corners` als Standardform fuer sichtbare Annotationen verbindlich festlegen
-- Regeln fuer rotierte sichtbare Injektionen dokumentieren, ohne bereits polygonale Freiformen als
-  Muss einzufuehren
-
-**Akzeptanznahe Outputs**
-
-- Es gibt eine Soll-Ist-Liste fuer das aktuelle Prototype-`ground_truth.jsonl`
-- Jedes sichtbare Overlay hat genau eine Annotation mit Text, Label, Region, `corners` und falls
-  relevant `rotation_degrees`
-- Falls sichtbare PHI nur auf einem Teil der Frames liegt, muss dies explizit ueber
-  `frame_index` oder gleichwertige Metadaten nachvollziehbar sein
-- Run-Metadaten reichen aus, um Artefakte spaeter reproduzierbar zu vergleichen
+**Noch offen:** Formales Schema-Dokument existiert noch nicht (siehe Paket 5)
 
 ### 5. Vereinheitlichtes Annotationsschema entwerfen
 
@@ -289,21 +270,19 @@ und Entscheidungen fuer den aktuellen DICOM-Prototyp.
 - Die Trennung zwischen Prototype-Schema und spaeterem produktionsreifem Modell in `src/` bleibt
   explizit
 
-### 6. Output-Struktur pro Injektionslauf standardisieren
+### 6. Output-Struktur pro Injektionslauf standardisieren — ERLEDIGT
 
-- Fuer jede Injektion oder jeden Prototype-Run einen eigenen Sub-Ordner unter `output/` erzeugen
-- Den Sub-Ordner reproduzierbar benennen mit mindestens Seed, Winkel, Beispielart und kurzer ID
-- Annotationen, injizierte DICOM-Datei und Preview gemeinsam in diesem Run-Ordner ablegen
-- Preview als Standardartefakt behandeln, nicht als rein optionales Debug-Bild
+- Benennung: `seed{:04d}-angle{:03d}-{mode}-{type}-{short_id}`
+- Fuenf Artefakte pro Run-Ordner: injiziertes DICOM, `preview.png`, `preview_annotated.png`,
+  `ground_truth.jsonl`, `run_manifest.json`
+- Alle Pfade werden in `ground_truth.jsonl` als absolute Strings gespeichert
 
-**Akzeptanznahe Outputs**
+**Akzeptanznahe Outputs — erfuellt**
 
-- Es gibt eine Konvention fuer Run-spezifische Output-Pfade
-- Die Benennung traegt Seed, Winkel, Beispielart und kurze ID
-- Ein Run laesst sich allein ueber seinen Run-Ordner nachvollziehen
-- Preview und Manifest muessen den tatsaechlich geschriebenen DICOM-Zustand widerspiegeln
+**Hinweis:** Aeltere Runs im `output/`-Ordner verwenden das alte Namensschema ohne
+Platzierungsmodus-Segment — diese sind Legacy und werden nicht umbenannt.
 
-### 7. Anschluss an Phase 2 vorbereiten
+### 7. Anschluss an Phase 2 vorbereiten — OFFEN
 
 - Herausarbeiten, welche Prototype-Erkenntnisse spaeter in das abstrakte Dokument- und
   Annotationsmodell einfliessen sollen

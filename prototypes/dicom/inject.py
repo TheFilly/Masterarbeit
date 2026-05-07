@@ -70,7 +70,7 @@ def _build_output_paths(output_root: Path, run_id: str, source_stem: str) -> dic
     return {
         "run_dir": run_dir,
         "output_dcm": run_dir / f"{source_stem}_injected.dcm",
-        "output_jsonl": run_dir / "ground_truth.jsonl",
+        "output_json": run_dir / "ground_truth.json",
         "output_manifest": run_dir / "run_manifest.json",
         "preview_file": run_dir / "preview.png",
         "annotated_preview_file": run_dir / "preview_annotated.png",
@@ -329,8 +329,9 @@ def main() -> None:
         pixel_result=pixel_result,
     )
 
-    with output_paths["output_jsonl"].open("w", encoding="utf-8") as fh:
-        fh.write(json.dumps(record) + "\n")
+    with output_paths["output_json"].open("w", encoding="utf-8") as fh:
+        json.dump(record, fh, indent=2)
+        fh.write("\n")
 
     with output_paths["output_manifest"].open("w", encoding="utf-8") as fh:
         json.dump(record, fh, indent=2)
@@ -338,7 +339,7 @@ def main() -> None:
     print(
         f"Run {run_id} written to {output_paths['run_dir']}\n"
         f"Injected {len(tag_annotations)} tags into {output_paths['output_dcm']}\n"
-        f"Ground truth written to {output_paths['output_jsonl']}\n"
+        f"Ground truth written to {output_paths['output_json']}\n"
         f"Preview:            {output_paths['preview_file']}\n"
         f"Annotated preview:  {output_paths['annotated_preview_file']}"
     )

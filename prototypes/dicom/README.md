@@ -13,11 +13,16 @@ Diese Dokumentation beschreibt bewusst den Prototype-Stand und keinen finalen En
 
 ## Ist-Stand
 
-- Der Prototyp injiziert reproduzierbar genau fuenf DICOM-Tags in eine Echo-DICOM-Datei
+- Der Prototyp injiziert reproduzierbar fuenf DICOM-Tags in eine Echo-DICOM-Datei
 - Sichtbare Pixel-Injektion ist fuer `PatientName`, `PatientID` und `AccessionNumber` umgesetzt
 - `PatientBirthDate` und `PatientSex` bleiben tag-only
-- Das aktuelle `ground_truth.jsonl` enthaelt Run-Metadaten, `dicom_tag_annotations` und
-  `box_annotations`
+- Schriftgroesse ist per `--font-size-pct` parametrierbar (Prozentsatz; 100 = Standard, >= 1)
+- Platzierungsmodus ist per `--placement-mode` waehlbar: `corners` (seed-gesteuert zufaellige
+  Ecke) oder `free` (unabhaengige Zufallsposition je Annotation)
+- Pro Run entstehen fuenf Artefakte: injiziertes DICOM, `preview.png`, `preview_annotated.png`
+  (rote Bounding Boxes), `ground_truth.jsonl` und `run_manifest.json`
+- Das `ground_truth.jsonl` enthaelt Run-Metadaten, `dicom_tag_annotations`, `box_annotations`
+  (mit `corners`, `frame_index`, `font_size_pct`), `render_metadata` und `run_metadata`
 - `inject.py` ist Quick-and-Dirty-Orchestrierung fuer den Prototype und kein Vorgriff auf die
   spaetere Pipeline-Struktur in `src/`
 
@@ -30,8 +35,8 @@ Diese Dokumentation beschreibt bewusst den Prototype-Stand und keinen finalen En
 - Rotation nur als kleine diskrete Menge, nicht frei
 - `corners` als Standardgeometrie fuer sichtbare Annotationen
 - Proto-stabiles Annotationsschema als Ziel fuer den naechsten Schritt
-- Run-Ordner enthalten Seed, Winkel, Beispielart und kurze ID
-- Preview wird als standardisiertes Artefakt pro Run behandelt
+- Run-Ordner enthalten Seed, Winkel, Platzierungsmodus, Beispielart und kurze ID
+- Zwei Previews pro Run: `preview.png` (ohne Markierungen) und `preview_annotated.png` (rote Bounding Boxes)
 
 ## Ausfuehrung
 
@@ -43,22 +48,28 @@ uv run python prototypes/dicom/inject.py --seed 42 --output-dir prototypes/dicom
 
 ## Schnelltest
 
-Zum Ausfuehren einer Beispiel-Injektion:
+Zum Ausfuehren einer Beispiel-Injektion (Standardmodus: `corners`, Standardschriftgroesse):
 
 ```bash
 uv run python prototypes/dicom/inject.py --seed 42 --rotation-angle 20
 ```
 
-Zum Testen einer anderen diskreten Rotation:
+Mit expliziten Parametern:
 
 ```bash
-uv run python prototypes/dicom/inject.py --seed 42 --rotation-angle 90
+uv run python prototypes/dicom/inject.py --seed 42 --rotation-angle 20 --placement-mode corners --font-size-pct 100
+```
+
+Freie Platzierung, halbe Schriftgroesse:
+
+```bash
+uv run python prototypes/dicom/inject.py --seed 42 --rotation-angle 20 --placement-mode free --font-size-pct 50
 ```
 
 Zum Anschauen der erzeugten Artefakte (oeffnet interaktives Fenster mit Pixelkoordinaten beim Hovern):
 
 ```bash
-uv run python prototypes/dicom/view.py --dicom prototypes/dicom/output/seed0042-angle020-echo-91180014/91180014_0001_injected.dcm --output prototypes/dicom/output/seed0042-angle020-echo-91180014/preview_check.png
+uv run python prototypes/dicom/view.py --dicom prototypes/dicom/output/seed0042-angle020-corners-echo-91180014/91180014_0001_injected.dcm --output prototypes/dicom/output/seed0042-angle020-corners-echo-91180014/preview_check.png
 ```
 
 Nur Datei speichern, kein Fenster:
@@ -92,6 +103,7 @@ Nutzliche Dateien nach dem Lauf:
 
 - `prototypes/dicom/output/<run_id>/91180014_0001_injected.dcm`
 - `prototypes/dicom/output/<run_id>/preview.png`
+- `prototypes/dicom/output/<run_id>/preview_annotated.png`
 - `prototypes/dicom/output/<run_id>/ground_truth.jsonl`
 - `prototypes/dicom/output/<run_id>/run_manifest.json`
 
@@ -111,25 +123,28 @@ Aktueller Stand:
 
 ```
 output/
-`-- seed0042-angle020-echo-91180014/
+`-- seed0042-angle020-corners-echo-91180014/
     |-- 91180014_0001_injected.dcm
     |-- ground_truth.jsonl
     |-- preview.png
+    |-- preview_annotated.png
     `-- run_manifest.json
 ```
 
-Die aktuelle Implementierung schreibt run-spezifische Unterordner, in denen DICOM-Datei, Ground
-Truth, Preview und Manifest gemeinsam liegen. Die Benennung traegt Seed, Winkel, Beispielart und
-eine kurze ID.
+Die aktuelle Implementierung schreibt run-spezifische Unterordner, in denen alle fuenf Artefakte
+gemeinsam liegen. Die Benennung traegt Seed, Winkel, Platzierungsmodus, Beispielart und kurze ID.
+
+Benennung: `seed{seed:04d}-angle{angle:03d}-{placement_mode}-{example_type}-{short_id}`
 
 Konvention pro Run:
 
 ```
 output/
-`-- seed0042-angle020-echo-91180014/
-    |-- 91180014_0001_injected.dcm
+`-- seed{seed:04d}-angle{angle:03d}-{mode}-{type}-{short_id}/
+    |-- {source_stem}_injected.dcm
     |-- ground_truth.jsonl
     |-- preview.png
+    |-- preview_annotated.png
     `-- run_manifest.json
 ```
 
@@ -158,36 +173,86 @@ Information.
 
 ## Annotationsformat (`ground_truth.jsonl`)
 
-Aktueller Stand: ein Run-Record pro Lauf.
+Aktueller Stand: ein Run-Record pro Lauf. Schema-Version `0.2.0-prototype`.
+
+**Top-Level-Felder:**
 
 ```json
 {
   "schema_version": "0.2.0-prototype",
   "record_type": "dicom_injection_run",
-  "run_id": "seed0042-angle020-echo-91180014",
+  "run_id": "seed0042-angle020-corners-echo-91180014",
   "seed": 42,
   "rotation_degrees": 20,
-  "source_file": "DycomData/Anonymization/original_data/patient_10080695_23273240/echo/91180014_0001.dcm",
-  "output_file": "prototypes/dicom/output/seed0042-angle020-echo-91180014/91180014_0001_injected.dcm",
-  "box_annotations": [],
-  "dicom_tag_annotations": []
+  "source_file": "...",
+  "output_file": "...",
+  "preview_file": "...",
+  "annotated_preview_file": "...",
+  "document_type": "dicom",
+  "example_type": "echo",
+  "modality": "US",
+  "identity_id": "SYNTH-123456",
+  "span_annotations": [],
+  "box_annotations": [...],
+  "dicom_tag_annotations": [...],
+  "run_metadata": {...},
+  "render_metadata": {...}
 }
 ```
 
-Das Artefakt ist jetzt proto-stabil auf MVP-Niveau und trennt klar zwischen:
+**`box_annotations`-Eintraege** (ein Eintrag pro sichtbar injizierten Identifier):
 
-- `dicom_tag_annotations` fuer Tag-Injektionen ohne 2D-Geometrie
-- `box_annotations` fuer sichtbare Overlays mit `corners` als Standardgeometrie
-- gemeinsamen Run-Metadaten wie `seed`, `run_id`, `rotation_degrees`, `identity_id`,
-  `source_file`, `output_file` und `modality`
+```json
+{
+  "label": "PatientName",
+  "text": "Smith^John",
+  "region": "top_right",
+  "corners": [
+    {"x": 820.5, "y": 24.0},
+    {"x": 943.5, "y": 24.0},
+    {"x": 943.5, "y": 41.0},
+    {"x": 820.5, "y": 41.0}
+  ],
+  "rotation_degrees": 20,
+  "frame_index": 0,
+  "font_size_pct": 100
+}
+```
 
-Fuer sichtbare Overlays gilt aktuell:
+- `region`: konkrete Platzierung — `"top_left"`, `"top_right"`, `"bottom_left"`, `"bottom_right"` oder `"free"`
+- `corners`: vier `{x, y}`-Punkte als rotiertes Quadrilateral (Koordinaten in Pixeln, Frame 0)
+- `font_size_pct`: verwendeter Schriftgroessen-Prozentsatz
 
-- `corners` ist die Standardform der Geometrie
-- `rotation_degrees` wird explizit gespeichert
-- im aktuellen Echo-/US-Prototyp wird sichtbare PHI nur in Frame `0` geschrieben und entsprechend
-  mit `frame_index: 0` annotiert
-- die Preview dient als manuell pruefbares Kontrollartefakt pro Run
+**`dicom_tag_annotations`-Eintraege** (alle fuenf Tags, auch tag-only):
+
+```json
+{
+  "label": "PatientName",
+  "tag_address": "0010,0010",
+  "tag_keyword": "PatientName",
+  "dicom_vr": "PN",
+  "value": "Smith^John",
+  "identity_field": "patient_name",
+  "identity_id": "SYNTH-123456",
+  "source_file": "...",
+  "output_file": "..."
+}
+```
+
+**`run_metadata`** enthaelt: `rotation_degrees`, `placement_mode`, `pixel_injection_status`,
+`pixel_renderer`, `visible_identity_fields`, `tag_only_identity_fields`,
+`source_dicom_context` und `output_dicom_context` (je mit `modality`, `rows`, `columns`,
+`samples_per_pixel`, `photometric_interpretation`, `number_of_frames`, `has_pixel_data`).
+
+**`render_metadata`** enthaelt: `rotation_degrees`, `placement_mode`, `font_size_pct`,
+`visible_render_plan`, `seed`, `allowed_rotations_degrees`, `frame_count`,
+`applied_frame_indices` und `visible_annotations` (mit `render_metadata` je Annotation inkl.
+`position`, `font_name`, `font_size`, `padding`, `fill_rgb`, `stroke_fill_rgb`,
+`stroke_width`, `text_box_size`, `rotated_box_size`).
+
+**Hinweis zum Photometric Interpretation-Wechsel:** Die Quelldatei verwendet `YBR_FULL_422`,
+das injizierte DICOM wird als `RGB` geschrieben. Dieser Wechsel ist im `output_dicom_context`
+dokumentiert und ist ein bekanntes Prototype-Verhalten.
 
 ## Dateistruktur
 
@@ -207,8 +272,9 @@ prototypes/dicom/
 |---|---|---|
 | `identity.py` | Voraussichtlich uebernehmbar | `src/injection_pipeline/identity/synthetic.py` |
 | `dicom_writer.py` | Voraussichtlich mit Anpassungen uebernehmbar | `src/injection_pipeline/writers/dicom_writer.py` |
+| `pixel_injection.py` | Kernlogik teilweise uebernehmbar; Placement-Heuristik prototype-spezifisch | `src/injection_pipeline/writers/` (Rendering-Primitives) |
 | `inject.py` | Prototype-Orchestrierung, nicht uebernehmen | Ersetzt durch PipelineRunner + CLI |
-| `view.py` | Prototype-Helfer, im MVP als Preview-Pfad zu schaerfen | Noch offen |
+| `view.py` | Preview-Helfer; `create_annotated_preview` als Muster fuer QA-Artefakte | Noch offen |
 
 Wichtig: Diese Tabelle ist eine Prototype-Einschaetzung, keine Implementierungszusage fuer `src/`.
 Echo-/US-spezifische Platzierungslogik, konkrete Overlay-Szenarien und aktuelle Dateiorchestrierung
@@ -219,9 +285,8 @@ gelten weiterhin als prototype-spezifisch.
 - `--seed`-Argument, Default `42`
 - Zwei Identitaeten: `seed` und `seed + 1`
 - `fake.seed_instance(seed)` pro Identitaet; kein globales `random.seed()`
-
-Im MVP wird der Seed zusaetzlich Layout-, Rotations- und Run-Benennungsentscheidungen
-reproduzierbar steuern.
+- Platzierungsentscheidungen nutzen `random.Random(seed)` — lokale Instanz, kein globales `random.seed()`
+- Gleicher Seed + gleiche Argumente → bit-identische Ausgabe (DICOM-Bytes, Corners, Previews)
 
 ## Nicht im Scope dieses Prototypen
 
