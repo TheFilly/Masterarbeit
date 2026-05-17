@@ -16,6 +16,15 @@ ALLOWED_ROTATIONS_DEGREES: tuple[int, ...] = (0, 20, 90, 180, 270)
 
 _DEFAULT_FONT_SIZE_PX: int = 18
 _VALID_PLACEMENT_MODES: tuple[str, ...] = ("free", "corners")
+_FONT_PATHS: dict[str, str] = {
+    "arial": "C:/Windows/Fonts/arial.ttf",
+    "calibri": "C:/Windows/Fonts/calibri.ttf",
+    "tahoma": "C:/Windows/Fonts/tahoma.ttf",
+    "consolas": "C:/Windows/Fonts/consola.ttf",
+}
+_TEXT_BACKGROUND_COLORS: dict[str, tuple[int, int, int]] = {
+    "white": (255, 255, 255),
+}
 
 
 def _resolve_font_size_px(font_size_pct: int) -> int:
@@ -69,13 +78,21 @@ def frame_to_image(frame: np.ndarray) -> Image.Image:
 
 
 def load_default_font(
+    font_family: str = "arial",
     font_size_px: int = _DEFAULT_FONT_SIZE_PX,
 ) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
-    """Load a font at the given pixel size. Falls back to the PIL default if Arial is unavailable."""
+    """Load a configured prototype font at the given pixel size."""
+    font_path = _FONT_PATHS.get(font_family)
+    if font_path is None:
+        raise ValueError(
+            f"font_family must be one of {tuple(_FONT_PATHS)}, got {font_family!r}."
+        )
     try:
-        return ImageFont.truetype("arial.ttf", size=font_size_px)
-    except OSError:
-        return ImageFont.load_default()
+        return ImageFont.truetype(font_path, size=font_size_px)
+    except OSError as error:
+        raise RuntimeError(
+            f"Configured prototype font {font_family!r} is unavailable at {font_path!r}."
+        ) from error
 
 
 def build_visible_text_annotations(
@@ -99,6 +116,7 @@ def build_visible_text_annotations(
         {
             "label": "PatientName",
             "text": identity["patient_name"],
+            "text_segments": [{"kind": "pii", "text": identity["patient_name"]}],
             "region": "header_overlay",
             "line_index": 0,
             "rotation_degrees": rotation_degrees,
@@ -106,6 +124,10 @@ def build_visible_text_annotations(
         {
             "label": "PatientID",
             "text": identity["patient_id"],
+            "text_segments": [
+                {"kind": "generic", "text": "SYNTH-"},
+                {"kind": "pii", "text": identity["patient_id"].removeprefix("SYNTH-")},
+            ],
             "region": "header_overlay",
             "line_index": 1,
             "rotation_degrees": rotation_degrees,
@@ -113,6 +135,13 @@ def build_visible_text_annotations(
         {
             "label": "AccessionNumber",
             "text": identity["accession_number"],
+            "text_segments": [
+                {"kind": "generic", "text": "ACC-"},
+                {
+                    "kind": "pii",
+                    "text": identity["accession_number"].removeprefix("ACC-"),
+                },
+            ],
             "region": "header_overlay",
             "line_index": 2,
             "rotation_degrees": rotation_degrees,
@@ -123,7 +152,9 @@ def build_visible_text_annotations(
 def render_visible_annotations(
     frame: np.ndarray,
     annotations: list[dict[str, Any]],
+    font_family: str = "arial",
     font_size_px: int = _DEFAULT_FONT_SIZE_PX,
+    text_background: str | None = None,
 ) -> tuple[Image.Image, list[dict[str, Any]]]:
     """Render prototype text overlays and return preview plus geometry records.
 
@@ -136,11 +167,17 @@ def render_visible_annotations(
         Tuple of rendered preview image and visible annotation metadata.
     """
     preview = frame_to_image(frame)
-    font = load_default_font(font_size_px=font_size_px)
+    font = load_default_font(font_family=font_family, font_size_px=font_size_px)
     render_records: list[dict[str, Any]] = []
 
     for annotation in annotations:
-        preview, record = _render_single_annotation(preview, annotation, font)
+        preview, record = _render_single_annotation(
+            preview,
+            annotation,
+            font,
+            font_family=font_family,
+            text_background=text_background,
+        )
         render_records.append(record)
 
     return preview, render_records
@@ -149,11 +186,17 @@ def render_visible_annotations(
 def render_annotations_for_dataset(
     ds: pydicom.Dataset,
     annotations: list[dict[str, Any]],
+    font_family: str = "arial",
     font_size_px: int = _DEFAULT_FONT_SIZE_PX,
+    text_background: str | None = None,
 ) -> tuple[Image.Image, list[dict[str, Any]]]:
     """Extract a DICOM preview frame and render visible prototype annotations."""
     return render_visible_annotations(
-        extract_preview_frame(ds), annotations, font_size_px=font_size_px
+        extract_preview_frame(ds),
+        annotations,
+        font_family=font_family,
+        font_size_px=font_size_px,
+        text_background=text_background,
     )
 
 
@@ -176,6 +219,8 @@ def inject_visible_text(
     example_type: str,
     font_size_pct: int = 100,
     placement_mode: str = "corners",
+    font_family: str = "arial",
+    text_background: str | None = None,
 ) -> dict[str, Any]:
     """Render visible text into the dataset pixels and save a preview image.
 
@@ -201,6 +246,13 @@ def inject_visible_text(
         raise ValueError(
             f"placement_mode must be one of {_VALID_PLACEMENT_MODES}, got {placement_mode!r}."
         )
+    if font_family not in _FONT_PATHS:
+        raise ValueError(f"font_family must be one of {tuple(_FONT_PATHS)}.")
+    if text_background is not None and text_background not in _TEXT_BACKGROUND_COLORS:
+        raise ValueError(
+            "text_background must be None or one of "
+            f"{tuple(_TEXT_BACKGROUND_COLORS)}, got {text_background!r}."
+        )
 
     font_size_px = _resolve_font_size_px(font_size_pct)
     rng = random.Random(seed)
@@ -210,6 +262,7 @@ def inject_visible_text(
     annotations = _materialize_positions(
         visible_injections,
         extract_preview_frame(ds),
+        font_family=font_family,
         font_size_px=font_size_px,
         placement_mode=placement_mode,
         rng=rng,
@@ -218,15 +271,27 @@ def inject_visible_text(
     if pixel_array.ndim == 4:
         output_array = np.array(pixel_array, copy=True)
         output_array[0], _ = _render_frame_with_annotations(
-            pixel_array[0], annotations, font_size_px=font_size_px
+            pixel_array[0],
+            annotations,
+            font_family=font_family,
+            font_size_px=font_size_px,
+            text_background=text_background,
         )
     else:
         output_array, _ = _render_frame_with_annotations(
-            pixel_array, annotations, font_size_px=font_size_px
+            pixel_array,
+            annotations,
+            font_family=font_family,
+            font_size_px=font_size_px,
+            text_background=text_background,
         )
 
     preview_image, rendered_annotations = render_annotations_for_dataset(
-        ds, annotations, font_size_px=font_size_px
+        ds,
+        annotations,
+        font_family=font_family,
+        font_size_px=font_size_px,
+        text_background=text_background,
     )
     preview_file = save_preview_image(preview_image, preview_path)
 
@@ -237,6 +302,7 @@ def inject_visible_text(
             {
                 "label": rendered["label"],
                 "text": rendered["text"],
+                "rendered_text": rendered["rendered_text"],
                 "region": rendered["region"],
                 "corners": rendered["corners"],
                 "rotation_degrees": rendered["rotation_degrees"],
@@ -256,6 +322,14 @@ def inject_visible_text(
             "allowed_rotations_degrees": list(ALLOWED_ROTATIONS_DEGREES),
             "frame_count": frame_count,
             "applied_frame_indices": [0],
+            "effective_font_family": font_family,
+            "effective_font_size_px": font_size_px,
+            "background_enabled": text_background is not None,
+            "background_color": (
+                list(_TEXT_BACKGROUND_COLORS[text_background])
+                if text_background is not None
+                else None
+            ),
             "visible_annotations": rendered_annotations,
         },
     }
@@ -265,16 +339,28 @@ def _render_single_annotation(
     base_image: Image.Image,
     annotation: dict[str, Any],
     font: ImageFont.ImageFont | ImageFont.FreeTypeFont,
+    *,
+    font_family: str,
+    text_background: str | None,
 ) -> tuple[Image.Image, dict[str, Any]]:
     text = str(annotation["text"])
+    text_segments = _normalize_text_segments(annotation, text)
     position = _coerce_position(annotation["position"])
     rotation = int(annotation.get("rotation_degrees", 0))
     _validate_rotation(rotation)
 
     padding = int(annotation.get("padding", 4))
-    fill = tuple(annotation.get("fill", (255, 255, 255)))
-    stroke_fill = tuple(annotation.get("stroke_fill", (0, 0, 0)))
-    stroke_width = int(annotation.get("stroke_width", 1))
+    background_color = (
+        _TEXT_BACKGROUND_COLORS[text_background] if text_background is not None else None
+    )
+    if background_color is None:
+        fill = tuple(annotation.get("fill", (255, 255, 255)))
+        stroke_fill = tuple(annotation.get("stroke_fill", (0, 0, 0)))
+        stroke_width = int(annotation.get("stroke_width", 1))
+    else:
+        fill = (0, 0, 0)
+        stroke_fill = fill
+        stroke_width = 0
 
     left, top, right, bottom = font.getbbox(text)
     text_width = max(1, right - left)
@@ -284,6 +370,11 @@ def _render_single_annotation(
 
     text_layer = Image.new("RGBA", (base_width, base_height), (0, 0, 0, 0))
     drawer = ImageDraw.Draw(text_layer)
+    if background_color is not None:
+        drawer.rectangle(
+            [(0, 0), (base_width - 1, base_height - 1)],
+            fill=background_color + (255,),
+        )
     drawer.text(
         (padding - left, padding - top),
         text,
@@ -303,26 +394,65 @@ def _render_single_annotation(
         rotated_size=rotated_layer.size,
         rotation_degrees=rotation,
     )
+    pii_bounds = _resolve_pii_bounds(
+        drawer=drawer,
+        font=font,
+        full_text=text,
+        text_segments=text_segments,
+        origin=(padding - left, padding - top),
+        stroke_width=stroke_width,
+    )
+    pii_corners = _rotated_corners(
+        position=position,
+        unrotated_size=(base_width, base_height),
+        rotated_size=rotated_layer.size,
+        rotation_degrees=rotation,
+        bounds=pii_bounds,
+    )
+    pii_text = "".join(
+        segment["text"] for segment in text_segments if segment["kind"] == "pii"
+    )
+    generic_text = "".join(
+        segment["text"] for segment in text_segments if segment["kind"] != "pii"
+    )
 
     record = {
         "label": annotation.get("label", "visible_text"),
-        "text": text,
+        "text": pii_text,
+        "rendered_text": text,
+        "generic_text": generic_text,
+        "pii_text": pii_text,
         "region": annotation.get("region", "top_left_overlay"),
         "rotation_degrees": rotation,
-        "corners": corners,
+        "corners": pii_corners,
         "render_metadata": {
             "position": {"x": position[0], "y": position[1]},
+            "font_family": font_family,
             "font_name": getattr(font, "path", "PillowDefaultFont"),
             "font_size": getattr(font, "size", None),
             "padding": padding,
             "fill_rgb": list(fill),
             "stroke_fill_rgb": list(stroke_fill),
             "stroke_width": stroke_width,
+            "background_enabled": background_color is not None,
+            "background_color": list(background_color) if background_color else None,
+            "text_segments": text_segments,
+            "pii_bounds": {
+                "left": round(pii_bounds[0], 2),
+                "top": round(pii_bounds[1], 2),
+                "right": round(pii_bounds[2], 2),
+                "bottom": round(pii_bounds[3], 2),
+            },
+            "pii_text_box_size": {
+                "width": round(pii_bounds[2] - pii_bounds[0], 2),
+                "height": round(pii_bounds[3] - pii_bounds[1], 2),
+            },
             "text_box_size": {"width": base_width, "height": base_height},
             "rotated_box_size": {
                 "width": rotated_layer.size[0],
                 "height": rotated_layer.size[1],
             },
+            "rendered_text_corners": corners,
         },
     }
     return composed.convert("RGB"), record
@@ -331,10 +461,16 @@ def _render_single_annotation(
 def _render_frame_with_annotations(
     frame: np.ndarray,
     annotations: list[dict[str, Any]],
+    font_family: str = "arial",
     font_size_px: int = _DEFAULT_FONT_SIZE_PX,
+    text_background: str | None = None,
 ) -> tuple[np.ndarray, list[dict[str, Any]]]:
     preview_image, rendered_annotations = render_visible_annotations(
-        frame, annotations, font_size_px=font_size_px
+        frame,
+        annotations,
+        font_family=font_family,
+        font_size_px=font_size_px,
+        text_background=text_background,
     )
     return np.asarray(preview_image), rendered_annotations
 
@@ -342,6 +478,7 @@ def _render_frame_with_annotations(
 def _materialize_positions(
     visible_injections: list[dict[str, Any]],
     frame: np.ndarray,
+    font_family: str = "arial",
     font_size_px: int = _DEFAULT_FONT_SIZE_PX,
     placement_mode: str = "corners",
     rng: random.Random | None = None,
@@ -354,7 +491,7 @@ def _materialize_positions(
     v_margin = max(24, int(image_height * 0.03))
     vertical_gap = max(10, int(image_height * 0.015))
     padding = 4
-    font = load_default_font(font_size_px=font_size_px)
+    font = load_default_font(font_family=font_family, font_size_px=font_size_px)
 
     sizes: list[tuple[int, int, int, int]] = []
     for injection in visible_injections:
@@ -476,6 +613,7 @@ def _rotated_corners(
     unrotated_size: tuple[int, int],
     rotated_size: tuple[int, int],
     rotation_degrees: int,
+    bounds: tuple[float, float, float, float] | None = None,
 ) -> list[dict[str, float]]:
     width, height = unrotated_size
     rotated_width, rotated_height = rotated_size
@@ -486,11 +624,13 @@ def _rotated_corners(
     cosine = math.cos(radians)
     sine = math.sin(radians)
 
+    if bounds is None:
+        bounds = (0.0, 0.0, float(width), float(height))
     base_corners = [
-        (0.0, 0.0),
-        (float(width), 0.0),
-        (float(width), float(height)),
-        (0.0, float(height)),
+        (bounds[0], bounds[1]),
+        (bounds[2], bounds[1]),
+        (bounds[2], bounds[3]),
+        (bounds[0], bounds[3]),
     ]
     rotated_corners: list[dict[str, float]] = []
 
@@ -504,3 +644,63 @@ def _rotated_corners(
         rotated_corners.append({"x": round(final_x, 2), "y": round(final_y, 2)})
 
     return rotated_corners
+
+
+def _normalize_text_segments(
+    annotation: dict[str, Any], full_text: str
+) -> list[dict[str, str]]:
+    raw_segments = annotation.get("text_segments")
+    if not isinstance(raw_segments, list) or not raw_segments:
+        return [{"kind": "pii", "text": full_text}]
+
+    normalized: list[dict[str, str]] = []
+    reconstructed = ""
+    pii_seen = False
+    for segment in raw_segments:
+        if not isinstance(segment, dict):
+            continue
+        kind = str(segment.get("kind", "generic"))
+        text = str(segment.get("text", ""))
+        reconstructed += text
+        if kind == "pii" and text:
+            pii_seen = True
+        normalized.append({"kind": kind, "text": text})
+
+    if reconstructed != full_text or not pii_seen:
+        raise ValueError(
+            f"Invalid text_segments for {annotation.get('label', 'visible_text')!r}."
+        )
+    return normalized
+
+
+def _resolve_pii_bounds(
+    *,
+    drawer: ImageDraw.ImageDraw,
+    font: ImageFont.ImageFont | ImageFont.FreeTypeFont,
+    full_text: str,
+    text_segments: list[dict[str, str]],
+    origin: tuple[float, float],
+    stroke_width: int,
+) -> tuple[float, float, float, float]:
+    del full_text
+    prefix_text = ""
+    pii_text = ""
+    for segment in text_segments:
+        segment_kind = segment["kind"]
+        segment_text = segment["text"]
+        if segment_kind == "pii":
+            pii_text += segment_text
+        elif not pii_text:
+            prefix_text += segment_text
+
+    if not pii_text:
+        raise ValueError("At least one non-empty pii text segment is required.")
+
+    prefix_width = drawer.textlength(prefix_text, font=font) if prefix_text else 0.0
+    pii_left, pii_top, pii_right, pii_bottom = drawer.textbbox(
+        (origin[0] + prefix_width, origin[1]),
+        pii_text,
+        font=font,
+        stroke_width=stroke_width,
+    )
+    return float(pii_left), float(pii_top), float(pii_right), float(pii_bottom)

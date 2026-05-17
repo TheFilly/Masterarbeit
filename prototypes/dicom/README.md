@@ -16,13 +16,22 @@ Diese Dokumentation beschreibt bewusst den Prototype-Stand und keinen finalen En
 - Der Prototyp injiziert reproduzierbar fuenf DICOM-Tags in eine Echo-DICOM-Datei
 - Sichtbare Pixel-Injektion ist fuer `PatientName`, `PatientID` und `AccessionNumber` umgesetzt
 - `PatientBirthDate` und `PatientSex` bleiben tag-only
-- Schriftgroesse ist per `--font-size-pct` parametrierbar (Prozentsatz; 100 = Standard, >= 1)
+- Schriftgroesse ist per `--font-size-pct` parametrierbar und wirkt sich jetzt sichtbar auf
+  Rendering und Geometrie aus (Prozentsatz; 100 = Standard, >= 1)
 - Platzierungsmodus ist per `--placement-mode` waehlbar: `corners` (seed-gesteuert zufaellige
   Ecke) oder `free` (unabhaengige Zufallsposition je Annotation)
+- Neue CLI-Parameter: `--font-family` mit festen Choices `arial`, `calibri`, `tahoma`,
+  `consolas`; optional `--text-background white`
 - Pro Run entstehen fuenf Artefakte: injiziertes DICOM, `preview.png`, `preview_annotated.png`
-  (rote Bounding Boxes), `ground_truth.jsonl` und `run_manifest.json`
-- Das `ground_truth.jsonl` enthaelt Run-Metadaten, `dicom_tag_annotations`, `box_annotations`
-  (mit `corners`, `frame_index`, `font_size_pct`), `render_metadata` und `run_metadata`
+  (rote Bounding Boxes mit duennerer Linie), `ground_truth.json` und `run_manifest.json`
+- Das `ground_truth.json` enthaelt Run-Metadaten, `dicom_tag_annotations`, `box_annotations`
+  (mit PII-only-`text`, zusaetzlichem `rendered_text`, `corners`, `frame_index`,
+  `font_size_pct`), `render_metadata` und `run_metadata`
+- Bei praefixierten Tokens wie `SYNTH-433218` oder `ACC-0013389` markieren Bounding Boxes nur den
+  PII-Teil; der sichtbare Render-Text bleibt unveraendert
+- Validierte Artefakte wurden erfolgreich unter `prototypes/dicom/output_validation_small`,
+  `prototypes/dicom/output_validation_large` und `prototypes/dicom/output_validation_main`
+  erzeugt
 - `inject.py` ist Quick-and-Dirty-Orchestrierung fuer den Prototype und kein Vorgriff auf die
   spaetere Pipeline-Struktur in `src/`
 
@@ -44,6 +53,7 @@ Diese Dokumentation beschreibt bewusst den Prototype-Stand und keinen finalen En
 uv run python prototypes/dicom/inject.py
 uv run python prototypes/dicom/inject.py --seed 99
 uv run python prototypes/dicom/inject.py --seed 42 --output-dir prototypes/dicom/output/
+uv run python prototypes/dicom/inject.py --seed 42 --font-family tahoma --font-size-pct 120 --text-background white
 ```
 
 ## Schnelltest
@@ -57,13 +67,19 @@ uv run python prototypes/dicom/inject.py --seed 42 --rotation-angle 20
 Mit expliziten Parametern:
 
 ```bash
-uv run python prototypes/dicom/inject.py --seed 42 --rotation-angle 20 --placement-mode corners --font-size-pct 100
+uv run python prototypes/dicom/inject.py --seed 42 --rotation-angle 20 --placement-mode corners --font-size-pct 100 --font-family arial
 ```
 
 Freie Platzierung, halbe Schriftgroesse:
 
 ```bash
-uv run python prototypes/dicom/inject.py --seed 42 --rotation-angle 20 --placement-mode free --font-size-pct 50
+uv run python prototypes/dicom/inject.py --seed 42 --rotation-angle 20 --placement-mode free --font-size-pct 50 --font-family calibri
+```
+
+Mit weissem Text-Hintergrund:
+
+```bash
+uv run python prototypes/dicom/inject.py --seed 42 --rotation-angle 20 --placement-mode corners --font-size-pct 120 --font-family tahoma --text-background white
 ```
 
 Zum Anschauen der erzeugten Artefakte (oeffnet interaktives Fenster mit Pixelkoordinaten beim Hovern):
@@ -86,8 +102,10 @@ uv run python prototypes/dicom/view.py --dicom ... --output ... --no-show
 | `--input` | Nein | `DycomData/.../91180014_0001.dcm` | Pfad zur DICOM-Quelldatei |
 | `--output-dir` | Nein | `prototypes/dicom/output` | Wurzelverzeichnis; pro Run wird ein Unterordner angelegt |
 | `--rotation-angle` | Nein | `0` | Rotationswinkel des Overlay-Texts in Grad; erlaubte Werte: `0, 20, 90, 180, 270` |
-| `--font-size-pct` | Nein | `100` | Schriftgroesse als Prozentsatz des Standardwerts (100 = Standard, 50 = halb so gross); muss >= 1 sein |
+| `--font-size-pct` | Nein | `100` | Schriftgroesse als Prozentsatz des Standardwerts (100 = Standard, 50 = halb so gross); wirkt sich auf sichtbare Textgroesse und Box-Geometrie aus; muss >= 1 sein |
 | `--placement-mode` | Nein | `corners` | Platzierungsmodus: `corners` waehlt eine zufaellige Ecke, `free` platziert den Text frei im Bild |
+| `--font-family` | Nein | `arial` | Prototype-Fontwahl mit festen Choices: `arial`, `calibri`, `tahoma`, `consolas` |
+| `--text-background` | Nein | - | Optionaler Text-Hintergrund; aktuell ist nur `white` erlaubt |
 
 ### Parameter von `view.py`
 
@@ -95,16 +113,16 @@ uv run python prototypes/dicom/view.py --dicom ... --output ... --no-show
 |---|---|---|---|
 | `--dicom` | Nein | `DycomData/.../91180014_0001.dcm` | Pfad zur DICOM-Eingabedatei |
 | `--output` | Nein | `prototypes/dicom/output/preview.png` | Zielpfad fuer die gespeicherte PNG-Vorschau |
-| `--annotations-json` | Nein | — | Pfad zu einer JSON-Datei mit `corners`-Annotationen; werden als gruene Umrisse eingezeichnet |
+| `--annotations-json` | Nein | - | Pfad zu einer JSON-Datei mit `corners`-Annotationen; werden als gruene Umrisse eingezeichnet |
 | `--title` | Nein | `PatientName` aus DICOM | Titel ueber dem Bild |
-| `--no-show` | Nein | — | Unterdrueckt das interaktive Matplotlib-Fenster; nur sinnvoll in Scripts |
+| `--no-show` | Nein | - | Unterdrueckt das interaktive Matplotlib-Fenster; nur sinnvoll in Scripts |
 
 Nutzliche Dateien nach dem Lauf:
 
 - `prototypes/dicom/output/<run_id>/91180014_0001_injected.dcm`
 - `prototypes/dicom/output/<run_id>/preview.png`
 - `prototypes/dicom/output/<run_id>/preview_annotated.png`
-- `prototypes/dicom/output/<run_id>/ground_truth.jsonl`
+- `prototypes/dicom/output/<run_id>/ground_truth.json`
 - `prototypes/dicom/output/<run_id>/run_manifest.json`
 
 ## Eingabedatei
@@ -125,7 +143,7 @@ Aktueller Stand:
 output/
 `-- seed0042-angle020-corners-echo-91180014/
     |-- 91180014_0001_injected.dcm
-    |-- ground_truth.jsonl
+    |-- ground_truth.json
     |-- preview.png
     |-- preview_annotated.png
     `-- run_manifest.json
@@ -142,7 +160,7 @@ Konvention pro Run:
 output/
 `-- seed{seed:04d}-angle{angle:03d}-{mode}-{type}-{short_id}/
     |-- {source_stem}_injected.dcm
-    |-- ground_truth.jsonl
+    |-- ground_truth.json
     |-- preview.png
     |-- preview_annotated.png
     `-- run_manifest.json
@@ -171,7 +189,7 @@ Information.
 | `PatientBirthDate` | Ja | Nein |
 | `PatientSex` | Ja | Nein |
 
-## Annotationsformat (`ground_truth.jsonl`)
+## Annotationsformat (`ground_truth.json`)
 
 Aktueller Stand: ein Run-Record pro Lauf. Schema-Version `0.2.0-prototype`.
 
@@ -204,24 +222,27 @@ Aktueller Stand: ein Run-Record pro Lauf. Schema-Version `0.2.0-prototype`.
 
 ```json
 {
-  "label": "PatientName",
-  "text": "Smith^John",
-  "region": "top_right",
+  "label": "PatientID",
+  "text": "433218",
+  "rendered_text": "SYNTH-433218",
+  "region": "top_left",
   "corners": [
-    {"x": 820.5, "y": 24.0},
-    {"x": 943.5, "y": 24.0},
-    {"x": 943.5, "y": 41.0},
-    {"x": 820.5, "y": 41.0}
+    {"x": 107.14, "y": 139.8},
+    {"x": 174.8, "y": 115.17},
+    {"x": 180.27, "y": 130.21},
+    {"x": 112.62, "y": 154.83}
   ],
   "rotation_degrees": 20,
   "frame_index": 0,
-  "font_size_pct": 100
+  "font_size_pct": 120
 }
 ```
 
-- `region`: konkrete Platzierung — `"top_left"`, `"top_right"`, `"bottom_left"`, `"bottom_right"` oder `"free"`
+- `region`: konkrete Platzierung - `"top_left"`, `"top_right"`, `"bottom_left"`, `"bottom_right"` oder `"free"`
 - `corners`: vier `{x, y}`-Punkte als rotiertes Quadrilateral (Koordinaten in Pixeln, Frame 0)
 - `font_size_pct`: verwendeter Schriftgroessen-Prozentsatz
+- `text`: annotierter PII-Teil; bei praefixierten Tokens also z. B. nur `433218` oder `0013389`
+- `rendered_text`: voll sichtbar gerenderter Token, z. B. `SYNTH-433218` oder `ACC-0013389`
 
 **`dicom_tag_annotations`-Eintraege** (alle fuenf Tags, auch tag-only):
 
@@ -242,13 +263,61 @@ Aktueller Stand: ein Run-Record pro Lauf. Schema-Version `0.2.0-prototype`.
 **`run_metadata`** enthaelt: `rotation_degrees`, `placement_mode`, `pixel_injection_status`,
 `pixel_renderer`, `visible_identity_fields`, `tag_only_identity_fields`,
 `source_dicom_context` und `output_dicom_context` (je mit `modality`, `rows`, `columns`,
-`samples_per_pixel`, `photometric_interpretation`, `number_of_frames`, `has_pixel_data`).
+`samples_per_pixel`, `photometric_interpretation`, `number_of_frames`, `has_pixel_data` sowie
+den im Prototype mitgefuehrten UIDs).
 
 **`render_metadata`** enthaelt: `rotation_degrees`, `placement_mode`, `font_size_pct`,
-`visible_render_plan`, `seed`, `allowed_rotations_degrees`, `frame_count`,
-`applied_frame_indices` und `visible_annotations` (mit `render_metadata` je Annotation inkl.
-`position`, `font_name`, `font_size`, `padding`, `fill_rgb`, `stroke_fill_rgb`,
-`stroke_width`, `text_box_size`, `rotated_box_size`).
+`font_family`, `text_background`, `visible_render_plan`, `seed`,
+`allowed_rotations_degrees`, `frame_count`, `applied_frame_indices`,
+`effective_font_family`, `effective_font_size_px`, `background_enabled`,
+`background_color` und `visible_annotations`.
+
+In `visible_render_plan` und pro sichtbarer Annotation werden ausserdem `text_segments`
+dokumentiert, damit generische Praefixe und PII-Segmente getrennt nachvollziehbar bleiben.
+
+Die per-Annotation-`render_metadata` enthalten im aktuellen Prototype u. a.:
+`position`, `font_family`, `font_name`, `font_size`, `padding`, `fill_rgb`,
+`stroke_fill_rgb`, `stroke_width`, `background_enabled`, `background_color`,
+`text_segments`, `pii_bounds`, `pii_text_box_size`, `text_box_size`,
+`rotated_box_size` und `rendered_text_corners`.
+
+Beispiel fuer eine praefixierte sichtbare Annotation:
+
+```json
+{
+  "label": "AccessionNumber",
+  "text": "0013389",
+  "rendered_text": "ACC-0013389",
+  "generic_text": "ACC-",
+  "pii_text": "0013389",
+  "region": "top_left",
+  "rotation_degrees": 20,
+  "corners": [
+    {"x": 80.35, "y": 230.64},
+    {"x": 159.28, "y": 201.91},
+    {"x": 164.76, "y": 216.94},
+    {"x": 85.82, "y": 245.67}
+  ],
+  "render_metadata": {
+    "font_family": "tahoma",
+    "font_size": 22,
+    "background_enabled": true,
+    "background_color": [255, 255, 255],
+    "text_segments": [
+      {"kind": "generic", "text": "ACC-"},
+      {"kind": "pii", "text": "0013389"}
+    ],
+    "pii_bounds": {"left": 52.0, "top": 4.0, "right": 136.0, "bottom": 20.0},
+    "pii_text_box_size": {"width": 84.0, "height": 16.0},
+    "rendered_text_corners": [
+      {"x": 30.12, "y": 244.67},
+      {"x": 161.67, "y": 196.78},
+      {"x": 169.88, "y": 219.33},
+      {"x": 38.33, "y": 267.22}
+    ]
+  }
+}
+```
 
 **Hinweis zum Photometric Interpretation-Wechsel:** Die Quelldatei verwendet `YBR_FULL_422`,
 das injizierte DICOM wird als `RGB` geschrieben. Dieser Wechsel ist im `output_dicom_context`
@@ -262,6 +331,7 @@ prototypes/dicom/
 |-- inject.py
 |-- identity.py
 |-- dicom_writer.py
+|-- pixel_injection.py
 |-- view.py
 `-- output/
 ```
@@ -285,8 +355,17 @@ gelten weiterhin als prototype-spezifisch.
 - `--seed`-Argument, Default `42`
 - Zwei Identitaeten: `seed` und `seed + 1`
 - `fake.seed_instance(seed)` pro Identitaet; kein globales `random.seed()`
-- Platzierungsentscheidungen nutzen `random.Random(seed)` — lokale Instanz, kein globales `random.seed()`
-- Gleicher Seed + gleiche Argumente → bit-identische Ausgabe (DICOM-Bytes, Corners, Previews)
+- Platzierungsentscheidungen nutzen `random.Random(seed)` - lokale Instanz, kein globales `random.seed()`
+- Gleicher Seed + gleiche Argumente -> bit-identische Ausgabe (DICOM-Bytes, Corners, Previews)
+
+## Validierungsstand
+
+- Die aktuell dokumentierte Prototype-Variante wurde erfolgreich mit Artefakten unter
+  `prototypes/dicom/output_validation_small`,
+  `prototypes/dicom/output_validation_large` und
+  `prototypes/dicom/output_validation_main` validiert.
+- Diese Validierung bezieht sich auf den Prototype in `prototypes/dicom/` und stellt keine
+  automatische Zusage fuer eine Uebernahme in `src/` dar.
 
 ## Nicht im Scope dieses Prototypen
 

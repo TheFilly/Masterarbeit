@@ -3,8 +3,9 @@
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from dicom_writer import inject_tags, load_dicom, save_dicom, summarize_dicom
 from identity import generate_identity
@@ -39,6 +40,8 @@ _VISIBLE_PIXEL_KEYWORDS: tuple[str, ...] = (
 )
 _TAG_ONLY_KEYWORDS: tuple[str, ...] = ("PatientBirthDate", "PatientSex")
 _SCHEMA_VERSION = "0.2.0-prototype"
+_FONT_FAMILY_CHOICES: tuple[str, ...] = ("arial", "calibri", "tahoma", "consolas")
+_TEXT_BACKGROUND_CHOICES: tuple[str, ...] = ("white",)
 
 
 def _derive_example_type(input_path: Path) -> str:
@@ -122,10 +125,12 @@ def _build_visible_render_plan(
 ) -> list[dict[str, Any]]:
     render_plan: list[dict[str, Any]] = []
     for index, keyword in enumerate(_VISIBLE_PIXEL_KEYWORDS):
+        render_text, text_segments = _build_text_segments(keyword, tag_map[keyword])
         render_plan.append(
             {
                 "label": keyword,
-                "text": tag_map[keyword],
+                "text": render_text,
+                "text_segments": text_segments,
                 "identity_field": _IDENTITY_FIELD_MAP[keyword],
                 "region": placement_mode,
                 "rotation_degrees": rotation_degrees,
@@ -133,6 +138,20 @@ def _build_visible_render_plan(
             }
         )
     return render_plan
+
+
+def _build_text_segments(keyword: str, value: str) -> tuple[str, list[dict[str, str]]]:
+    if keyword == "PatientID" and value.startswith("SYNTH-"):
+        return value, [
+            {"kind": "generic", "text": "SYNTH-"},
+            {"kind": "pii", "text": value.removeprefix("SYNTH-")},
+        ]
+    if keyword == "AccessionNumber" and value.startswith("ACC-"):
+        return value, [
+            {"kind": "generic", "text": "ACC-"},
+            {"kind": "pii", "text": value.removeprefix("ACC-")},
+        ]
+    return value, [{"kind": "pii", "text": value}]
 
 
 def _run_pixel_injection(
@@ -146,6 +165,8 @@ def _run_pixel_injection(
     example_type: str,
     font_size_pct: int,
     placement_mode: str,
+    font_family: str,
+    text_background: str | None,
 ) -> tuple[Any, dict[str, Any]]:
     result = inject_visible_text(
         ds=ds,
@@ -157,6 +178,8 @@ def _run_pixel_injection(
         example_type=example_type,
         font_size_pct=font_size_pct,
         placement_mode=placement_mode,
+        font_family=font_family,
+        text_background=text_background,
     )
     return result.get("dataset", ds), {
         "status": result.get("status", "rendered"),
@@ -174,6 +197,8 @@ def _build_record(
     rotation_degrees: int,
     placement_mode: str,
     font_size_pct: int,
+    font_family: str,
+    text_background: str | None,
     example_type: str,
     input_path: Path,
     output_path: Path,
@@ -222,10 +247,160 @@ def _build_record(
             "rotation_degrees": rotation_degrees,
             "placement_mode": placement_mode,
             "font_size_pct": font_size_pct,
+            "font_family": font_family,
+            "text_background": text_background,
             "visible_render_plan": visible_render_plan,
             **pixel_result["render_metadata"],
         },
     }
+
+
+def _parse_int(raw_value: str, parameter_name: str) -> int:
+    try:
+        return int(raw_value)
+    except ValueError as exc:
+        raise ValueError(f"{parameter_name} must be a whole number.") from exc
+
+
+def _validate_rotation_angle(rotation_angle: int) -> int:
+    if rotation_angle not in ALLOWED_ROTATIONS_DEGREES:
+        allowed = ", ".join(str(angle) for angle in ALLOWED_ROTATIONS_DEGREES)
+        raise ValueError(f"rotation-angle must be one of [{allowed}].")
+    return rotation_angle
+
+
+def _validate_font_size_pct(font_size_pct: int) -> int:
+    if font_size_pct < 1:
+        raise ValueError("font-size-pct must be >= 1.")
+    return font_size_pct
+
+
+def _validate_choice(parameter_name: str, value: str, choices: tuple[str, ...]) -> str:
+    if value not in choices:
+        allowed = ", ".join(choices)
+        raise ValueError(f"{parameter_name} must be one of: {allowed}.")
+    return value
+
+
+def _prompt_for_value(
+    *,
+    parameter_name: str,
+    purpose: str,
+    expected_inputs: str,
+    default_value: str | int | None,
+    parser: Callable[[str], Any],
+) -> Any:
+    default_suffix = "" if default_value is None else f" Default: {default_value}."
+    prompt = (
+        f"{parameter_name}: {purpose} Expected input: {expected_inputs}.{default_suffix}\n> "
+    )
+    while True:
+        raw_value = input(prompt).strip()
+        if raw_value == "" and default_value is not None:
+            return default_value
+        if raw_value == "":
+            print("Please enter a value.")
+            continue
+        try:
+            return parser(raw_value)
+        except ValueError as exc:
+            print(f"Invalid {parameter_name}: {exc}")
+
+
+def _prompt_for_text_background(default_value: str | None) -> str | None:
+    default_label = "n" if default_value is None else "y"
+    prompt = (
+        "text-background: Choose whether visible injected text should get a white "
+        "background box for readability. Expected input: y or n. "
+        f"Default: {default_label} ({default_value}).\n> "
+    )
+    while True:
+        raw_value = input(prompt).strip().lower()
+        if raw_value == "":
+            return default_value
+        if raw_value == "y":
+            return "white"
+        if raw_value == "n":
+            return None
+        print("Invalid text-background: enter 'y' for white or 'n' for no background.")
+
+
+def _collect_interactive_args() -> argparse.Namespace:
+    print("No CLI arguments were provided. Starting interactive parameter setup.\n")
+    seed = _prompt_for_value(
+        parameter_name="seed",
+        purpose="Seed for reproducible synthetic identity generation and placement randomness.",
+        expected_inputs="an integer",
+        default_value=42,
+        parser=lambda raw: _parse_int(raw, "seed"),
+    )
+    input_path = _prompt_for_value(
+        parameter_name="input",
+        purpose="Path to the source DICOM file that will be loaded and injected.",
+        expected_inputs="a valid file path",
+        default_value=_DEFAULT_INPUT,
+        parser=lambda raw: raw,
+    )
+    output_dir = _prompt_for_value(
+        parameter_name="output-dir",
+        purpose="Directory where the injected DICOM, previews, and JSON outputs will be written.",
+        expected_inputs="a directory path",
+        default_value="prototypes/dicom/output",
+        parser=lambda raw: raw,
+    )
+    rotation_angle = _prompt_for_value(
+        parameter_name="rotation-angle",
+        purpose="Rotation angle in degrees for visible injected text.",
+        expected_inputs=(
+            "one of " + ", ".join(str(angle) for angle in ALLOWED_ROTATIONS_DEGREES)
+        ),
+        default_value=0,
+        parser=lambda raw: _validate_rotation_angle(_parse_int(raw, "rotation-angle")),
+    )
+    font_size_pct = _prompt_for_value(
+        parameter_name="font-size-pct",
+        purpose="Font size for visible injected text as a percentage of the prototype default.",
+        expected_inputs="an integer >= 1",
+        default_value=100,
+        parser=lambda raw: _validate_font_size_pct(_parse_int(raw, "font-size-pct")),
+    )
+    placement_mode = _prompt_for_value(
+        parameter_name="placement-mode",
+        purpose="Placement strategy for visible injected text.",
+        expected_inputs="free or corners",
+        default_value="corners",
+        parser=lambda raw: _validate_choice(
+            "placement-mode", raw, ("free", "corners")
+        ),
+    )
+    font_family = _prompt_for_value(
+        parameter_name="font-family",
+        purpose="Prototype font family used for visible injected text rendering.",
+        expected_inputs=f"one of {', '.join(_FONT_FAMILY_CHOICES)}",
+        default_value="arial",
+        parser=lambda raw: _validate_choice("font-family", raw, _FONT_FAMILY_CHOICES),
+    )
+    text_background = _prompt_for_text_background(default_value=None)
+    return argparse.Namespace(
+        seed=seed,
+        input=input_path,
+        output_dir=output_dir,
+        rotation_angle=rotation_angle,
+        font_size_pct=font_size_pct,
+        placement_mode=placement_mode,
+        font_family=font_family,
+        text_background=text_background,
+    )
+
+
+def _validate_args(args: argparse.Namespace) -> None:
+    if args.rotation_angle not in ALLOWED_ROTATIONS_DEGREES:
+        allowed = ", ".join(str(angle) for angle in ALLOWED_ROTATIONS_DEGREES)
+        raise ValueError(
+            f"--rotation-angle must be one of [{allowed}], got {args.rotation_angle}."
+        )
+    if args.font_size_pct < 1:
+        raise ValueError("--font-size-pct must be >= 1.")
 
 
 def main() -> None:
@@ -249,15 +424,22 @@ def main() -> None:
         choices=["free", "corners"],
         help="Placement mode: 'corners' picks a random corner, 'free' picks a fully random position.",
     )
-    args = parser.parse_args()
-
-    if args.rotation_angle not in ALLOWED_ROTATIONS_DEGREES:
-        allowed = ", ".join(str(angle) for angle in ALLOWED_ROTATIONS_DEGREES)
-        raise ValueError(
-            f"--rotation-angle must be one of [{allowed}], got {args.rotation_angle}."
-        )
-    if args.font_size_pct < 1:
-        raise ValueError("--font-size-pct must be >= 1.")
+    parser.add_argument(
+        "--font-family",
+        type=str,
+        default="arial",
+        choices=list(_FONT_FAMILY_CHOICES),
+        help="Prototype font family choice. Only fixed Windows-style choices are supported.",
+    )
+    parser.add_argument(
+        "--text-background",
+        type=str,
+        default=None,
+        choices=list(_TEXT_BACKGROUND_CHOICES),
+        help="Optional visible text background. Currently only 'white' is supported.",
+    )
+    args = _collect_interactive_args() if len(sys.argv) == 1 else parser.parse_args()
+    _validate_args(args)
 
     input_path = Path(args.input)
     output_root = Path(args.output_dir)
@@ -290,6 +472,8 @@ def main() -> None:
         example_type=example_type,
         font_size_pct=args.font_size_pct,
         placement_mode=args.placement_mode,
+        font_family=args.font_family,
+        text_background=args.text_background,
     )
     output_dicom_context = summarize_dicom(ds)
 
@@ -315,6 +499,8 @@ def main() -> None:
         rotation_degrees=args.rotation_angle,
         placement_mode=args.placement_mode,
         font_size_pct=args.font_size_pct,
+        font_family=args.font_family,
+        text_background=args.text_background,
         example_type=example_type,
         input_path=input_path,
         output_path=output_paths["output_dcm"],

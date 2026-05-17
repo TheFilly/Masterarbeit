@@ -95,7 +95,7 @@ def _draw_red_bounding_boxes(axis: Any, annotations: List[Dict[str, Any]]) -> No
             continue
         x_values = [float(corner["x"]) for corner in corners] + [float(corners[0]["x"])]
         y_values = [float(corner["y"]) for corner in corners] + [float(corners[0]["y"])]
-        axis.plot(x_values, y_values, color="red", linewidth=2.0)
+        axis.plot(x_values, y_values, color="red", linewidth=1.0)
 
 
 def create_annotated_preview(
