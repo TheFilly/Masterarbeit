@@ -104,6 +104,7 @@ InjectionPipeline/
 - `PLAN.md` is the roadmap and task-prioritization layer, not the place for raw findings.
 - The `docs/` tree is the canonical place for research findings, summaries, decisions, and thesis traceability.
 - `docs/archive/` contains superseded or invalidated findings from earlier iterations — do not use as source of truth.
+- For documentation, docstring, and code-comment tasks, use the `commenting-guidelines` skill when it is available in the active Codex skill set.
 - Agents should read the latest relevant consolidated documentation before starting substantial work.
 - Start with the most recent phase `summary.md` and `open-questions.md`, then open only the findings or decisions that are directly relevant to the task.
 - Treat accepted decisions as the stable source of truth once they exist.

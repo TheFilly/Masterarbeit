@@ -25,6 +25,7 @@ _FONT_PATHS: dict[str, str] = {
 _TEXT_BACKGROUND_COLORS: dict[str, tuple[int, int, int]] = {
     "white": (255, 255, 255),
 }
+_MASK_ALPHA_THRESHOLD: int = 8
 
 
 def _resolve_font_size_px(font_size_pct: int) -> int:
@@ -241,6 +242,85 @@ def inject_visible_text(
     """
     del output_path
     del example_type
+    pixel_array = np.asarray(ds.pixel_array)
+    render_result = _inject_visible_text_into_frame(
+        frame=extract_preview_frame(ds),
+        visible_injections=visible_injections,
+        preview_path=preview_path,
+        seed=seed,
+        rotation_degrees=rotation_degrees,
+        font_size_pct=font_size_pct,
+        placement_mode=placement_mode,
+        font_family=font_family,
+        text_background=text_background,
+        frame_count=int(pixel_array.shape[0]) if pixel_array.ndim == 4 else 1,
+    )
+
+    if pixel_array.ndim == 4:
+        output_array = np.array(pixel_array, copy=True)
+        output_array[0] = render_result["output_array"]
+    else:
+        output_array = render_result["output_array"]
+
+    _write_pixel_array(ds, output_array)
+    return {
+        "dataset": ds,
+        "status": "rendered",
+        "preview_file": render_result["preview_file"],
+        "box_annotations": render_result["box_annotations"],
+        "render_metadata": render_result["render_metadata"],
+    }
+
+
+def inject_visible_text_into_image(
+    *,
+    image: Image.Image,
+    visible_injections: list[dict[str, Any]],
+    preview_path: Path,
+    seed: int,
+    rotation_degrees: int,
+    font_size_pct: int = 100,
+    placement_mode: str = "corners",
+    font_family: str = "arial",
+    text_background: str | None = None,
+) -> dict[str, Any]:
+    """Render visible text into a raster image and save the preview artifact."""
+    render_result = _inject_visible_text_into_frame(
+        frame=np.asarray(image.convert("RGB")),
+        visible_injections=visible_injections,
+        preview_path=preview_path,
+        seed=seed,
+        rotation_degrees=rotation_degrees,
+        font_size_pct=font_size_pct,
+        placement_mode=placement_mode,
+        font_family=font_family,
+        text_background=text_background,
+        frame_count=1,
+    )
+    return {
+        "image": Image.fromarray(render_result["output_array"]).convert("RGB"),
+        "status": "rendered",
+        "preview_file": render_result["preview_file"],
+        "box_annotations": render_result["box_annotations"],
+        "render_metadata": render_result["render_metadata"],
+    }
+
+
+def _inject_visible_text_into_frame(
+    *,
+    frame: np.ndarray,
+    visible_injections: list[dict[str, Any]],
+    preview_path: Path,
+    seed: int,
+    rotation_degrees: int,
+    font_size_pct: int,
+    placement_mode: str,
+    font_family: str,
+    text_background: str | None,
+    frame_count: int,
+) -> dict[str, Any]:
+    # Both DICOM and JPG runs delegate to the same frame-level renderer so that
+    # preview output, box geometry, and ground-truth metadata stay aligned.
     _validate_rotation(rotation_degrees)
     if placement_mode not in _VALID_PLACEMENT_MODES:
         raise ValueError(
@@ -256,66 +336,33 @@ def inject_visible_text(
 
     font_size_px = _resolve_font_size_px(font_size_pct)
     rng = random.Random(seed)
-
-    pixel_array = np.asarray(ds.pixel_array)
-    frame_count = int(pixel_array.shape[0]) if pixel_array.ndim == 4 else 1
     annotations = _materialize_positions(
         visible_injections,
-        extract_preview_frame(ds),
+        frame,
         font_family=font_family,
         font_size_px=font_size_px,
         placement_mode=placement_mode,
+        text_background=text_background,
         rng=rng,
     )
-
-    if pixel_array.ndim == 4:
-        output_array = np.array(pixel_array, copy=True)
-        output_array[0], _ = _render_frame_with_annotations(
-            pixel_array[0],
-            annotations,
-            font_family=font_family,
-            font_size_px=font_size_px,
-            text_background=text_background,
-        )
-    else:
-        output_array, _ = _render_frame_with_annotations(
-            pixel_array,
-            annotations,
-            font_family=font_family,
-            font_size_px=font_size_px,
-            text_background=text_background,
-        )
-
-    preview_image, rendered_annotations = render_annotations_for_dataset(
-        ds,
+    output_array, rendered_annotations = _render_frame_with_annotations(
+        frame,
         annotations,
         font_family=font_family,
         font_size_px=font_size_px,
         text_background=text_background,
     )
-    preview_file = save_preview_image(preview_image, preview_path)
-
-    _write_pixel_array(ds, output_array)
-    box_annotations = []
-    for rendered in rendered_annotations:
-        box_annotations.append(
-            {
-                "label": rendered["label"],
-                "text": rendered["text"],
-                "rendered_text": rendered["rendered_text"],
-                "region": rendered["region"],
-                "corners": rendered["corners"],
-                "rotation_degrees": rendered["rotation_degrees"],
-                "frame_index": 0,
-                "font_size_pct": font_size_pct,
-            }
-        )
-
+    preview_file = save_preview_image(
+        Image.fromarray(output_array).convert("RGB"),
+        preview_path,
+    )
     return {
-        "dataset": ds,
-        "status": "rendered",
+        "output_array": output_array,
         "preview_file": str(preview_file),
-        "box_annotations": box_annotations,
+        "box_annotations": [
+            _build_box_annotation(rendered, font_size_pct=font_size_pct)
+            for rendered in rendered_annotations
+        ],
         "render_metadata": {
             "seed": seed,
             "rotation_degrees": rotation_degrees,
@@ -330,6 +377,12 @@ def inject_visible_text(
                 if text_background is not None
                 else None
             ),
+            "geometry_source": "mask_bbox_after_final_rotation",
+            "geometry_notes": (
+                "Bounding boxes are derived from rotated glyph masks. "
+                "PII, generic prefix, and rendered-text masks are tracked separately."
+            ),
+            "mask_alpha_threshold": _MASK_ALPHA_THRESHOLD,
             "visible_annotations": rendered_annotations,
         },
     }
@@ -343,116 +396,36 @@ def _render_single_annotation(
     font_family: str,
     text_background: str | None,
 ) -> tuple[Image.Image, dict[str, Any]]:
-    text = str(annotation["text"])
-    text_segments = _normalize_text_segments(annotation, text)
     position = _coerce_position(annotation["position"])
-    rotation = int(annotation.get("rotation_degrees", 0))
-    _validate_rotation(rotation)
-
-    padding = int(annotation.get("padding", 4))
-    background_color = (
-        _TEXT_BACKGROUND_COLORS[text_background] if text_background is not None else None
+    overlay = _prepare_annotation_overlay(
+        annotation,
+        font,
+        font_family=font_family,
+        text_background=text_background,
     )
-    if background_color is None:
-        fill = tuple(annotation.get("fill", (255, 255, 255)))
-        stroke_fill = tuple(annotation.get("stroke_fill", (0, 0, 0)))
-        stroke_width = int(annotation.get("stroke_width", 1))
-    else:
-        fill = (0, 0, 0)
-        stroke_fill = fill
-        stroke_width = 0
-
-    left, top, right, bottom = font.getbbox(text)
-    text_width = max(1, right - left)
-    text_height = max(1, bottom - top)
-    base_width = text_width + (padding * 2)
-    base_height = text_height + (padding * 2)
-
-    text_layer = Image.new("RGBA", (base_width, base_height), (0, 0, 0, 0))
-    drawer = ImageDraw.Draw(text_layer)
-    if background_color is not None:
-        drawer.rectangle(
-            [(0, 0), (base_width - 1, base_height - 1)],
-            fill=background_color + (255,),
-        )
-    drawer.text(
-        (padding - left, padding - top),
-        text,
-        font=font,
-        fill=fill,
-        stroke_width=stroke_width,
-        stroke_fill=stroke_fill,
-    )
-
-    rotated_layer = text_layer.rotate(rotation, expand=True, resample=Image.BICUBIC)
     composed = base_image.convert("RGBA")
-    composed.alpha_composite(rotated_layer, dest=position)
+    composed.alpha_composite(overlay["rotated_layer"], dest=position)
 
-    corners = _rotated_corners(
-        position=position,
-        unrotated_size=(base_width, base_height),
-        rotated_size=rotated_layer.size,
-        rotation_degrees=rotation,
-    )
-    pii_bounds = _resolve_pii_bounds(
-        drawer=drawer,
-        font=font,
-        full_text=text,
-        text_segments=text_segments,
-        origin=(padding - left, padding - top),
-        stroke_width=stroke_width,
-    )
-    pii_corners = _rotated_corners(
-        position=position,
-        unrotated_size=(base_width, base_height),
-        rotated_size=rotated_layer.size,
-        rotation_degrees=rotation,
-        bounds=pii_bounds,
-    )
-    pii_text = "".join(
-        segment["text"] for segment in text_segments if segment["kind"] == "pii"
-    )
-    generic_text = "".join(
-        segment["text"] for segment in text_segments if segment["kind"] != "pii"
-    )
+    corners = _mask_bounds_to_corners(position, overlay["pii_rotated_bounds"])
+    label_corners = _mask_bounds_to_corners(position, overlay["label_rotated_bounds"])
 
     record = {
-        "label": annotation.get("label", "visible_text"),
-        "text": pii_text,
-        "rendered_text": text,
-        "generic_text": generic_text,
-        "pii_text": pii_text,
-        "region": annotation.get("region", "top_left_overlay"),
-        "rotation_degrees": rotation,
-        "corners": pii_corners,
+        "label": overlay["label"],
+        "text": overlay["pii_text"],
+        "rendered_text": overlay["text"],
+        "generic_text": overlay["generic_text"],
+        "pii_text": overlay["pii_text"],
+        "region": overlay["region"],
+        "rotation_degrees": overlay["rotation_degrees"],
+        "corners": corners,
+        "label_corners": label_corners,
         "render_metadata": {
             "position": {"x": position[0], "y": position[1]},
-            "font_family": font_family,
-            "font_name": getattr(font, "path", "PillowDefaultFont"),
-            "font_size": getattr(font, "size", None),
-            "padding": padding,
-            "fill_rgb": list(fill),
-            "stroke_fill_rgb": list(stroke_fill),
-            "stroke_width": stroke_width,
-            "background_enabled": background_color is not None,
-            "background_color": list(background_color) if background_color else None,
-            "text_segments": text_segments,
-            "pii_bounds": {
-                "left": round(pii_bounds[0], 2),
-                "top": round(pii_bounds[1], 2),
-                "right": round(pii_bounds[2], 2),
-                "bottom": round(pii_bounds[3], 2),
-            },
-            "pii_text_box_size": {
-                "width": round(pii_bounds[2] - pii_bounds[0], 2),
-                "height": round(pii_bounds[3] - pii_bounds[1], 2),
-            },
-            "text_box_size": {"width": base_width, "height": base_height},
-            "rotated_box_size": {
-                "width": rotated_layer.size[0],
-                "height": rotated_layer.size[1],
-            },
-            "rendered_text_corners": corners,
+            **overlay["render_metadata"],
+            "rendered_text_corners": _mask_bounds_to_corners(
+                position,
+                overlay["text_rotated_bounds"],
+            ),
         },
     }
     return composed.convert("RGB"), record
@@ -475,14 +448,150 @@ def _render_frame_with_annotations(
     return np.asarray(preview_image), rendered_annotations
 
 
+def _prepare_annotation_overlay(
+    annotation: dict[str, Any],
+    font: ImageFont.ImageFont | ImageFont.FreeTypeFont,
+    *,
+    font_family: str,
+    text_background: str | None,
+) -> dict[str, Any]:
+    """
+    Input: `annotation` mit Textsegmenten und Stiloptionen, `font` fuer das Rendern.
+    Output: Gerenderte Overlay-Layer samt maskenbasierter Geometrie fuer Platzierung und Ground Truth.
+
+    Die Funktion erzeugt getrennte Masken fuer Volltext, PII-Teil und optionales Praefix und
+    liest die finalen Bounds erst nach der Rotation aus den Masken aus.
+    """
+    text = str(annotation["text"])
+    text_segments = _normalize_text_segments(annotation, text)
+    rotation = int(annotation.get("rotation_degrees", 0))
+    _validate_rotation(rotation)
+
+    padding = int(annotation.get("padding", 4))
+    background_color = (
+        _TEXT_BACKGROUND_COLORS[text_background] if text_background is not None else None
+    )
+    if background_color is None:
+        fill = tuple(annotation.get("fill", (255, 255, 255)))
+        stroke_fill = tuple(annotation.get("stroke_fill", (0, 0, 0)))
+        stroke_width = int(annotation.get("stroke_width", 1))
+    else:
+        fill = (0, 0, 0)
+        stroke_fill = fill
+        stroke_width = 0
+
+    left, top, right, bottom = font.getbbox(text)
+    text_width = max(1, right - left)
+    text_height = max(1, bottom - top)
+    base_width = text_width + (padding * 2)
+    base_height = text_height + (padding * 2)
+    text_origin = (padding - left, padding - top)
+
+    text_layer = Image.new("RGBA", (base_width, base_height), (0, 0, 0, 0))
+    drawer = ImageDraw.Draw(text_layer)
+    if background_color is not None:
+        drawer.rectangle(
+            [(0, 0), (base_width - 1, base_height - 1)],
+            fill=background_color + (255,),
+        )
+    drawer.text(
+        text_origin,
+        text,
+        font=font,
+        fill=fill,
+        stroke_width=stroke_width,
+        stroke_fill=stroke_fill,
+    )
+
+    text_mask = Image.new("L", (base_width, base_height), 0)
+    ImageDraw.Draw(text_mask).text(
+        text_origin,
+        text,
+        font=font,
+        fill=255,
+        stroke_width=stroke_width,
+        stroke_fill=255,
+    )
+
+    pii_mask = Image.new("L", (base_width, base_height), 0)
+    label_mask = Image.new("L", (base_width, base_height), 0)
+    _draw_segment_masks(
+        text_segments=text_segments,
+        font=font,
+        origin=text_origin,
+        stroke_width=stroke_width,
+        pii_mask=pii_mask,
+        label_mask=label_mask,
+    )
+
+    rotated_layer = text_layer.rotate(rotation, expand=True, resample=Image.BICUBIC)
+    text_mask_rotated = text_mask.rotate(rotation, expand=True, resample=Image.BICUBIC)
+    pii_mask_rotated = pii_mask.rotate(rotation, expand=True, resample=Image.BICUBIC)
+    label_mask_rotated = label_mask.rotate(rotation, expand=True, resample=Image.BICUBIC)
+    prefix_text, pii_text = _split_prefix_and_pii_text(text_segments)
+
+    return {
+        "label": annotation.get("label", "visible_text"),
+        "text": text,
+        "generic_text": prefix_text,
+        "pii_text": pii_text,
+        "region": annotation.get("region", "top_left_overlay"),
+        "rotation_degrees": rotation,
+        "rotated_layer": rotated_layer,
+        "rotated_size": rotated_layer.size,
+        "text_rotated_bounds": _require_mask_bounds(
+            text_mask_rotated, "rendered text mask"
+        ),
+        "pii_rotated_bounds": _require_mask_bounds(pii_mask_rotated, "pii text mask"),
+        "label_rotated_bounds": _thresholded_mask_bounds(label_mask_rotated),
+        "render_metadata": {
+            "font_family": font_family,
+            "font_name": getattr(font, "path", "PillowDefaultFont"),
+            "font_size": getattr(font, "size", None),
+            "padding": padding,
+            "fill_rgb": list(fill),
+            "stroke_fill_rgb": list(stroke_fill),
+            "stroke_width": stroke_width,
+            "background_enabled": background_color is not None,
+            "background_color": list(background_color) if background_color else None,
+            "text_segments": text_segments,
+            "geometry_source": "mask_bbox_after_final_rotation",
+            "mask_coordinate_space": "rotated_overlay_pixels",
+            "mask_alpha_threshold": _MASK_ALPHA_THRESHOLD,
+            "text_mask_bounds": _serialize_mask_bounds(
+                _thresholded_mask_bounds(text_mask_rotated)
+            ),
+            "pii_mask_bounds": _serialize_mask_bounds(
+                _thresholded_mask_bounds(pii_mask_rotated)
+            ),
+            "label_mask_bounds": _serialize_mask_bounds(
+                _thresholded_mask_bounds(label_mask_rotated)
+            ),
+            "text_box_size": {"width": base_width, "height": base_height},
+            "rotated_box_size": {
+                "width": rotated_layer.size[0],
+                "height": rotated_layer.size[1],
+            },
+        },
+    }
+
+
 def _materialize_positions(
     visible_injections: list[dict[str, Any]],
     frame: np.ndarray,
     font_family: str = "arial",
     font_size_px: int = _DEFAULT_FONT_SIZE_PX,
     placement_mode: str = "corners",
+    text_background: str | None = None,
     rng: random.Random | None = None,
 ) -> list[dict[str, Any]]:
+    """
+    Input: sichtbare Injektionen, Preview-Frame und Renderkonfiguration.
+    Output: Injektionen mit finalen Pixelpositionen.
+
+    Die Platzierung basiert auf derselben maskenbasierten Overlay-Geometrie wie die spaetere
+    Annotation, damit keine Offsets zwischen reserviertem Platz und Ground Truth entstehen.
+    """
     if rng is None:
         rng = random.Random(0)
 
@@ -493,17 +602,15 @@ def _materialize_positions(
     padding = 4
     font = load_default_font(font_family=font_family, font_size_px=font_size_px)
 
-    sizes: list[tuple[int, int, int, int]] = []
+    sizes: list[tuple[int, int]] = []
     for injection in visible_injections:
-        text = str(injection["text"])
-        rotation = int(injection.get("rotation_degrees", 0))
-        left, top, right, bottom = font.getbbox(text)
-        base_w = max(1, right - left) + (padding * 2)
-        base_h = max(1, bottom - top) + (padding * 2)
-        rot_w, rot_h = _estimate_rotated_size(
-            width=base_w, height=base_h, rotation_degrees=rotation
+        overlay = _prepare_annotation_overlay(
+            {**injection, "padding": padding, "stroke_width": 1},
+            font,
+            font_family=font_family,
+            text_background=text_background,
         )
-        sizes.append((base_w, base_h, rot_w, rot_h))
+        sizes.append(overlay["rotated_size"])
 
     positioned_annotations: list[dict[str, Any]] = []
 
@@ -512,14 +619,13 @@ def _materialize_positions(
 
         if corner in ("bottom_left", "bottom_right"):
             total_height = (
-                sum(rot_h for _, _, _, rot_h in sizes)
-                + vertical_gap * max(0, len(sizes) - 1)
+                sum(rot_h for _, rot_h in sizes) + vertical_gap * max(0, len(sizes) - 1)
             )
             current_y = max(v_margin, image_height - v_margin - total_height)
         else:
             current_y = v_margin
 
-        for injection, (_, _, rot_w, rot_h) in zip(visible_injections, sizes):
+        for injection, (rot_w, rot_h) in zip(visible_injections, sizes):
             if corner in ("top_right", "bottom_right"):
                 x = max(h_margin, image_width - h_margin - rot_w)
             else:
@@ -536,7 +642,7 @@ def _materialize_positions(
             current_y += rot_h + vertical_gap
 
     elif placement_mode == "free":
-        for injection, (_, _, rot_w, rot_h) in zip(visible_injections, sizes):
+        for injection, (rot_w, rot_h) in zip(visible_injections, sizes):
             x_max = max(h_margin, image_width - rot_w - h_margin)
             y_max = max(v_margin, image_height - rot_h - v_margin)
             x = rng.randint(h_margin, x_max)
@@ -569,6 +675,7 @@ def _estimate_rotated_size(
 
 
 def _write_pixel_array(ds: pydicom.Dataset, output_array: np.ndarray) -> None:
+    """Persist rendered pixels back into the dataset with matching DICOM metadata."""
     contiguous = np.ascontiguousarray(output_array)
     ds.PixelData = contiguous.tobytes()
     if contiguous.ndim == 4:
@@ -588,6 +695,16 @@ def _write_pixel_array(ds: pydicom.Dataset, output_array: np.ndarray) -> None:
     if contiguous.ndim >= 3 and contiguous.shape[-1] in {3, 4}:
         ds.PhotometricInterpretation = "RGB"
         ds.PlanarConfiguration = 0
+        ds.BitsAllocated = 8
+        ds.BitsStored = 8
+        ds.HighBit = 7
+        ds.PixelRepresentation = 0
+    else:
+        ds.PhotometricInterpretation = "MONOCHROME2"
+        ds.BitsAllocated = 8
+        ds.BitsStored = 8
+        ds.HighBit = 7
+        ds.PixelRepresentation = 0
 
     ds.file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
     ds.is_implicit_VR = False
@@ -673,16 +790,55 @@ def _normalize_text_segments(
     return normalized
 
 
-def _resolve_pii_bounds(
+def _draw_segment_masks(
     *,
-    drawer: ImageDraw.ImageDraw,
-    font: ImageFont.ImageFont | ImageFont.FreeTypeFont,
-    full_text: str,
     text_segments: list[dict[str, str]],
+    font: ImageFont.ImageFont | ImageFont.FreeTypeFont,
     origin: tuple[float, float],
     stroke_width: int,
-) -> tuple[float, float, float, float]:
-    del full_text
+    pii_mask: Image.Image,
+    label_mask: Image.Image,
+) -> None:
+    """Render PII- und Label-Segmente in getrennte Masken bei identischer Textreihenfolge."""
+    cursor_x = origin[0]
+    pii_draw = ImageDraw.Draw(pii_mask)
+    label_draw = ImageDraw.Draw(label_mask)
+
+    for segment in text_segments:
+        segment_text = segment["text"]
+        if not segment_text:
+            continue
+
+        segment_bounds = _resolve_segment_draw_bounds(
+            font=font,
+            origin=(cursor_x, origin[1]),
+            segment_text=segment_text,
+            stroke_width=stroke_width,
+        )
+        if segment["kind"] == "pii":
+            pii_draw.text(
+                (cursor_x, origin[1]),
+                segment_text,
+                font=font,
+                fill=255,
+                stroke_width=stroke_width,
+                stroke_fill=255,
+            )
+        else:
+            label_draw.text(
+                (cursor_x, origin[1]),
+                segment_text,
+                font=font,
+                fill=255,
+                stroke_width=stroke_width,
+                stroke_fill=255,
+            )
+        cursor_x = segment_bounds[2]
+
+
+def _split_prefix_and_pii_text(
+    text_segments: list[dict[str, str]],
+) -> tuple[str, str]:
     prefix_text = ""
     pii_text = ""
     for segment in text_segments:
@@ -692,15 +848,101 @@ def _resolve_pii_bounds(
             pii_text += segment_text
         elif not pii_text:
             prefix_text += segment_text
-
     if not pii_text:
         raise ValueError("At least one non-empty pii text segment is required.")
+    return prefix_text, pii_text
 
-    prefix_width = drawer.textlength(prefix_text, font=font) if prefix_text else 0.0
-    pii_left, pii_top, pii_right, pii_bottom = drawer.textbbox(
-        (origin[0] + prefix_width, origin[1]),
-        pii_text,
+
+def _resolve_segment_draw_bounds(
+    *,
+    font: ImageFont.ImageFont | ImageFont.FreeTypeFont,
+    origin: tuple[float, float],
+    segment_text: str,
+    stroke_width: int,
+) -> tuple[float, float, float, float]:
+    """Measure where one segment ends so the next segment uses the same text flow."""
+    scratch = ImageDraw.Draw(Image.new("L", (1, 1), 0))
+    left, top, right, bottom = scratch.textbbox(
+        origin,
+        segment_text,
         font=font,
         stroke_width=stroke_width,
     )
-    return float(pii_left), float(pii_top), float(pii_right), float(pii_bottom)
+    return float(left), float(top), float(right), float(bottom)
+
+
+def _require_mask_bounds(
+    mask: Image.Image,
+    mask_name: str,
+) -> tuple[int, int, int, int]:
+    """Return tight bounds for a rendered mask and fail fast when nothing is visible."""
+    bounds = _thresholded_mask_bounds(mask)
+    if bounds is None:
+        raise ValueError(f"{mask_name} is empty.")
+    return bounds
+
+
+def _serialize_mask_bounds(
+    bounds: tuple[int, int, int, int] | None,
+) -> dict[str, int] | None:
+    """Serialize optional mask bounds for prototype metadata."""
+    if bounds is None:
+        return None
+    left, top, right, bottom = bounds
+    return {
+        "left": int(left),
+        "top": int(top),
+        "right": int(right),
+        "bottom": int(bottom),
+        "width": int(right - left),
+        "height": int(bottom - top),
+    }
+
+
+def _mask_bounds_to_corners(
+    position: tuple[int, int],
+    bounds: tuple[int, int, int, int] | None,
+) -> list[dict[str, float]] | None:
+    """Project local mask bounds into absolute image-space rectangle corners."""
+    if bounds is None:
+        return None
+    left, top, right, bottom = bounds
+    return [
+        {"x": float(position[0] + left), "y": float(position[1] + top)},
+        {"x": float(position[0] + right), "y": float(position[1] + top)},
+        {"x": float(position[0] + right), "y": float(position[1] + bottom)},
+        {"x": float(position[0] + left), "y": float(position[1] + bottom)},
+    ]
+
+
+def _build_box_annotation(
+    rendered: dict[str, Any],
+    *,
+    font_size_pct: int,
+) -> dict[str, Any]:
+    return {
+        "label": rendered["label"],
+        "text": rendered["text"],
+        "rendered_text": rendered["rendered_text"],
+        "region": rendered["region"],
+        "corners": rendered["corners"],
+        "label_corners": rendered["label_corners"],
+        "rotation_degrees": rendered["rotation_degrees"],
+        "frame_index": 0,
+        "font_size_pct": font_size_pct,
+    }
+
+
+def _thresholded_mask_bounds(
+    mask: Image.Image,
+) -> tuple[int, int, int, int] | None:
+    """Ignore faint anti-alias halos and return bounds for visibly occupied mask pixels."""
+    mask_array = np.asarray(mask)
+    occupied_pixels = np.argwhere(mask_array >= _MASK_ALPHA_THRESHOLD)
+    if occupied_pixels.size == 0:
+        return None
+    top = int(occupied_pixels[:, 0].min())
+    bottom = int(occupied_pixels[:, 0].max()) + 1
+    left = int(occupied_pixels[:, 1].min())
+    right = int(occupied_pixels[:, 1].max()) + 1
+    return left, top, right, bottom
