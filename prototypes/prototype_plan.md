@@ -91,6 +91,8 @@ Arbeitsstand und die noch offenen Aufgaben fuer den DICOM-/JPG-Prototyp.
 
 ## Später umsetzen, wenn prototyp fertig (vorerst ignorieren)
 
+### Font Size auch größer 100% machen
+
 ### 1. Vereinheitlichtes Annotationsschema entwerfen
 
 - `span_annotations`, `box_annotations` und `dicom_tag_annotations` sauber gegeneinander abgrenzen
