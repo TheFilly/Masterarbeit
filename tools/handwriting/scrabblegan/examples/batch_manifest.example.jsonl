@@ -1,0 +1,3 @@
+{"asset_id":"example-001","field":"patient_name","text":"Jane Doe","ink_color":"black","background":"transparent","seed":1001}
+{"asset_id":"example-002","field":"patient_id","text":"P123456","ink_color":"gray","background":"white","seed":1002}
+{"asset_id":"example-003","field":"accession_number","text":"ACC-2026-0001","ink_color":"white","background":"transparent","seed":1003}

@@ -3,17 +3,10 @@
 from faker import Faker
 
 
+# Input: `seed` fuer Faker-Reproduzierbarkeit, `locale` mit Faker-Locale.
+# Output: Synthetische Identitaet mit Patient- und Accession-Feldern.
+# Die Funktion erzeugt eine lokal reproduzierbare Faker-Identitaet.
 def generate_identity(seed: int, locale: str = "en_US") -> dict[str, str]:
-    """Generate a reproducible synthetic patient identity.
-
-    Args:
-        seed: Deterministic seed for the Faker instance.
-        locale: Faker locale string (e.g. "en_US", "de_DE").
-
-    Returns:
-        Dict with keys: patient_name, patient_id, patient_birth_date,
-        patient_sex, accession_number.
-    """
     fake = Faker(locale)
     fake.seed_instance(seed)
 

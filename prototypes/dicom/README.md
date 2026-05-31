@@ -20,6 +20,8 @@ keinen finalen Entwurf fuer `src/`.
 - Neben `.dcm` unterstuetzt `inject.py` jetzt auch `.jpg` und `.jpeg`
 - `--font-size-pct`, `--placement-mode`, `--font-family` und optional `--text-background white`
   steuern das sichtbare Rendering
+- Manifest-gesteuerte Handschrift-Assets koennen einzelne sichtbare Werte ersetzen; die
+  Bounding Boxes stammen dann aus der final transformierten Ink-Maske
 - `--show-label-boxes y|n` steuert, ob in `preview_annotated.png` neben roten PII-Boxes auch
   blaue Label-Boxes fuer generische Praefixe (`SYNTH-`, `ACC-`) gezeichnet werden
 - `ground_truth.json` enthaelt bei praefixierten sichtbaren Tokens jetzt zusaetzlich
@@ -49,6 +51,7 @@ uv run python prototypes/dicom/inject.py --seed 42 --rotation-angle 20
 uv run python prototypes/dicom/inject.py --seed 42 --font-family tahoma --font-size-pct 120 --text-background white
 uv run python prototypes/dicom/inject.py --seed 42 --rotation-angle 20 --show-label-boxes y
 uv run python prototypes/dicom/inject.py --input DycomData/images/faces-00a0d634ad200ced.jpg --seed 42 --rotation-angle 20 --show-label-boxes y
+uv run python prototypes/dicom/inject.py --handwriting-manifest DycomData/HandwritingAssets/scrabblegan/runs/demo/manifest.jsonl --handwriting-asset patient_name=patient-name-001
 ```
 
 ## Parameter von `inject.py`
@@ -56,7 +59,7 @@ uv run python prototypes/dicom/inject.py --input DycomData/images/faces-00a0d634
 | Parameter | Pflicht | Default | Beschreibung |
 |---|---|---|---|
 | `--seed` | Nein | `42` | Zufalls-Seed fuer reproduzierbare Identitaets- und Layout-Auswahl |
-| `--input` | Nein | `DycomData/.../91180014_0001.dcm` | Pfad zur DICOM- oder JPG-Quelldatei |
+| `--input` | Nein | zufaellig aus `DycomData/Dicom-Files` oder `DycomData/images` | Pfad zur DICOM- oder JPG-Quelldatei |
 | `--output-dir` | Nein | `prototypes/dicom/output` | Wurzelverzeichnis; pro Run wird ein Unterordner angelegt |
 | `--rotation-angle` | Nein | `0` | Erlaubte Werte: `0, 20, 90, 180, 270` |
 | `--font-size-pct` | Nein | `100` | Schriftgroesse als Prozentsatz des Standardwerts; muss >= 1 sein |
@@ -64,6 +67,36 @@ uv run python prototypes/dicom/inject.py --input DycomData/images/faces-00a0d634
 | `--font-family` | Nein | `arial` | Prototype-Fontwahl: `arial`, `calibri`, `tahoma`, `consolas` |
 | `--text-background` | Nein | - | Optionaler Text-Hintergrund; aktuell nur `white` |
 | `--show-label-boxes` | Nein | `n` | Zeichnet generische Praefix-Boxes in `preview_annotated.png` blau ein |
+| `--handwriting-manifest` | Nein | - | JSON- oder JSONL-Manifest mit generierten Handschrift-Assets |
+| `--handwriting-asset` | Nein | - | Wiederholbares Mapping `identity_field=asset_id`, z. B. `patient_name=patient-name-001` |
+
+Ohne `--input` waehlt der Prototyp bewusst nicht-deterministisch eine Datei aus den lokalen
+Default-Ordnern. Wenn derselbe Input mehrfach verwendet werden soll, gib den Pfad explizit mit
+`--input` an.
+
+## Handschrift-Assets
+
+ScrabbleGAN laeuft nicht im Python-3.13-Projekt, sondern als isolierter vorgelagerter Generator
+unter `tools/handwriting/scrabblegan/`. Generierte Artefakte liegen lokal unter
+`DycomData/HandwritingAssets/` und bleiben aus Git heraus.
+
+Der Injection-Prototyp erwartet pro Asset:
+
+- PNG-Bild (`image_path`)
+- separate Ink-Maske (`mask_path`)
+- stabile `asset_id`
+- `text`
+- `identity_field` oder `field`
+- `ink_color` als `black`, `gray` oder `white`
+- `background_mode` oder `background` als `transparent` oder `white`
+
+Unterstuetzt werden JSON-Manifeste mit einer `assets`-Liste und JSONL-Manifeste mit einem Asset
+pro Zeile. Bild- und Maskenpfade werden relativ zum Manifest aufgeloest.
+
+Bei `renderer_type = "handwriting_asset"` wird eine Box pro vollstaendigem PII-Wert erzeugt.
+Zeichen-, Wortteil- oder Praefix-Boxes werden in v1 nicht erzeugt. Die Box in
+`box_annotations[].corners` umfasst die sichtbare Tinte aus der final transformierten Maske; der
+Hintergrund vergroessert die PII-Box nicht.
 
 ## Ausgabe (`output/` - gitignored)
 
@@ -153,6 +186,8 @@ Zusaetzlich enthaelt `render_metadata` jetzt unter anderem:
 - `visible_annotations[*].render_metadata.pii_mask_bounds`
 - `visible_annotations[*].render_metadata.label_mask_bounds`
 - `visible_annotations[*].render_metadata.rendered_text_corners`
+- Fuer Handschrift-Assets: `renderer_type = "handwriting_asset"`, `asset_id`, `asset_path`,
+  `mask_path`, `ink_color`, `background_mode` und `geometry_source = "transformed_ink_mask"`
 
 Damit bleibt nachvollziehbar, dass die sichtbaren Boxen aus den final rotierten Masken und nicht
 mehr aus rekonstruierten Font-Metriken stammen.

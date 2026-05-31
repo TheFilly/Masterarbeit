@@ -40,6 +40,7 @@ InjectionPipeline/
 │   ├── integration/         # Integration tests using sample files
 │   └── fixtures/            # Small sample files for tests (no real patient data)
 ├── configs/                 # YAML / JSON pipeline configuration files
+├── tools/                   # Isolated helper tooling such as handwriting generation
 ├── pyproject.toml
 └── README.md
 ```
@@ -71,6 +72,10 @@ cd InjectionPipeline
 # Create virtual environment and install all dependencies (including dev tools)
 uv sync --extra dev
 ```
+
+Run `uv sync --extra dev` again after a fresh clone or after creating a new virtual
+environment. Without the `dev` extra, test and quality tools such as `pytest`,
+`ruff`, and `mypy` are not installed.
 
 ---
 

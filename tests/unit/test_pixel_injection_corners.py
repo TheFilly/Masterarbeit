@@ -3,9 +3,14 @@ from pathlib import Path
 
 import numpy as np
 import pydicom
+import pytest
 from PIL import Image, ImageFont
 from pydicom.dataset import FileDataset, FileMetaDataset
-from pydicom.uid import ExplicitVRLittleEndian, SecondaryCaptureImageStorage, generate_uid
+from pydicom.uid import (
+    ExplicitVRLittleEndian,
+    SecondaryCaptureImageStorage,
+    generate_uid,
+)
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "prototypes" / "dicom"))
 
@@ -18,8 +23,6 @@ from pixel_injection import (
     _split_prefix_and_pii_text,
     _write_pixel_array,
 )
-
-import pytest
 
 
 def _corners_to_tuples(corners: list[dict[str, float]]) -> list[tuple[float, float]]:
@@ -138,7 +141,10 @@ def test_prepare_annotation_overlay_tracks_mask_bounds_separately() -> None:
     assert label_bounds[2] <= pii_bounds[0] + 1
     assert text_bounds[0] <= label_bounds[0]
     assert text_bounds[2] >= pii_bounds[2]
-    assert overlay["render_metadata"]["geometry_source"] == "mask_bbox_after_final_rotation"
+    assert (
+        overlay["render_metadata"]["geometry_source"]
+        == "mask_bbox_after_final_rotation"
+    )
 
 
 def test_render_single_annotation_background_does_not_expand_pii_box() -> None:
@@ -184,7 +190,12 @@ def test_write_pixel_array_updates_metadata_for_rgb_output(tmp_path: Path) -> No
     file_meta.MediaStorageSOPInstanceUID = generate_uid()
     file_meta.ImplementationClassUID = generate_uid()
 
-    dataset = FileDataset(str(tmp_path / "source.dcm"), {}, file_meta=file_meta, preamble=b"\0" * 128)
+    dataset = FileDataset(
+        str(tmp_path / "source.dcm"),
+        {},
+        file_meta=file_meta,
+        preamble=b"\0" * 128,
+    )
     dataset.SOPClassUID = SecondaryCaptureImageStorage
     dataset.SOPInstanceUID = file_meta.MediaStorageSOPInstanceUID
     dataset.Rows = 2

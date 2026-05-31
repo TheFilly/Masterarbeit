@@ -3,15 +3,13 @@
 import argparse
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pydicom
 from PIL import Image
-
 from pixel_injection import extract_preview_frame
-
 
 DEFAULT_DICOM_PATH = Path(
     "DycomData/Anonymization/original_data/"
@@ -20,24 +18,16 @@ DEFAULT_DICOM_PATH = Path(
 DEFAULT_PREVIEW_PATH = Path("prototypes/dicom/output/preview.png")
 
 
+# Input: `source_path` mit DICOM- oder Bilddatei, `output_path` mit Zielpfad.
+# Output: Pfad zum gespeicherten Preview-Bild.
+# Die Funktion rendert optionale Annotationen und schreibt die Preview-Datei.
 def create_preview(
-    source_path: Union[str, Path],
-    output_path: Union[str, Path] = DEFAULT_PREVIEW_PATH,
-    visible_annotations: Optional[List[Dict[str, Any]]] = None,
-    title: Optional[str] = None,
+    source_path: str | Path,
+    output_path: str | Path = DEFAULT_PREVIEW_PATH,
+    visible_annotations: list[dict[str, Any]] | None = None,
+    title: str | None = None,
     show: bool = False,
 ) -> Path:
-    """Render and save a standardized preview for a prototype DICOM file.
-
-    Args:
-        dicom_path: Path to the DICOM file.
-        output_path: Destination for the preview image.
-        visible_annotations: Optional box annotations to outline on the preview.
-        title: Optional preview title. Defaults to PatientName if available.
-
-    Returns:
-        Saved preview image path.
-    """
     frame, default_title = _load_preview_source(source_path)
 
     cmap = "gray" if frame.ndim == 2 else None
@@ -57,13 +47,13 @@ def create_preview(
     return destination
 
 
+# Outline visible annotations on an existing DICOM preview artifact.
 def preview_with_annotations(
-    source_path: Union[str, Path],
-    visible_annotations: List[Dict[str, Any]],
-    output_path: Union[str, Path] = DEFAULT_PREVIEW_PATH,
-    title: Optional[str] = None,
-) -> Tuple[Path, List[Dict[str, Any]]]:
-    """Outline visible annotations on an existing DICOM preview artifact."""
+    source_path: str | Path,
+    visible_annotations: list[dict[str, Any]],
+    output_path: str | Path = DEFAULT_PREVIEW_PATH,
+    title: str | None = None,
+) -> tuple[Path, list[dict[str, Any]]]:
     frame, default_title = _load_preview_source(source_path)
 
     destination = Path(output_path)
@@ -81,44 +71,39 @@ def preview_with_annotations(
     return destination, visible_annotations
 
 
-def _load_annotations_json(path: Union[str, Path]) -> List[Dict[str, Any]]:
+# Input: `path` mit Pfad zu einer JSON-Datei.
+# Output: Liste von sichtbaren Annotationen.
+# Die Funktion liest Preview-Annotationen fuer die CLI und bricht ab, wenn die
+# Datei keinen JSON-Listenwert enthaelt.
+def _load_annotations_json(path: str | Path) -> list[dict[str, Any]]:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(payload, list):
         raise ValueError("Visible annotation file must contain a JSON list.")
     return payload
 
 
-def _draw_red_bounding_boxes(axis: Any, annotations: List[Dict[str, Any]]) -> None:
-    """Draw the main PII bounding boxes in red."""
+# Draw the main PII bounding boxes in red.
+def _draw_red_bounding_boxes(axis: Any, annotations: list[dict[str, Any]]) -> None:
     for annotation in annotations:
         _draw_box(axis, annotation.get("corners"), color="red", linewidth=1.0)
 
 
-def _draw_label_bounding_boxes(axis: Any, annotations: List[Dict[str, Any]]) -> None:
-    """Draw optional generic-prefix bounding boxes in blue."""
+# Draw optional generic-prefix bounding boxes in blue.
+def _draw_label_bounding_boxes(axis: Any, annotations: list[dict[str, Any]]) -> None:
     for annotation in annotations:
         _draw_box(axis, annotation.get("label_corners"), color="blue", linewidth=1.0)
 
 
+# Input: `source_path` mit injizierter Datei, `box_annotations` mit Box-Geometrien.
+# Output: Pfad zum gespeicherten annotierten Preview-Bild.
+# Die Funktion zeichnet PII-Boxen und optional generische Label-Boxen.
 def create_annotated_preview(
-    source_path: Union[str, Path],
-    box_annotations: List[Dict[str, Any]],
-    output_path: Union[str, Path],
-    title: Optional[str] = None,
+    source_path: str | Path,
+    box_annotations: list[dict[str, Any]],
+    output_path: str | Path,
+    title: str | None = None,
     show_label_boxes: bool = False,
 ) -> Path:
-    """Render and save a preview with red bounding boxes around injected text.
-
-    Args:
-        source_path: Path to the injected DICOM or JPG file.
-        box_annotations: Box annotations with ``corners`` geometry.
-        output_path: Destination for the annotated preview image.
-        title: Optional title. Defaults to PatientName if available.
-        show_label_boxes: Whether generic label-prefix boxes should be shown.
-
-    Returns:
-        Saved preview image path.
-    """
     frame, default_title = _load_preview_source(source_path)
 
     figure, axis = plt.subplots(figsize=(8, 8))
@@ -137,11 +122,19 @@ def create_annotated_preview(
     return destination
 
 
-def _draw_annotation_outlines(axis: Any, annotations: List[Dict[str, Any]]) -> None:
+# Input: `axis` mit Matplotlib-Achse, `annotations` mit Box-Geometrien.
+# Output: Keine Rueckgabe.
+# Die Funktion zeichnet alle sichtbaren Annotationen als gruene Umrisse in die
+# uebergebene Achse.
+def _draw_annotation_outlines(axis: Any, annotations: list[dict[str, Any]]) -> None:
     for annotation in annotations:
         _draw_box(axis, annotation.get("corners"), color="lime", linewidth=1.5)
 
 
+# Input: `axis` mit Matplotlib-Achse, `corners` mit vier Eckpunkten.
+# Output: Keine Rueckgabe.
+# Die Funktion zeichnet eine geschlossene Box und ignoriert unvollstaendige
+# oder nicht listenfoermige Geometrien als Fallback.
 def _draw_box(
     axis: Any,
     corners: Any,
@@ -158,17 +151,22 @@ def _draw_box(
     axis.plot(x_values, y_values, color=color, linewidth=linewidth)
 
 
-def _load_preview_source(source_path: Union[str, Path]) -> tuple[Any, str]:
+# Input: `source_path` mit Pfad zu DICOM- oder Bilddatei.
+# Output: Preview-Frame und Standardtitel.
+# Die Funktion laedt DICOM-Pixel ueber pydicom oder Rasterbilder ueber PIL und
+# normalisiert die Ausgabe fuer die Preview-Erzeugung.
+def _load_preview_source(source_path: str | Path) -> tuple[Any, str]:
     source = Path(source_path)
     if source.suffix.lower() == ".dcm":
         ds = pydicom.dcmread(str(source))
-        return extract_preview_frame(ds), str(getattr(ds, "PatientName", "DICOM Preview"))
+        title = str(getattr(ds, "PatientName", "DICOM Preview"))
+        return extract_preview_frame(ds), title
     image = Image.open(source).convert("RGB")
     return np.asarray(image), source.name
 
 
+# CLI entry point for standardized DICOM preview export.
 def main() -> None:
-    """CLI entry point for standardized DICOM preview export."""
     parser = argparse.ArgumentParser(description="Create a DICOM preview image.")
     parser.add_argument("--dicom", type=str, default=str(DEFAULT_DICOM_PATH))
     parser.add_argument("--output", type=str, default=str(DEFAULT_PREVIEW_PATH))

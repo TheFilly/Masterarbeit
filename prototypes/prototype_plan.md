@@ -29,6 +29,8 @@ Arbeitsstand und die noch offenen Aufgaben fuer den DICOM-/JPG-Prototyp.
   Segment (`SYNTH-`, `ACC-`); fuer `PatientName` bleibt das Feld leer bzw. `null`.
 - Sichtbare `corners` und `label_corners` werden jetzt maskenbasiert aus der final rotierten
   Render-Maske abgeleitet; Platzierung und Annotation nutzen dieselbe Overlay-Geometriequelle.
+- Handschrift-Assets koennen ueber ein Manifest und explizite Asset-IDs einzelne sichtbare
+  Werte ersetzen; deren Boxen stammen aus der final transformierten Ink-Maske.
 - `render_metadata` dokumentiert die neue Geometrie explizit ueber
   `geometry_source = "mask_bbox_after_final_rotation"` und `mask_alpha_threshold`.
 - Run-Ordner folgen jetzt dem Schema
@@ -48,6 +50,9 @@ Arbeitsstand und die noch offenen Aufgaben fuer den DICOM-/JPG-Prototyp.
 - Arbeitspaket 6 ist umgesetzt: sichtbare Bounding-Boxes werden aus getrennten, final rotierten
   Render-Masken fuer Volltext, PII-Teil und optionales Label abgeleitet; aktivierter
   Text-Hintergrund vergroessert die PII-Box nicht auf das Hintergrundrechteck.
+- Handschrift-MVP ist vorbereitet: ScrabbleGAN ist als isolierter Container-Scaffold unter
+  `tools/handwriting/scrabblegan/` dokumentiert, und der Prototyp kann manifestgesteuerte
+  Handschrift-Assets mit Ink-Mask-Boxen rendern.
 
 ## Offene Arbeitspakete
 
@@ -104,6 +109,12 @@ Arbeitsstand und die noch offenen Aufgaben fuer den DICOM-/JPG-Prototyp.
 - Uebernehmbare Prototype-Erkenntnisse fuer spaetere Modelle herausarbeiten
 - Offene Architekturentscheidungen fuer Phase 2 und 3 markieren
 - Prototype-spezifische Heuristiken explizit von uebertragbaren Prinzipien trennen
+
+### 3. ScrabbleGAN produktiv anbinden
+
+- Offizielle ScrabbleGAN-Gewichte und Lizenzbedingungen klaeren
+- Container-Batch-CLI implementieren und gegen `DycomData/HandwritingAssets/` validieren
+- Optionale HTTP-API erst nach stabilem Batch-Vertrag ausbauen
 
 ## Akzeptanzkriterien
 
