@@ -183,6 +183,36 @@ def test_render_single_annotation_background_does_not_expand_pii_box() -> None:
     assert rendered_width > pii_width
 
 
+def test_render_single_annotation_rotated_box_uses_polygon_corners() -> None:
+    image = Image.new("RGB", (260, 120), (0, 0, 0))
+    font = ImageFont.load_default()
+    _, record = _render_single_annotation(
+        image,
+        {
+            "label": "PatientID",
+            "text": "ACC-0013389",
+            "text_segments": [
+                {"kind": "generic", "text": "ACC-"},
+                {"kind": "pii", "text": "0013389"},
+            ],
+            "rotation_degrees": 20,
+            "padding": 4,
+            "stroke_width": 0,
+            "position": (20, 20),
+        },
+        font,
+        font_family="unit_test",
+        text_background="white",
+    )
+
+    corners = record["corners"]
+    assert corners[0]["y"] != pytest.approx(corners[1]["y"], abs=0.5)
+    assert corners[1]["x"] != pytest.approx(corners[2]["x"], abs=0.5)
+    assert record["render_metadata"]["rendered_text_corners"][0]["y"] != pytest.approx(
+        record["render_metadata"]["rendered_text_corners"][1]["y"], abs=0.5
+    )
+
+
 def test_write_pixel_array_updates_metadata_for_rgb_output(tmp_path: Path) -> None:
     file_meta = FileMetaDataset()
     file_meta.TransferSyntaxUID = ExplicitVRLittleEndian

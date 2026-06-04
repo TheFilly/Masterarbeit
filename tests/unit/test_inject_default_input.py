@@ -62,3 +62,41 @@ def test_resolve_input_path_uses_default_selector_when_missing(
 
     assert input_path == selected_path
     assert was_auto_selected is True
+
+
+def test_prompt_for_input_path_accepts_random_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    selected_path = Path("DycomData/images/random.jpg")
+    prompts = iter([""])
+
+    monkeypatch.setattr("builtins.input", lambda _: next(prompts))
+    monkeypatch.setattr(inject, "_select_default_input_path", lambda: selected_path)
+
+    assert inject._prompt_for_input_path() is None
+
+
+def test_prompt_for_input_path_accepts_explicit_path(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    input_path = tmp_path / "source.dcm"
+    input_path.write_bytes(b"")
+    prompts = iter(["n", str(input_path)])
+
+    monkeypatch.setattr("builtins.input", lambda _: next(prompts))
+
+    assert inject._prompt_for_input_path() == str(input_path)
+
+
+def test_prompt_for_input_path_retries_missing_explicit_path(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    input_path = tmp_path / "source.jpg"
+    input_path.write_bytes(b"")
+    prompts = iter(["n", str(tmp_path / "missing.jpg"), str(input_path)])
+
+    monkeypatch.setattr("builtins.input", lambda _: next(prompts))
+
+    assert inject._prompt_for_input_path() == str(input_path)

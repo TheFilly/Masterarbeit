@@ -70,9 +70,11 @@ uv run python prototypes/dicom/inject.py --handwriting-manifest DycomData/Handwr
 | `--handwriting-manifest` | Nein | - | JSON- oder JSONL-Manifest mit generierten Handschrift-Assets |
 | `--handwriting-asset` | Nein | - | Wiederholbares Mapping `identity_field=asset_id`, z. B. `patient_name=patient-name-001` |
 
-Ohne `--input` waehlt der Prototyp bewusst nicht-deterministisch eine Datei aus den lokalen
-Default-Ordnern. Wenn derselbe Input mehrfach verwendet werden soll, gib den Pfad explizit mit
-`--input` an.
+Ohne CLI-Argumente startet der interaktive Modus und fragt zuerst, ob eine zufaellige lokale
+DICOM-/JPG-Datei verwendet werden soll. Bei `n` kann ein konkreter Pfad angegeben werden.
+Wenn mindestens ein CLI-Argument gesetzt ist und `--input` fehlt, waehlt der Prototyp weiterhin
+nicht-deterministisch eine Datei aus den lokalen Default-Ordnern. Wenn derselbe Input mehrfach
+verwendet werden soll, gib den Pfad explizit mit `--input` an.
 
 ## Handschrift-Assets
 

@@ -678,11 +678,47 @@ def _prompt_for_show_label_boxes(default_value: str) -> str:
 
 
 # Input: Keine Parameter.
+# Output: Expliziter Eingabepfad als String oder `None` fuer Zufallsauswahl.
+# Die Funktion fragt im interaktiven Modus zuerst nach Zufallsauswahl und
+# validiert bei manueller Auswahl, dass der angegebene Pfad existiert.
+def _prompt_for_input_path() -> str | None:
+    prompt = (
+        "input: Use a random local DICOM/JPG input file? Expected input: y or n. "
+        "Default: y.\n> "
+    )
+    while True:
+        raw_value = input(prompt).strip().lower()
+        if raw_value in ("", "y"):
+            return None
+        if raw_value == "n":
+            while True:
+                raw_path = input(
+                    "input-path: Enter path to a .dcm, .jpg, or .jpeg file.\n> "
+                ).strip()
+                if raw_path == "":
+                    print("Invalid input-path: please enter a path.")
+                    continue
+                input_path = Path(raw_path)
+                if not input_path.exists():
+                    print(f"Invalid input-path: file not found: {input_path}")
+                    continue
+                if input_path.suffix.lower() not in _DEFAULT_INPUT_EXTENSIONS:
+                    print(
+                        "Invalid input-path: expected one of "
+                        f"{', '.join(_DEFAULT_INPUT_EXTENSIONS)}."
+                    )
+                    continue
+                return raw_path
+        print("Invalid input: enter 'y' for random input or 'n' to provide a path.")
+
+
+# Input: Keine Parameter.
 # Output: argparse-Namespace mit interaktiv gesammelten Laufparametern.
 # Die Funktion fuehrt den parametergefuehrten Prompt-Modus aus und validiert
 # Einzelwerte direkt waehrend der Eingabe.
 def _collect_interactive_args() -> argparse.Namespace:
     print("No CLI arguments were provided. Starting interactive parameter setup.\n")
+    input_path = _prompt_for_input_path()
     seed = _prompt_for_value(
         parameter_name="seed",
         purpose=(
@@ -732,7 +768,7 @@ def _collect_interactive_args() -> argparse.Namespace:
     show_label_boxes = _prompt_for_show_label_boxes(default_value="n")
     return argparse.Namespace(
         seed=seed,
-        input=None,
+        input=input_path,
         output_dir=str(_DEFAULT_OUTPUT_DIR),
         handwriting_manifest=None,
         handwriting_asset=[],

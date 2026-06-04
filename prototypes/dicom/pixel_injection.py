@@ -406,8 +406,20 @@ def _render_single_annotation(
     composed = base_image.convert("RGBA")
     composed.alpha_composite(overlay["rotated_layer"], dest=position)
 
-    corners = _mask_bounds_to_corners(position, overlay["pii_rotated_bounds"])
-    label_corners = _mask_bounds_to_corners(position, overlay["label_rotated_bounds"])
+    corners = _rotated_corners(
+        position,
+        overlay["text_box_size"],
+        overlay["rotated_size"],
+        overlay["rotation_degrees"],
+        bounds=overlay["pii_source_bounds"],
+    )
+    label_corners = _rotated_corners(
+        position,
+        overlay["text_box_size"],
+        overlay["rotated_size"],
+        overlay["rotation_degrees"],
+        bounds=overlay["label_source_bounds"],
+    )
 
     record = {
         "label": overlay["label"],
@@ -422,9 +434,12 @@ def _render_single_annotation(
         "render_metadata": {
             "position": {"x": position[0], "y": position[1]},
             **overlay["render_metadata"],
-            "rendered_text_corners": _mask_bounds_to_corners(
+            "rendered_text_corners": _rotated_corners(
                 position,
-                overlay["text_rotated_bounds"],
+                overlay["text_box_size"],
+                overlay["rotated_size"],
+                overlay["rotation_degrees"],
+                bounds=overlay["text_source_bounds"],
             ),
         },
     }
@@ -565,6 +580,10 @@ def _prepare_annotation_overlay(
         label_mask=label_mask,
     )
 
+    text_source_bounds = _require_mask_bounds(text_mask, "rendered text mask")
+    pii_source_bounds = _require_mask_bounds(pii_mask, "pii text mask")
+    label_source_bounds = _thresholded_mask_bounds(label_mask)
+
     rotated_layer = text_layer.rotate(rotation, expand=True, resample=Image.BICUBIC)
     text_mask_rotated = text_mask.rotate(rotation, expand=True, resample=Image.BICUBIC)
     pii_mask_rotated = pii_mask.rotate(rotation, expand=True, resample=Image.BICUBIC)
@@ -582,6 +601,10 @@ def _prepare_annotation_overlay(
         "rotation_degrees": rotation,
         "rotated_layer": rotated_layer,
         "rotated_size": rotated_layer.size,
+        "text_box_size": (base_width, base_height),
+        "text_source_bounds": text_source_bounds,
+        "pii_source_bounds": pii_source_bounds,
+        "label_source_bounds": label_source_bounds,
         "text_rotated_bounds": _require_mask_bounds(
             text_mask_rotated, "rendered text mask"
         ),
@@ -639,6 +662,7 @@ def _prepare_handwriting_asset_overlay(annotation: dict[str, Any]) -> dict[str, 
     rotated_layer = layer.rotate(rotation, expand=True, resample=Image.BICUBIC)
     rotated_mask = mask.rotate(rotation, expand=True, resample=Image.BICUBIC)
     mask_bounds = _require_mask_bounds(rotated_mask, "handwriting ink mask")
+    source_mask_bounds = _require_mask_bounds(mask, "handwriting ink mask")
 
     return {
         "label": annotation.get("label", "visible_text"),
@@ -647,6 +671,10 @@ def _prepare_handwriting_asset_overlay(annotation: dict[str, Any]) -> dict[str, 
         "rotation_degrees": rotation,
         "rotated_layer": rotated_layer,
         "rotated_size": rotated_layer.size,
+        "text_box_size": layer.size,
+        "text_source_bounds": source_mask_bounds,
+        "pii_source_bounds": source_mask_bounds,
+        "label_source_bounds": None,
         "text_rotated_bounds": mask_bounds,
         "pii_rotated_bounds": mask_bounds,
         "label_rotated_bounds": None,
