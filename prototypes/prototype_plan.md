@@ -53,6 +53,11 @@ Arbeitsstand und die noch offenen Aufgaben fuer den DICOM-/JPG-Prototyp.
 - Handschrift-MVP ist vorbereitet: ScrabbleGAN ist als isolierter Container-Scaffold unter
   `tools/handwriting/scrabblegan/` dokumentiert, und der Prototyp kann manifestgesteuerte
   Handschrift-Assets mit Ink-Mask-Boxen rendern.
+- ScrabbleGAN-v1-Batch-Tooling ist unter `tools/handwriting/scrabblegan/` implementiert:
+  JSONL-Manifestvalidierung, Docker-Entrypoints, Fake-Renderer fuer Tests, PNG-/Masken-
+  Postprocessing, Hashpruefung und `scrabblegan-validate`. Echte Generierung setzt weiter
+  lokal bereitgestellte Upstream-Source und Checkpoint unter `DycomData/HandwritingAssets/`
+  voraus.
 
 ## Offene Arbeitspakete
 
@@ -113,7 +118,8 @@ Arbeitsstand und die noch offenen Aufgaben fuer den DICOM-/JPG-Prototyp.
 ### 3. ScrabbleGAN produktiv anbinden
 
 - Offizielle ScrabbleGAN-Gewichte und Lizenzbedingungen klaeren
-- Container-Batch-CLI implementieren und gegen `DycomData/HandwritingAssets/` validieren
+- Echten lokalen Source-/Checkpoint-Stand gegen das implementierte Container-Batch-CLI
+  validieren
 - Optionale HTTP-API erst nach stabilem Batch-Vertrag ausbauen
 
 ## Akzeptanzkriterien

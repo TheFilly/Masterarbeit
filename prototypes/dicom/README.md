@@ -80,6 +80,31 @@ ScrabbleGAN laeuft nicht im Python-3.13-Projekt, sondern als isolierter vorgelag
 unter `tools/handwriting/scrabblegan/`. Generierte Artefakte liegen lokal unter
 `DycomData/HandwritingAssets/` und bleiben aus Git heraus.
 
+Der Generator wird als Batch-Tool im Docker-GPU-Container ausgefuehrt. Source und Checkpoint
+werden lokal bereitgestellt; das Tool laedt keine Gewichte und klont keine Repositories:
+
+```powershell
+docker build -t injection-scrabblegan tools/handwriting/scrabblegan
+docker run --gpus all --rm `
+  -v ${PWD}:/workspace `
+  injection-scrabblegan `
+  scrabblegan-render `
+    --input DycomData/HandwritingAssets/inputs/batch.jsonl `
+    --output-root DycomData/HandwritingAssets/scrabblegan/runs `
+    --run-id demo `
+    --source-dir DycomData/HandwritingAssets/scrabblegan/source `
+    --checkpoint DycomData/HandwritingAssets/scrabblegan/checkpoints/model.pth `
+    --checkpoint-sha256 PIN_CHECKPOINT_SHA256 `
+    --generator-command "python3.6 {source_dir}/generate.py --text {text} --seed {seed} --checkpoint {checkpoint} --output {output}"
+docker run --rm `
+  -v ${PWD}:/workspace `
+  injection-scrabblegan `
+  scrabblegan-validate `
+    --manifest DycomData/HandwritingAssets/scrabblegan/runs/demo/manifest.jsonl `
+    --checkpoint DycomData/HandwritingAssets/scrabblegan/checkpoints/model.pth `
+    --checkpoint-sha256 PIN_CHECKPOINT_SHA256
+```
+
 Der Injection-Prototyp erwartet pro Asset:
 
 - PNG-Bild (`image_path`)

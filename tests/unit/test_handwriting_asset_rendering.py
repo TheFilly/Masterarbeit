@@ -8,7 +8,7 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "prototypes" / "dicom"))
 
-from inject import _apply_handwriting_assets, _load_handwriting_manifest
+from inject import _apply_handwriting_assets, _build_record, _load_handwriting_manifest
 from pixel_injection import (
     _inject_visible_text_into_frame,
     _render_frame_with_annotations,
@@ -59,6 +59,13 @@ def test_load_handwriting_manifest_resolves_relative_paths(tmp_path: Path) -> No
     assert asset["asset_id"] == "patient-name-001"
     assert asset["image_path"] == tmp_path / "name.png"
     assert asset["mask_path"] == tmp_path / "name_mask.png"
+
+
+def test_load_handwriting_manifest_rejects_missing_manifest(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "missing.jsonl"
+
+    with pytest.raises(FileNotFoundError, match="Handwriting manifest not found"):
+        _load_handwriting_manifest(manifest_path)
 
 
 def test_load_handwriting_manifest_accepts_jsonl_generator_output(
@@ -223,3 +230,50 @@ def test_frame_renderer_reports_handwriting_assets_in_metadata(tmp_path: Path) -
             "background_mode": "transparent",
         }
     ]
+
+
+def test_build_record_serializes_handwriting_asset_paths(tmp_path: Path) -> None:
+    manifest = _load_handwriting_manifest(_write_asset(tmp_path))
+    visible_render_plan = [
+        {
+            "label": "PatientName",
+            "text": "Doe^Jane",
+            "identity_field": "patient_name",
+            "renderer_type": "handwriting_asset",
+            "asset_id": "patient-name-001",
+            "asset": manifest["patient-name-001"],
+        }
+    ]
+
+    record = _build_record(
+        run_id="unit-test-run",
+        seed=42,
+        rotation_degrees=0,
+        placement_mode="corners",
+        font_size_pct=100,
+        font_family="arial",
+        text_background=None,
+        document_type="jpg",
+        example_type="unit",
+        input_path=tmp_path / "input.jpg",
+        output_path=tmp_path / "output.jpg",
+        preview_path=tmp_path / "preview.png",
+        annotated_preview_path=tmp_path / "preview_annotated.png",
+        identity={"patient_id": "SYNTH-123456"},
+        source_dicom_context=None,
+        output_dicom_context=None,
+        tag_annotations=[],
+        box_annotations=[],
+        visible_render_plan=visible_render_plan,
+        pixel_result={
+            "status": "rendered",
+            "renderer_name": "unit",
+            "preview_file": str(tmp_path / "preview.png"),
+            "render_metadata": {"visible_annotations": visible_render_plan},
+        },
+    )
+
+    json.dumps(record)
+    asset = record["render_metadata"]["visible_render_plan"][0]["asset"]
+    assert asset["image_path"] == str(tmp_path / "name.png")
+    assert asset["mask_path"] == str(tmp_path / "name_mask.png")

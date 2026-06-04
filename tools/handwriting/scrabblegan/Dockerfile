@@ -24,18 +24,33 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
+        git \
         python3.6 \
         python3.6-dev \
         python3-pip \
     && rm -rf /var/lib/apt/lists/*
+
+RUN python3.6 -m pip install --no-cache-dir "Pillow<8"
 
 RUN mkdir -p \
         "${SCRABBLEGAN_SOURCE_DIR}" \
         "/opt/checkpoints" \
         "${HANDWRITING_ASSET_ROOT}"
 
+COPY scrabblegan_tool /opt/scrabblegan_tool/scrabblegan_tool
+
+RUN printf '%s\n' \
+        '#!/bin/sh' \
+        'PYTHONPATH=/opt/scrabblegan_tool exec python3.6 -m scrabblegan_tool.cli render "$@"' \
+        > /usr/local/bin/scrabblegan-render \
+    && printf '%s\n' \
+        '#!/bin/sh' \
+        'PYTHONPATH=/opt/scrabblegan_tool exec python3.6 -m scrabblegan_tool.cli validate "$@"' \
+        > /usr/local/bin/scrabblegan-validate \
+    && chmod +x /usr/local/bin/scrabblegan-render /usr/local/bin/scrabblegan-validate
+
 WORKDIR /workspace
 
-# This scaffold does not clone repositories or download checkpoints. Building the
-# image still uses configured OS package repositories for Python/bootstrap packages.
-CMD ["/bin/bash", "-lc", "echo 'ScrabbleGAN scaffold only. Mount pinned source/checkpoint and run the batch CLI wrapper when implemented.'"]
+# This image never clones ScrabbleGAN or downloads model weights. Mount pinned
+# source/checkpoint artifacts from DycomData/HandwritingAssets at runtime.
+CMD ["/bin/bash", "-lc", "scrabblegan-render --help && scrabblegan-validate --help"]

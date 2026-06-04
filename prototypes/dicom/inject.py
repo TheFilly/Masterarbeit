@@ -55,8 +55,16 @@ _SHOW_LABEL_BOX_CHOICES: tuple[str, ...] = ("y", "n")
 
 # Input: `manifest_path` mit Pfad zum Handschrift-Asset-Manifest.
 # Output: Mapping von Asset-ID auf normalisierte Asset-Metadaten.
-# Die Funktion loest Bild- und Maskenpfade relativ zum Manifest auf.
+# Die Funktion loest Bild- und Maskenpfade relativ zum Manifest auf und meldet
+# fehlende lokale Artefakte mit sprechenden Fehlern.
 def _load_handwriting_manifest(manifest_path: Path) -> dict[str, dict[str, Any]]:
+    if not manifest_path.exists():
+        raise FileNotFoundError(
+            "Handwriting manifest not found: "
+            f"{manifest_path}. Generate assets first or pass the actual "
+            "manifest.json/jsonl path under DycomData/HandwritingAssets."
+        )
+
     raw_text = manifest_path.read_text(encoding="utf-8")
     if manifest_path.suffix.lower() == ".jsonl":
         raw_assets = [
@@ -80,6 +88,14 @@ def _load_handwriting_manifest(manifest_path: Path) -> dict[str, dict[str, Any]]
             raise ValueError("Handwriting asset is missing asset_id.")
         image_path = manifest_root / str(raw_asset["image_path"])
         mask_path = manifest_root / str(raw_asset["mask_path"])
+        if not image_path.exists():
+            raise FileNotFoundError(
+                f"Handwriting asset {asset_id!r} image not found: {image_path}"
+            )
+        if not mask_path.exists():
+            raise FileNotFoundError(
+                f"Handwriting asset {asset_id!r} mask not found: {mask_path}"
+            )
         assets[asset_id] = {
             **raw_asset,
             "asset_id": asset_id,
@@ -444,6 +460,20 @@ def _run_jpg_pixel_injection(
     }
 
 
+# Input: `value` mit verschachtelten Prototype-Metadaten.
+# Output: JSON-taugliche Kopie mit serialisierten Pfaden und Sequenzen.
+# Die Funktion bereitet interne Renderdaten fuer Ground-Truth-Artefakte vor,
+# ohne die urspruenglichen Objekte fuer den Renderer zu veraendern.
+def _make_json_safe(value: Any) -> Any:
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, dict):
+        return {str(key): _make_json_safe(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [_make_json_safe(item) for item in value]
+    return value
+
+
 # Input: Run-Parameter, Pfade, Identitaet, Annotationen und `pixel_result`.
 # Output: Vollstaendiger JSON-tauglicher Ground-Truth-Record.
 # Die Funktion buendelt Tag-, Box- und Render-Metadaten in der aktuellen
@@ -510,8 +540,8 @@ def _build_record(
             "font_size_pct": font_size_pct,
             "font_family": font_family,
             "text_background": text_background,
-            "visible_render_plan": visible_render_plan,
-            **pixel_result["render_metadata"],
+            "visible_render_plan": _make_json_safe(visible_render_plan),
+            **_make_json_safe(pixel_result["render_metadata"]),
         },
     }
 
