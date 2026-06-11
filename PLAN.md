@@ -16,6 +16,8 @@ Die Planung folgt der zentralen Abhaengigkeit des Projekts: Ohne belastbare Date
 
 Phase 1 ist **offen** und muss neu durchgefuehrt werden.
 
+**Prototype-Migration (2026-06-10):** Der DICOM-/JPG-Prototyp wird nach `src/injection_pipeline/` ueberfuehrt. Der verbindliche Migrationsplan fuer die Implementer-Agenten liegt in `MIGRATION_PLAN.md`.
+
 **DICOM-Prototyp:** Parallel zur Datenanalyse wird ein Quick-and-Dirty-Prototyp fuer DICOM-Injektion entwickelt (`prototypes/dicom/`). Ziel ist ein fruehzeitiger Machbarkeitsnachweis. Erkenntnisse fliessen in das spaetere DICOM-Finding und Phase-3-Design ein. Details zum aktuellen Arbeitsstrang und operativen Prototype-Backlog werden in `prototypes/prototype_plan.md` gepflegt; `PLAN.md` bleibt die uebergeordnete Roadmap. Technische Details zum bestehenden Stand: `prototypes/dicom/README.md`.
 
 ## Priorisierung
