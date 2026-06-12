@@ -2,178 +2,198 @@
 
 ## Ziel
 
-Dieser Plan priorisiert die Arbeit fuer die Masterarbeit entlang der drei Forschungsfragen:
+Dieser Plan priorisiert die Arbeit entlang der drei Forschungsfragen:
 
-- FF1: Formatunabhaengiges Daten- und Annotationsmodell
-- FF2: Reproduzierbare, skalierbare Injektionspipeline
-- FF3: Technische Verifikation und Qualitaetskriterien
+- FF1: formatunabhaengiges Daten- und Annotationsmodell
+- FF2: reproduzierbare, skalierbare Injektionspipeline
+- FF3: technische Verifikation und Qualitaetskriterien
 
-Die Planung folgt der zentralen Abhaengigkeit des Projekts: Ohne belastbare Datenanalyse ist weder ein stabiles abstraktes Dokumentmodell noch eine sinnvolle Injektionslogik moeglich.
+Die Datenanalyse bleibt die Grundlage. Ohne belastbare Fakten zu Formaten,
+PII-Traegern und Adressierungsmodi kann das Dokumentmodell nicht stabil werden.
 
 ## Aktueller Stand
 
-**Soft-Reset (2026-04-22):** Phase-1-Findings wurden archiviert (`docs/archive/research/phase-1/`). Die Datenanalyse wird neu gestartet. Die Ordnerstruktur und der `src/`-Code bleiben erhalten.
+**Phase 1:** Am 2026-04-22 neu gestartet. Fruehere Findings liegen unter
+`docs/archive/research/phase-1/` und sind nicht mehr gueltig.
 
-Phase 1 ist **offen** und muss neu durchgefuehrt werden.
+**DICOM/JPG-Prototyp:** Der aktive Prototyp liegt weiter in `prototypes/dicom/`.
+Er injiziert fuenf DICOM-Tags, rendert sichtbare PII fuer DCM/JPG und schreibt
+`ground_truth.json`.
 
-**Prototype-Migration (2026-06-10):** Der DICOM-/JPG-Prototyp wird nach `src/injection_pipeline/` ueberfuehrt. Der verbindliche Migrationsplan fuer die Implementer-Agenten liegt in `MIGRATION_PLAN.md`.
+**Prototype-Migration:** `MIGRATION_PLAN.md` beschreibt die geplante Migration
+des Prototyps nach `src/injection_pipeline/`. Der Code ist noch nicht migriert;
+`src/injection_pipeline/` enthaelt derzeit die Produktionsstruktur.
 
-**DICOM-Prototyp:** Parallel zur Datenanalyse wird ein Quick-and-Dirty-Prototyp fuer DICOM-Injektion entwickelt (`prototypes/dicom/`). Ziel ist ein fruehzeitiger Machbarkeitsnachweis. Erkenntnisse fliessen in das spaetere DICOM-Finding und Phase-3-Design ein. Details zum aktuellen Arbeitsstrang und operativen Prototype-Backlog werden in `prototypes/prototype_plan.md` gepflegt; `PLAN.md` bleibt die uebergeordnete Roadmap. Technische Details zum bestehenden Stand: `prototypes/dicom/README.md`.
+`prototypes/prototype_plan.md` enthaelt den operativen Prototyp-Backlog.
+`prototypes/dicom/README.md` beschreibt CLI, Output und Ground Truth des
+aktuellen Prototyps.
 
 ## Priorisierung
 
-1. Phase 1: Datenanalyse (neu starten)
-2. Kritische Vorab-Entscheidungen treffen (ENT-A bis ENT-D) -- blockiert Phase 3
-3. FF1 aus Phase 1 ableiten: abstraktes Dokument- und Annotationsmodell (Phase 2)
-4. FF2 implementieren: Loader, Engine, Writer, Config, Identity Pool, Runner (Phase 3)
-5. FF3 absichern: Validierung, Reproduzierbarkeit, Qualitaetskriterien (Phase 4)
+1. Phase 1 neu durchfuehren.
+2. Kritische Entscheidungen ENT-A bis ENT-D treffen.
+3. FF1 ableiten: Dokument- und Annotationsmodell.
+4. FF2 implementieren: Loader, Engine, Writer, Config, Identity Pool, Runner.
+5. FF3 absichern: Validierung, Reproduzierbarkeit, Qualitaetskriterien.
 
 ## Agentenzuordnung
 
-- `Planner`: Planungsarbeit, Priorisierung, Risiken, Akzeptanzkriterien, Task-Zuschnitt, Scope-Entscheidungen
-- `Data-Analyst`: Datensichtung, Formatinventar, Feld-/Schemaanalyse, PII-Traegeranalyse. Auch in Phase 3 als Berater verfuegbar
-- `Implementer`: klar abgegrenzte Umsetzungsaufgaben mit kleinen Diffs, Tests, technische Ausfuehrung
-- `Reviewer`: kritische Pruefung von Korrektheit, Reproduzierbarkeit, Typing, Architekturtreue, Testluecken
+- `Planner`: Priorisierung, Risiken, Akzeptanzkriterien, Scope.
+- `Data-Analyst`: Datensichtung, Formatinventar, Feldanalyse,
+  PII-Traegeranalyse.
+- `Implementer`: kleine, abgegrenzte Umsetzungsaufgaben mit Tests.
+- `Reviewer`: Pruefung von Korrektheit, Reproduzierbarkeit, Typing,
+  Architekturtreue und Testluecken.
 
-**Reviewer-Gates: Blocker vs. Advisory**
+### Reviewer-Gates
 
-Blocker-Reviews (Arbeit stoppt bis Review abgeschlossen):
-- Dokumentmodell und JSONL-Ground-Truth-Format (Phase 2)
-- Engine-Kernlogik inkl. Konfliktregeln und Reproduzierbarkeit (Phase 3)
-- DICOM-Writer (Phase 3, hohes Korruptionsrisiko)
-- Jede Aenderung am JSONL-Schema nach Festlegung
+Blocker-Reviews:
 
-Advisory-Reviews (empfohlen, kein Stopper):
-- Loader je Format (nach Implementierung)
-- Config-Schema
-- Identity Pool
-- Validatoren und Reproduzierbarkeitstests
+- Dokumentmodell und JSONL-Ground-Truth-Format.
+- Engine-Kernlogik inklusive Konfliktregeln und Reproduzierbarkeit.
+- DICOM-Writer.
+- Jede Aenderung am festgelegten JSONL-Schema.
 
-## Phase 1 - Datenanalyse (offen)
+Advisory-Reviews:
+
+- Loader je Format.
+- Config-Schema.
+- Identity Pool.
+- Validatoren und Reproduzierbarkeitstests.
+
+## Phase 1: Datenanalyse
+
+Status: offen.
 
 ### Ziel
 
-Belastbare Faktengrundlage ueber die vorhandenen Daten in `DycomData/` erarbeiten: Welche Formate liegen vor, welche sind Pipeline-Input, welche Felder sind PII-Traeger, welche Adressierungsmodi werden benoetigt?
+Die Daten in `DycomData/` klassifizieren: Formate, Pipeline-Inputs,
+PII-Traeger, Adressierungsmodi und Kanonisierungsrisiken.
 
-### Agentenempfehlung
+### Agenten
 
 - Primaer: `Data-Analyst`
-- Planung und Priorisierung: `Planner`
-- Scope-Entscheidungen (MVP-Formatauswahl): `Planner`
+- Planung und MVP-Scope: `Planner`
 
-### Erwartete Outputs
+### Outputs
 
-- Formatinventar mit Klassifikation (Input / Referenz / Hilfsartefakt)
-- PII-Traegeranalyse je Format und Feldtyp
-- Adressierungsmodi je Format (row/cell, text-span, DICOM-Tag, Header-Token)
-- Identifikation von Duplikaten und Kanonisierungsrisiken
-- Dokumentierte Findings unter `docs/research/phase-1/findings/`
-- Phasen-Zusammenfassung unter `docs/research/phase-1/summary.md`
-- Offene Fragen unter `docs/research/phase-1/open-questions.md`
+- Formatinventar mit Klassifikation: Input, Referenz, Hilfsartefakt.
+- PII-Traegeranalyse je Format und Feldtyp.
+- Adressierungsmodi: row/cell, text-span, DICOM-Tag, Header-Token.
+- Duplikat- und Kanonisierungsrisiken.
+- Findings unter `docs/research/phase-1/findings/`.
+- `docs/research/phase-1/summary.md`.
+- `docs/research/phase-1/open-questions.md`.
 
 ### Definition of Done
 
-- Alle relevanten Formate in `DycomData/` sind klassifiziert und dokumentiert
-- MVP-Formate sind begruendet ausgewaehlt
-- PII-Traeger und Adressierungsmodi fuer MVP-Formate sind belegt
-- Phase-1-Summary ist reviewt und akzeptiert
+- Relevante Formate in `DycomData/` sind klassifiziert.
+- MVP-Formate sind begruendet ausgewaehlt.
+- PII-Traeger und Adressierungsmodi fuer MVP-Formate sind belegt.
+- Phase-1-Summary ist reviewt und akzeptiert.
 
-## Phase 2 - Abstraktes Dokumentmodell (FF1)
+## Phase 2: Dokumentmodell (FF1)
 
 ### Ziel
 
-Ein formatunabhaengiges Pydantic-Modell definieren, das die in Phase 1 identifizierten Dokumenttypen und Zielstellen einheitlich abbildet. MVP-Adressierungsmodi sind row/cell und text-span. DICOM-Tag und Header-Token werden als Erweiterungspunkte vorgesehen, aber nicht im MVP implementiert.
+Ein formatunabhaengiges Pydantic-Modell fuer Dokumente, Zielstellen und
+Annotationen definieren. Row/cell und text-span bilden den MVP. DICOM-Tag und
+Header-Token bleiben Erweiterungspunkte, solange Phase 1 sie nicht als MVP
+begruendet.
 
-### Agentenempfehlung
+### Agenten
 
-- Optional vorgelagert: `Planner` fuer Scope und Modellentscheidungen
-- Primaer: `Implementer`
-- Blocker-Review: `Reviewer` vor Finalisierung von Modellen, JSONL-Schema und Adressierungslogik
+- Optional: `Planner` fuer Scope und Modellentscheidungen.
+- Primaer: `Implementer`.
+- Blocker-Review: `Reviewer`.
 
-### Erwartete Outputs
+### Outputs
 
-- Pydantic-Schemas fuer Dokument, Zielstellen und Annotationen
-- Schriftlich festgehaltenes Adressierungsmodell (in `docs/decisions/`)
-- JSONL-Spezifikation fuer Ground Truth
-- Beispielinstanzen fuer MVP-Formate
+- Pydantic-Schemas fuer Dokumente, Zielstellen und Annotationen.
+- Adressierungsmodell in `docs/decisions/`.
+- JSONL-Spezifikation fuer Ground Truth.
+- Beispielinstanzen fuer MVP-Formate.
 
 ### Definition of Done
 
-- Fuer alle MVP-Formate kann dieselbe Dokumentabstraktion verwendet werden
-- Jede Injektionsstelle ist einheitlich referenzierbar
-- Ground Truth ist unabhaengig vom nativen Dateiformat speicherbar
-- Das JSONL-Schema enthaelt alle Felder, die fuer Phase-4-Validierung benoetigt werden
+- Eine Dokumentabstraktion deckt alle MVP-Formate ab.
+- Jede Injektionsstelle ist eindeutig referenzierbar.
+- Ground Truth ist formatunabhaengig speicherbar.
+- Das JSONL-Schema enthaelt alle Felder fuer Phase-4-Validierung.
 
-## Phase 3 - Pipeline-Kern (FF2)
+## Phase 3: Pipeline-Kern (FF2)
 
 ### Ziel
 
-Die eigentliche Injektionspipeline implementieren: native Formate einlesen, in das abstrakte Modell ueberfuehren, synthetische Werte injizieren und wieder formatkonform ausschreiben. Ein Orchestrator-Runner verbindet alle Komponenten.
+Native Formate einlesen, ins Dokumentmodell ueberfuehren, synthetische Werte
+injizieren und formatkonform ausschreiben. Ein Runner verbindet die Komponenten.
 
-**Empfohlene Implementierungsreihenfolge:** Vertikaler Durchstich zuerst -- einen einzelnen Dokumenttyp komplett durchlaufen, bevor mehrere Loader-Typen gebaut werden.
+Empfehlung: Erst ein vertikaler Durchstich fuer einen Dokumenttyp, dann weitere
+Loader.
 
-### Agentenempfehlung
+### Agenten
 
-- `Planner` fuer Scope-Entscheidungen (Feldauswahl, Injektionstiefe, Ausnahmeregeln)
-- Primaer: `Implementer`
-- Blocker-Reviews: `Reviewer` nach Engine und DICOM-Writer
-- Advisory-Reviews: `Reviewer` nach Loader, Config, Identity Pool
+- `Planner` fuer Scope.
+- Primaer: `Implementer`.
+- Blocker-Reviews nach Engine und DICOM-Writer.
+- Advisory-Reviews nach Loader, Config und Identity Pool.
 
-### Erwartete Outputs
+### Outputs
 
-- Funktionsfaehige MVP-Pipeline fuer priorisierte Formate
-- Konfigurierbarer Pipeline-Run mit Seed
-- Ground-Truth-Ausgabe als JSONL
-- CLI-Schnittstelle mit Entry Point
-- Strukturiertes Logging/Reporting pro Run
-- Testabdeckung fuer Kernkomponenten
+- MVP-Pipeline fuer priorisierte Formate.
+- Konfigurierbarer Run mit Seed.
+- Ground-Truth-Ausgabe als JSONL.
+- CLI Entry Point.
+- Strukturiertes Logging oder Reporting pro Run.
+- Tests fuer Kernkomponenten.
 
 ### Definition of Done
 
-- Mindestens ein kompletter End-to-End-Run funktioniert fuer die priorisierten MVP-Formate
-- Dieselbe Konfiguration plus derselbe Seed erzeugen denselben Output
-- Output-Dokumente und Ground Truth sind gemeinsam reproduzierbar erzeugbar
-- CLI ist lauffaehig
+- Mindestens ein End-to-End-Run funktioniert fuer ein MVP-Format.
+- Gleiche Konfiguration plus gleicher Seed erzeugen denselben Output.
+- Output-Dokumente und Ground Truth werden gemeinsam reproduzierbar erzeugt.
+- CLI ist lauffaehig.
 
-## Phase 4 - Validierung (FF3)
+## Phase 4: Validierung (FF3)
 
 ### Ziel
 
-Technisch nachweisen, dass die Injektionen korrekt, formatgueltig und reproduzierbar sind. Die Ergebnisse muessen als Belege fuer FF3 in der Masterarbeit verwertbar sein.
+Automatisch nachweisen, dass Injektionen korrekt, formatgueltig und
+reproduzierbar sind. Die Ergebnisse muessen als Thesis-Belege nutzbar sein.
 
-### Agentenempfehlung
+### Agenten
 
-- Optional vorgelagert: `Planner` fuer Qualitaetskriterien und Abnahmestrategie
-- Primaer: `Implementer`
-- Blocker-Review: `Reviewer` fuer die Bewertung, ob die Validierung FF3 abdeckt
+- Optional: `Planner` fuer Qualitaetskriterien.
+- Primaer: `Implementer`.
+- Blocker-Review: `Reviewer`.
 
-### Erwartete Outputs
+### Outputs
 
-- Validierungsmodul fuer Positionskonsistenz und Formatgueltigkeit
-- Automatisierte Reproduzierbarkeitstests
-- Messergebnisse fuer Skalierbarkeit
-- Explizite technische Qualitaetskriterien fuer FF3
-- Aktualisiertes Claim-Register mit belegten Claims
-- Nachvollziehbare Ergebnisbasis fuer die Masterarbeit
+- Validierungsmodul fuer Positionskonsistenz und Formatgueltigkeit.
+- Reproduzierbarkeitstests.
+- Skalierbarkeitsmessungen oder begruendete qualitative Bewertung.
+- Qualitaetskriterien fuer FF3.
+- Aktualisiertes `docs/thesis/claim-register.md`.
 
 ### Definition of Done
 
-- Korrektheit der Annotationen ist automatisiert pruefbar
-- Formatgueltigkeit ist fuer MVP-Formate automatisiert abgesichert
-- Reproduzierbarkeit ist testbar und nachgewiesen
-- Skalierbarkeit ist mit konkreten Messwerten oder einem belegten qualitativen Argument verankert
-- Claims in `docs/thesis/claim-register.md` sind fuer FF3 vollstaendig und belegbar
+- Annotationen sind automatisch pruefbar.
+- Formatgueltigkeit ist fuer MVP-Formate abgesichert.
+- Reproduzierbarkeit ist nachgewiesen.
+- Skalierbarkeit ist belegt.
+- FF3-Claims sind vollstaendig belegbar.
 
-## Grobe Zeitplanung (Masterarbeit)
+## Zeitplanung
 
-| Phase | Status | Geschaetzter Aufwand |
+| Phase | Status | Aufwand |
 |---|---|---|
-| Phase 1 (Datenanalyse) | Offen (Neustart) | 1-2 Wochen |
-| Vorab-Entscheidungen ENT-A bis ENT-D | Offen | 1-2 Tage |
-| Phase 2 (Dokumentmodell) | Offen | 1-2 Wochen |
-| Phase 3 MVP (CSV + TXT, ohne DICOM) | Offen | 3-4 Wochen |
-| Phase 3 DICOM-Integration | Offen | 1-2 Wochen |
-| Phase 3 HEA/DAT-Integration | Offen | 1 Woche |
-| Phase 4 (Validierung + FF3) | Offen | 2 Wochen |
+| Phase 1 Datenanalyse | offen, Neustart | 1-2 Wochen |
+| ENT-A bis ENT-D | offen | 1-2 Tage |
+| Phase 2 Dokumentmodell | offen | 1-2 Wochen |
+| Phase 3 MVP CSV/TXT | offen | 3-4 Wochen |
+| Phase 3 DICOM-Integration | offen | 1-2 Wochen |
+| Phase 3 HEA/DAT-Integration | offen | 1 Woche |
+| Phase 4 Validierung | offen | 2 Wochen |
 
-**Groesstes Zeitrisiko:** Spaetes Redesign des Dokumentmodells oder des JSONL-Schemas nach Phase 3-Beginn. Das JSONL-Schema-Blocker-Review am Ende von Phase 2 ist deshalb nicht optional.
+Groesstes Risiko: ein spaetes Redesign des Dokumentmodells oder JSONL-Schemas
+nach Start von Phase 3. Das Blocker-Review am Ende von Phase 2 bleibt Pflicht.

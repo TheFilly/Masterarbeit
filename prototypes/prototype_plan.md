@@ -1,132 +1,67 @@
-# Prototype Plan - DICOM Injection Prototype
+# Prototype Plan: DICOM/JPG Injection
 
-## Ziel
+## Purpose
 
-Dieser Plan steuert den aktuellen Quick-and-Dirty-DICOM-Prototyp in `prototypes/dicom/`.
-Er dient als Machbarkeitsnachweis fuer injizierbare DICOM-Tags, sichtbare Pixel-Injektion im
-begrenzten Echo-/US-Setting und ein proto-stabiles Ground-Truth-Artefakt, ohne bereits das finale
-Produktionsdesign in `src/` festzuschreiben.
+Track the active DICOM/JPG prototype in `prototypes/dicom/`. The prototype
+proves feasibility for DICOM tag injection, visible pixel injection, reproducible
+placement, and a prototype ground-truth artifact. It does not define the final
+`src/` architecture.
 
-`PLAN.md` bleibt die uebergeordnete Projekt-Roadmap. Diese Datei enthaelt nur den aktiven
-Arbeitsstand und die noch offenen Aufgaben fuer den DICOM-/JPG-Prototyp.
+`PLAN.md` remains the project roadmap. `MIGRATION_PLAN.md` covers the planned
+move from prototype code into `src/injection_pipeline/`.
 
 ## Status
 
-- Scope: aktueller Prototype in `prototypes/dicom/`
-- Status: aktiv
-- Letzte Aktualisierung: 2026-05-28
-- Hauptziel: die Prototype-Erkenntnisse in ein belastbares Schema- und Handover-Artefakt fuer die
-  spaetere Phase-2-Modellierung ueberfuehren
+- Scope: `prototypes/dicom/`
+- Status: active prototype, not yet migrated
+- Last reviewed: 2026-06-12
+- Main goal: preserve prototype evidence and prepare Phase-2 handover.
 
-## Aktueller Ist-Stand
+## Current Capabilities
 
-- Der Prototyp injiziert reproduzierbar fuenf DICOM-Tags in eine Echo-DICOM-Datei.
-- Sichtbare Pixel-Injektion ist fuer `PatientName`, `PatientID` und `AccessionNumber` umgesetzt.
-- `PatientBirthDate` und `PatientSex` bleiben tag-only.
-- `inject.py` unterstuetzt jetzt `.dcm`, `.jpg` und `.jpeg`.
-- `--show-label-boxes y|n` steuert die zusaetzliche Darstellung generischer Label-Boxes.
-- `label_corners` markieren bei praefixierten sichtbaren Tokens zusaetzlich das generische
-  Segment (`SYNTH-`, `ACC-`); fuer `PatientName` bleibt das Feld leer bzw. `null`.
-- Sichtbare `corners` und `label_corners` werden jetzt maskenbasiert aus der final rotierten
-  Render-Maske abgeleitet; Platzierung und Annotation nutzen dieselbe Overlay-Geometriequelle.
-- Handschrift-Assets koennen ueber ein Manifest und explizite Asset-IDs einzelne sichtbare
-  Werte ersetzen; deren Boxen stammen aus der final transformierten Ink-Maske.
-- `render_metadata` dokumentiert die neue Geometrie explizit ueber
-  `geometry_source = "mask_bbox_after_final_rotation"` und `mask_alpha_threshold`.
-- Run-Ordner folgen jetzt dem Schema
+- Injects five fixed DICOM tags.
+- Renders visible PII for `PatientName`, `PatientID`, and `AccessionNumber`.
+- Keeps `PatientBirthDate` and `PatientSex` tag-only.
+- Accepts `.dcm`, `.jpg`, and `.jpeg`.
+- Supports seeded placement, font family, font size, rotation, optional white
+  text background, and optional label boxes.
+- Writes `label_corners` for prefixed visible tokens (`SYNTH-`, `ACC-`).
+- Derives visible boxes from final rotated masks.
+- Supports manifest-driven handwriting assets with ink-mask boxes.
+- Writes run folders using
   `{filetype}-{ddmmyyyy}-{hhmm}-seed{seed:04d}-angle{angle:03d}-{mode}-fs{fontsize}-{fontfamily}-{textbg}`.
-- Neue Verifikations-Runs liegen unter `output_validation_dcm_label_y`,
-  `output_validation_dcm_label_n`, `output_validation_jpg`, `output_validation_ap6_dcm_a`,
-  `output_validation_ap6_dcm_b` und `output_validation_ap6_jpg`.
 
-## Eingefrorene Ergebnisse
+## Completed Prototype Work
 
-- Arbeitspaket 3 ist umgesetzt: `label_corners` liegen im Ground Truth vor und koennen optional
-  in `preview_annotated.png` visualisiert werden.
-- Arbeitspaket 4 ist umgesetzt: JPG-Input laeuft ueber einen separaten sichtbaren Renderpfad
-  ohne DICOM-Tag-Injektion.
-- Arbeitspaket 5 ist umgesetzt: neue Run-Ordner und `run_id` folgen dem erweiterten Schema;
-  bestehende alte Ordner bleiben unveraendert.
-- Arbeitspaket 6 ist umgesetzt: sichtbare Bounding-Boxes werden aus getrennten, final rotierten
-  Render-Masken fuer Volltext, PII-Teil und optionales Label abgeleitet; aktivierter
-  Text-Hintergrund vergroessert die PII-Box nicht auf das Hintergrundrechteck.
-- Handschrift-MVP ist vorbereitet: ScrabbleGAN ist als isolierter Container-Scaffold unter
-  `tools/handwriting/scrabblegan/` dokumentiert, und der Prototyp kann manifestgesteuerte
-  Handschrift-Assets mit Ink-Mask-Boxen rendern.
-- ScrabbleGAN-v1-Batch-Tooling ist unter `tools/handwriting/scrabblegan/` implementiert:
-  JSONL-Manifestvalidierung, Docker-Entrypoints, Fake-Renderer fuer Tests, PNG-/Masken-
-  Postprocessing, Hashpruefung und `scrabblegan-validate`. Echte Generierung setzt weiter
-  lokal bereitgestellte Upstream-Source und Checkpoint unter `DycomData/HandwritingAssets/`
-  voraus.
+- AP3: `label_corners` in ground truth and optional annotated preview.
+- AP4: JPG input through a visible-only render path.
+- AP5: expanded run folder and `run_id` schema.
+- AP6: mask-derived visible boxes for full text, PII value, and optional label.
+- Handwriting MVP: ScrabbleGAN scaffold, manifest contract, fake renderer,
+  validation, and prototype-side asset rendering.
 
-## Offene Arbeitspakete
+Validation artifacts remain in gitignored `prototypes/dicom/output_validation_*`
+folders.
 
-- Arbeitspaket 1 bleibt offen: vereinheitlichtes Annotationsschema entwerfen
-- Arbeitspaket 2 bleibt offen: Anschluss an Phase 2 vorbereiten
+## Open Work
 
-## Naechste fachliche Schwerpunkte
+1. Design the unified annotation schema for Phase 2.
+2. Prepare the Phase-2 handover from prototype behavior to production models.
+3. Decide how ScrabbleGAN should become productive. `tools/handwriting/scrabblegan/UPSTREAM_REVIEW.md`
+   lists current blockers for real generation.
 
-### Abgeschlossene Verifikation zu Arbeitspaket 6
+## Phase-2 Handover Notes
 
-**Umgesetzt:** Die sichtbaren Bounding Boxes fuer Text-Overlays werden nicht mehr aus
- Font-Metriken rekonstruiert, sondern aus getrennten, final rotierten Masken fuer
- `rendered_text`, PII-Teil und optionales Label gewonnen. Die Overlay-Platzierung laeuft jetzt
- ueber dieselbe vorbereitete Geometrie wie die spaetere Annotation.
+- Separate `span_annotations`, `box_annotations`, and
+  `dicom_tag_annotations`.
+- Define shared metadata and format-specific fields.
+- Keep the prototype schema `0.2.0-prototype` separate from the later
+  production API.
+- Mark prototype heuristics explicitly before reusing them in `src/`.
 
-**Erreichte Punkte**
+## Acceptance Criteria
 
-- `pixel_injection.py` fuehrt getrennte Masken fuer Volltext, PII-Teil und optionales Label.
-- `box_annotations[].corners` und `label_corners` werden aus final rotierten Masken abgeleitet.
-- `render_metadata` dokumentiert `geometry_source = "mask_bbox_after_final_rotation"` sowie den
-  verwendeten `mask_alpha_threshold`.
-- `_materialize_positions()` nutzt dieselbe vorbereitete Overlay-Geometrie wie die finale
-  Annotation und vermeidet damit systematische Offsets.
-- `text_background white` bleibt fuer die sichtbare Lesbarkeit relevant, vergroessert aber die
-  PII-Box nicht kuenstlich auf das Hintergrundrechteck.
-
-**Verifikation**
-
-- `uv run python -m py_compile prototypes/dicom/pixel_injection.py tests/unit/test_pixel_injection_corners.py`
-  laeuft erfolgreich.
-- Zwei identische DCM-Runs unter `output_validation_ap6_dcm_a` und
-  `output_validation_ap6_dcm_b` liefern identische `box_annotations`,
-  `render_metadata.visible_render_plan` und `render_metadata.visible_annotations`.
-- Ein separater JPG-Run unter `output_validation_ap6_jpg` bestaetigt denselben sichtbaren
-  Renderpfad ohne DICOM-Tag-Injektion.
-- Die reguleren `pytest`- und `ruff`-Laeufe konnten im aktuellen Environment nicht ausgefuehrt
-  werden, weil `pytest` und `ruff` in der vorhandenen `.venv` derzeit nicht installiert sind.
-
----
-
-
-## Später umsetzen, wenn prototyp fertig (vorerst ignorieren)
-
-### Font Size auch größer 100% machen
-
-### 1. Vereinheitlichtes Annotationsschema entwerfen
-
-- `span_annotations`, `box_annotations` und `dicom_tag_annotations` sauber gegeneinander abgrenzen
-- Pflichtfelder fuer gemeinsame Metadaten und format-spezifische Annotationstypen definieren
-- Prototype-Schema klar von einer spaeteren produktionsreifen `src/`-API trennen
-
-### 2. Anschluss an Phase 2 vorbereiten
-
-- Uebernehmbare Prototype-Erkenntnisse fuer spaetere Modelle herausarbeiten
-- Offene Architekturentscheidungen fuer Phase 2 und 3 markieren
-- Prototype-spezifische Heuristiken explizit von uebertragbaren Prinzipien trennen
-
-### 3. ScrabbleGAN produktiv anbinden
-
-- Offizielle ScrabbleGAN-Gewichte und Lizenzbedingungen klaeren
-- Echten lokalen Source-/Checkpoint-Stand gegen das implementierte Container-Batch-CLI
-  validieren
-- Optionale HTTP-API erst nach stabilem Batch-Vertrag ausbauen
-
-## Akzeptanzkriterien
-
-- Diese Datei ist der eindeutige aktive Arbeitsplan fuer den aktuellen DICOM-Prototyp.
-- Erledigte Prototype-Aufgaben werden hier nicht mehr als offene Arbeitspakete gefuehrt.
-- Das geplante Annotationsschema deckt explizit `span_annotations`, `box_annotations` und
-  `dicom_tag_annotations` ab.
-- Die Trennung zwischen Prototype-Design und produktionsreifer Implementierung in `src/` bleibt
-  klar.
+- This file names the active prototype state and open handover work.
+- Completed prototype tasks no longer appear as open tasks.
+- Annotation-schema work covers spans, boxes, and DICOM tags.
+- Prototype behavior stays separate from production design.

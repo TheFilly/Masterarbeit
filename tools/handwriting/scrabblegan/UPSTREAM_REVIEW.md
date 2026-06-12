@@ -58,12 +58,12 @@ fictional `generate.py`.
 
 The tooling expects a single mounted `model.pth`. Upstream saves weights as
 `<checkpoints_dir>/<experiment_name>/<epoch>_net_G.pth` and loads them through
-`model.setup(opt)`. Additionally, **no pretrained weights are published** —
+`model.setup(opt)`. Additionally, **no pretrained weights are published** -
 the model must be trained locally on IAM/RIMES/CVL (datasets must be obtained
 manually). Decide and document:
 
 - whether the custom wrapper loads a raw `net_G.pth` state dict directly
-  (then a single mounted file is fine — keep the SHA-256 pinning), and
+  (then a single mounted file is fine; keep the SHA-256 pinning), and
 - that training a checkpoint is a prerequisite step (README currently implies
   a checkpoint simply exists).
 
@@ -87,7 +87,7 @@ ScrabbleGAN generates with a fixed per-dataset alphabet (e.g.
 character. Consequences for the v1 fields:
 
 - `patient_id` / `accession_number` values with digits, hyphens, or other
-  symbols may be outside the trained alphabet → garbage glyphs.
+  symbols may be outside the trained alphabet and produce garbage glyphs.
 - `patient_name` with spaces/umlauts: spaces are not part of word-level
   generation; multi-word names likely need per-word generation plus
   compositing.

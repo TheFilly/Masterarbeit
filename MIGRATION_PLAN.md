@@ -5,7 +5,7 @@ Created: 2026-06-10
 Scope: move the DICOM/JPG injection prototype out of `prototypes/dicom/` into the
 `src/injection_pipeline/` package so the project leaves prototype mode.
 
-## Decisions (already made — do not re-litigate)
+## Decisions (already made - do not re-litigate)
 
 1. **Depth:** Map code onto the existing package layout (`identity/`, `loaders/`,
    `engine/`, `writers/`, plus new `cli.py`/`runner.py`). Keep the dict-based data
@@ -34,7 +34,7 @@ Scope: move the DICOM/JPG injection prototype out of `prototypes/dicom/` into th
 - One work package = one atomic conventional commit (`refactor:`, `test:`, `docs:`).
   The test suite must be green after every commit.
 - `tools/handwriting/scrabblegan/` and `tests/unit/test_scrabblegan_generator.py` are
-  **out of scope** — they stay where they are.
+  **out of scope** - they stay where they are.
 
 ## Target module mapping
 
@@ -56,13 +56,13 @@ Notes:
 - Re-export the public names in each subpackage `__init__.py` (e.g.
   `from injection_pipeline.identity import generate_identity`) so imports stay short.
 - Where exactly the `inject.py` private helpers land (cli vs runner) may be adjusted if
-  the seam above turns out wrong in detail — the rule is: everything argparse/prompt/
+  the seam above turns out wrong in detail - the rule is: everything argparse/prompt/
   validation-of-CLI-strings goes to `cli.py`, everything that does work goes to
   `runner.py`, and `main()` stays a thin wrapper.
 
 ## Work packages
 
-### WP0 — Environment and baseline capture (no code changes)
+### WP0 - Environment and baseline capture (no code changes)
 
 1. `uv sync --extra dev`; confirm `uv run pytest tests/ -x` passes. Record any tests
    that already fail **before** the migration (they are not regressions).
@@ -81,7 +81,7 @@ Notes:
    handwriting-manifest run to the baseline; otherwise note that the handwriting path
    is covered by `tests/unit/test_handwriting_asset_rendering.py` only.
 
-### WP1 — Move identity + DICOM I/O (`refactor:`)
+### WP1 - Move identity + DICOM I/O (`refactor:`)
 
 1. Create `identity/generator.py`, `loaders/dicom.py`, `engine/dicom_tags.py`,
    `writers/dicom.py` per the mapping table (pure copy, plus docstrings/imports).
@@ -92,7 +92,7 @@ Notes:
    module.
 5. Gate: `uv run pytest tests/ -x` green.
 
-### WP2 — Move pixel_injection (`refactor:`)
+### WP2 - Move pixel_injection (`refactor:`)
 
 1. Move `pixel_injection.py` -> `engine/pixel_injection.py` unchanged (module-level
    constants, font handling, everything).
@@ -103,7 +103,7 @@ Notes:
 3. Gate: pytest green; spot-check one baseline command still reproduces (run via the
    prototype `inject.py`, compare `ground_truth.json` per the protocol below).
 
-### WP3 — Move view (`refactor:`)
+### WP3 - Move view (`refactor:`)
 
 1. Move `view.py` -> `writers/preview.py`; its `from pixel_injection import
    extract_preview_frame` becomes a package import. Keep its `main()`/argparse so
@@ -113,7 +113,7 @@ Notes:
    until WP4 changes the default output root; change both together in WP4, not here.
 4. Gate: pytest green.
 
-### WP4 — Split inject.py into cli.py + runner.py, entry point (`refactor:`)
+### WP4 - Split inject.py into cli.py + runner.py, entry point (`refactor:`)
 
 1. Create `runner.py` and `cli.py` per the mapping table. `main()` in `cli.py` must
    reproduce the existing behavior exactly, including: interactive mode when invoked
@@ -139,10 +139,10 @@ Notes:
 6. Gate: pytest green; full equivalence check (protocol below) against the WP0
    baseline using `uv run injection-pipeline ...`.
 
-### WP5 — Lint/type gate (`refactor:` or `fix:`)
+### WP5 - Lint/type gate (`refactor:` or `fix:`)
 
 1. `uv run ruff check src/ tests/` and `uv run ruff format src/ tests/` must pass.
-   Allowed mechanical fixes: import sorting, line length, `UP`/`SIM` autofixes —
+   Allowed mechanical fixes: import sorting, line length, `UP`/`SIM` autofixes -
    nothing that alters behavior (be careful with `SIM` rules; prefer `--fix` only for
    safe rules, review every change).
 2. `uv run mypy src/`: fix trivial, behavior-neutral annotation gaps. For modules that
@@ -162,7 +162,7 @@ Notes:
 3. Gate: pytest, ruff, mypy all green; re-run one baseline equivalence check (lint
    autofixes are the classic source of silent behavior change).
 
-### WP6 — Docs and cleanup (`docs:`)
+### WP6 - Docs and cleanup (`docs:`)
 
 1. Move the operational content of `prototypes/dicom/README.md` (parameters table,
    handwriting-asset contract, output schema, annotation format) to
@@ -173,20 +173,20 @@ Notes:
    remain as frozen reference artifacts.
 3. Update `prototypes/README.md` and `prototypes/prototype_plan.md`: prototype
    concluded and migrated; open work packages 1+2 (annotation schema, Phase-2
-   handover) carry over to PLAN.md/Phase 2 — do not silently drop them.
+   handover) carry over to PLAN.md/Phase 2 - do not silently drop them.
 4. Update `PLAN.md` ("Aktueller Stand") and the AGENTS.md "Current project state"
    section: prototype code now lives in `src/injection_pipeline/`, entry point
    `injection-pipeline`.
 5. Delete this `MIGRATION_PLAN.md` in the final commit or move it to
    `docs/archive/` once the migration is verified.
 
-### WP7 — Final verification (reviewer gate)
+### WP7 - Final verification (reviewer gate)
 
-1. `uv run pytest tests/ --cov=src/injection_pipeline` — green.
-2. `uv run ruff check src/ tests/`, `uv run mypy src/` — green.
+1. `uv run pytest tests/ --cov=src/injection_pipeline` - green.
+2. `uv run ruff check src/ tests/`, `uv run mypy src/` - green.
 3. Full equivalence protocol against the WP0 baseline (all baseline commands).
 4. One manual interactive-mode smoke test (`uv run injection-pipeline` with no args,
-   answer the prompts) — DCM and JPG each once.
+   answer the prompts) - DCM and JPG each once.
 5. Reviewer agent reviews the branch against main with focus on: unintended logic
    diffs (the diff should be almost pure code motion), import correctness, test
    coverage parity, and the equivalence evidence.
@@ -197,9 +197,9 @@ For each baseline command, re-run with identical `--seed`/`--input`/flags via th
 entry point, then compare new run folder vs. baseline run folder:
 
 1. `ground_truth.json`: must be identical after normalizing the timestamp-derived
-   parts — the `{ddmmyyyy}-{hhmm}` segment inside `run_id` (and anywhere `run_id`
-   is embedded, e.g. `run_metadata`). Everything else — `box_annotations`,
-   `label_corners`, `dicom_tag_annotations`, `render_metadata`, seeds — must match
+   parts - the `{ddmmyyyy}-{hhmm}` segment inside `run_id` (and anywhere `run_id`
+   is embedded, e.g. `run_metadata`). Everything else - `box_annotations`,
+   `label_corners`, `dicom_tag_annotations`, `render_metadata`, seeds - must match
    exactly, including float values.
 2. `run_manifest.json`: identical after the same run-id/timestamp normalization.
 3. `preview.png`, `preview_annotated.png`, `*_injected.dcm` / `*_injected.jpg`:
@@ -212,15 +212,15 @@ entry point, then compare new run folder vs. baseline run folder:
 
 ## Risk notes for the implementer
 
-- `inject.py`'s interactive mode triggers on `len(sys.argv) == 1` semantics — preserve
+- `inject.py`'s interactive mode triggers on `len(sys.argv) == 1` semantics - preserve
   exactly, including prompt wording and defaults.
 - All default paths (`DycomData/...`, output dirs) are CWD-relative and assume the
   repo root as working directory. Keep them CWD-relative; do not "fix" them to be
   module-relative.
 - Seeding is explicit (`generate_identity(seed)`, seeded placement). Pure code motion
   must not touch any `random`/Faker call order. If you find yourself reordering calls,
-  stop — that changes outputs.
+  stop - that changes outputs.
 - The five-tag map, `SYNTH-`/`ACC-` prefixes, and schema version `0.2.0-prototype`
   are frozen prototype contracts. Do not rename, generalize, or version-bump them.
 - Tests currently green-light the prototype via `sys.path` hacks; after each WP the
-  affected test file must import the new package path — never both.
+  affected test file must import the new package path - never both.

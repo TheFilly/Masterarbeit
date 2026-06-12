@@ -1,8 +1,11 @@
 # Handwriting Tools
 
-This directory contains isolated tooling for generated handwriting assets used by
-the injection workflow.
+This directory contains isolated tooling for handwriting assets used by the
+injection workflow.
 
-Generated handwriting images, masks, manifests, checkpoints, and source clones
-belong under `DycomData/HandwritingAssets/` or another ignored local data path.
-Do not commit generated assets, model weights, or downloaded third-party source.
+Generated images, masks, manifests, checkpoints, logs, and third-party source
+belong under `DycomData/HandwritingAssets/` or another ignored local path. Do
+not commit them.
+
+The ScrabbleGAN subtool is currently a batch scaffold. Real generation is
+blocked by the issues documented in `scrabblegan/UPSTREAM_REVIEW.md`.

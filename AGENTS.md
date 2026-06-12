@@ -1,116 +1,135 @@
 # InjectionPipeline
 
-Scalable pipeline for injecting synthetic personally identifiable information (PII) into anonymized medical documents. Part of a master's thesis and a larger research project.
+Scalable pipeline for injecting synthetic personally identifiable information
+(PII) into anonymized medical documents. The project supports a master's thesis
+and a larger research effort.
 
 ## Stack
 
 - Python 3.13
-- uv for package management and virtual environments
+- `uv` for package and virtual environment management
 - pytest + pytest-cov for testing
 - ruff for linting and formatting
-- mypy (strict mode) for type checking
-- pydantic for data models and validation
-- pydicom for DICOM file handling
-- pandas for tabular data (MIMIC-IV CSVs)
+- mypy in strict mode
+- pydantic for models and validation
+- pydicom for DICOM handling
+- pandas for tabular data
 
-## Project structure
+## Project Structure
 
-```
+```text
 InjectionPipeline/
-├── src/
-│   └── injection_pipeline/
-│       ├── __init__.py
-│       ├── models/          # Pydantic models (document model, annotation schema, identifier schema)
-│       ├── loaders/         # Format-specific document loaders (adapters)
-│       ├── engine/          # Injection engine (insert/replace operations)
-│       ├── writers/         # Output writers (back to native formats)
-│       ├── validators/      # Post-injection validation
-│       ├── config/          # Configuration loading and defaults
-│       └── identity/        # Identity pool and synthetic value generation
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── fixtures/            # Test data and sample files
-├── configs/                 # YAML/JSON config files
-├── DycomData/               # Raw DYCOM input data (not committed)
-├── pyproject.toml
-├── AGENTS.md
-└── README.md
+|-- src/injection_pipeline/
+|   |-- models/
+|   |-- loaders/
+|   |-- engine/
+|   |-- writers/
+|   |-- validators/
+|   |-- config/
+|   `-- identity/
+|-- prototypes/dicom/        # Active DICOM/JPG prototype
+|-- tools/handwriting/       # Isolated handwriting tooling
+|-- tests/
+|-- configs/
+|-- docs/
+|-- DycomData/               # Local input data, not committed
+|-- pyproject.toml
+|-- AGENTS.md
+`-- README.md
 ```
 
 ## Commands
 
-- `uv run pytest tests/ -x` — run tests, stop on first failure
-- `uv run pytest tests/ --cov=src/injection_pipeline` — run tests with coverage
-- `uv run ruff check src/ tests/` — lint
-- `uv run ruff format src/ tests/` — format
-- `uv run mypy src/` — type check
+- `uv run pytest tests/ -x` - run tests, stop on first failure
+- `uv run pytest tests/ --cov=src/injection_pipeline` - run tests with coverage
+- `uv run ruff check src/ tests/` - lint
+- `uv run ruff format src/ tests/` - format
+- `uv run mypy src/` - type check
+- `uv run python prototypes/dicom/inject.py --seed 42` - run the current prototype
 
-## Code style
+## Code Style
 
-- Follow PEP 8
-- Type hints on all function signatures and return types
-- Use pydantic BaseModel for all data structures, not plain dicts
-- Use pathlib.Path for file paths, never string concatenation
-- Use snake_case for variables and functions, PascalCase for classes, UPPER_CASE for constants
-- Docstrings on all public functions and classes (Google style)
-- Keep functions short and focused — if a function exceeds ~30 lines, consider splitting
-- No wildcard imports
-- Prefer explicit over implicit
+- Follow PEP 8.
+- Type all public function signatures and return values.
+- Use pydantic `BaseModel` for shared data structures.
+- Use `pathlib.Path` for paths.
+- Use snake_case for functions and variables, PascalCase for classes, and
+  UPPER_CASE for constants.
+- Add Google-style docstrings for public functions and classes.
+- Keep functions focused. Split functions once they become hard to scan.
+- Avoid wildcard imports.
 
-## Architecture principles
+## Architecture Principles
 
-- **Adapter pattern** for format support: each document format (DICOM, CSV, plain text) gets its own loader and writer. New formats are added by implementing a new adapter, not by changing the engine.
-- **Taxonomy-agnostic**: the pipeline does not define PII categories. It consumes an externally provided IdentifierSchema (pydantic model). Never hardcode identifier types.
-- **Separation of concerns**: document model, injection logic, and validation are independent components. They communicate through well-defined pydantic models.
-- **Reproducibility**: all randomness must be seeded. Given the same config and seed, the pipeline must produce identical output.
-- **Ground truth as artifact**: annotations are stored as a separate, versioned output (JSONL), never embedded in the output documents.
+- **Adapter pattern:** each document format gets its own loader and writer.
+- **Taxonomy-agnostic:** consume an external identifier schema; do not hardcode
+  PII categories in production pipeline logic.
+- **Separation of concerns:** document models, injection logic, writing, and
+  validation communicate through explicit models.
+- **Reproducibility:** seed all randomness.
+- **Ground truth as artifact:** store annotations separately from output
+  documents.
 
 ## Testing
 
-- Every public function needs a unit test
-- Use pytest fixtures for reusable test data
-- Integration tests use small sample files in tests/fixtures/
-- Test file naming: test_<module_name>.py
-- Aim for high coverage on models/, engine/, and validators/
+- Add unit tests for public functions.
+- Use pytest fixtures for reusable sample data.
+- Keep integration tests small and fixture-based.
+- Name tests `test_<module_name>.py`.
+- Prioritize coverage for `models/`, `engine/`, and `validators/`.
 
 ## Git
 
-- Conventional commits: feat:, fix:, refactor:, test:, docs:
-- Branch naming: feature/<short-description>, fix/<short-description>
-- Keep commits atomic — one logical change per commit
-- Do not commit test data that contains real patient information (even if anonymized MIMIC data — keep it in .gitignore)
+- Conventional commits: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`.
+- Branches: `feature/<short-description>` or `fix/<short-description>`.
+- Keep commits atomic.
+- Do not commit real patient data, MIMIC-derived data, generated assets, model
+  weights, or secrets.
 
-## What this project is NOT
+## Out of Scope
 
-- Not a de-identification tool — it does the inverse (injection, not removal)
-- Not responsible for defining which PII categories exist — that comes from an external team
-- Not a clinical system — no real patient data is processed or generated
-- Not a web application — this is a CLI/library pipeline
+- De-identification
+- Defining PII categories
+- Clinical use
+- Web application work
 
-## Codex safety rules
+## Codex Safety Rules
 
-- Default mode: use sandboxed workspace access.
+- Use sandboxed workspace access by default.
 - Do not access the network unless explicitly approved.
 - Do not install, update, or remove dependencies without approval.
 - Do not edit files outside the repository.
-- Do not delete files, rewrite git history, or run destructive commands without approval.
-- Do not commit secrets, credentials, real patient data, or MIMIC-derived sample data.
-- Before changing architecture, public APIs, schemas, or config formats, propose a plan first.
-- Prefer small diffs. Avoid unrelated refactoring.
+- Do not delete files, rewrite git history, or run destructive commands without
+  approval.
+- Do not commit secrets, credentials, real patient data, or MIMIC-derived sample
+  data.
+- Propose a plan before changing architecture, public APIs, schemas, or config
+  formats.
+- Prefer small diffs and avoid unrelated refactoring.
 
-## Documentation usage rules
+## Documentation Rules
 
-- `PLAN.md` is the roadmap and task-prioritization layer, not the place for raw findings.
-- The `docs/` tree is the canonical place for research findings, summaries, decisions, and thesis traceability.
-- `docs/archive/` contains superseded or invalidated findings from earlier iterations — do not use as source of truth.
-- For documentation, docstring, and code-comment tasks, use the `commenting-guidelines` skill when it is available in the active Codex skill set.
-- Agents should read the latest relevant consolidated documentation before starting substantial work.
-- Start with the most recent phase `summary.md` and `open-questions.md`, then open only the findings or decisions that are directly relevant to the task.
-- Treat accepted decisions as the stable source of truth once they exist.
-- If a finding and a phase summary disagree, treat that as a signal to refresh the summary rather than silently combining inconsistent states.
-- Avoid loading the entire `docs/` tree by default; prefer the smallest relevant context.
+- `PLAN.md` is the roadmap and prioritization layer.
+- `docs/` is the source for findings, summaries, decisions, and thesis
+  traceability.
+- `docs/archive/` contains superseded material. Do not use it as source of
+  truth.
+- For documentation, docstring, and code-comment tasks, use the
+  `commenting-guidelines` skill when available.
+- Start substantial work from the newest relevant `summary.md` and
+  `open-questions.md`. If they do not exist, note the gap and use only directly
+  relevant current files.
+- Treat accepted decisions as stable.
+- If a finding and summary disagree, update the summary instead of combining
+  inconsistent states.
+- Read the smallest useful slice of `docs/`.
 
-## Current project state (as of 2026-04-22)
+## Current Project State
 
-Phase 1 (Datenanalyse) is open and being restarted from scratch. All prior Phase-1 findings have been archived under `docs/archive/research/phase-1/` and are considered invalid. The `src/` code and folder structure are intact. New findings should be written to `docs/research/phase-1/findings/` following the template in `docs/templates/finding.md`.
+As of 2026-06-12:
+
+- `src/injection_pipeline/` contains the production package structure.
+- The active DICOM/JPG prototype still runs from `prototypes/dicom/`.
+- `MIGRATION_PLAN.md` defines the planned migration into `src/injection_pipeline/`.
+- New findings belong in `docs/research/phase-1/findings/` using
+  `docs/templates/finding.md`.
