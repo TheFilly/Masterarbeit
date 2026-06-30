@@ -16,17 +16,18 @@ PII-Traegern und Adressierungsmodi kann das Dokumentmodell nicht stabil werden.
 **Phase 1:** Am 2026-04-22 neu gestartet. Fruehere Findings liegen unter
 `docs/archive/research/phase-1/` und sind nicht mehr gueltig.
 
-**DICOM/JPG-Prototyp:** Der aktive Prototyp liegt weiter in `prototypes/dicom/`.
-Er injiziert fuenf DICOM-Tags, rendert sichtbare PII fuer DCM/JPG und schreibt
-`ground_truth.json`.
+**DICOM/JPG-Pipeline:** Der fruehere Prototyp ist nach
+`src/injection_pipeline/` migriert. Er injiziert fuenf DICOM-Tags, rendert
+sichtbare PII fuer DCM/JPG und schreibt `ground_truth.json` im
+`0.2.0-prototype` Schema.
 
-**Prototype-Migration:** `MIGRATION_PLAN.md` beschreibt die geplante Migration
-des Prototyps nach `src/injection_pipeline/`. Der Code ist noch nicht migriert;
-`src/injection_pipeline/` enthaelt derzeit die Produktionsstruktur.
+**Package Entry Point:** Die migrierte Pipeline laeuft ueber
+`uv run injection-pipeline ...` oder `uv run python -m injection_pipeline ...`.
+Operational Details stehen in `docs/dicom-injection.md`.
 
-`prototypes/prototype_plan.md` enthaelt den operativen Prototyp-Backlog.
-`prototypes/dicom/README.md` beschreibt CLI, Output und Ground Truth des
-aktuellen Prototyps.
+`prototypes/prototype_plan.md` enthaelt den abgeschlossenen Prototyp-Status und
+Phase-2-Handover-Notizen. Lokale `prototypes/dicom/output_validation_*`
+Artefakte bleiben eingefrorene Referenzen.
 
 ## Priorisierung
 

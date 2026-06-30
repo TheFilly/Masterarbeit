@@ -11,11 +11,11 @@ ground-truth artifact for every injected value.
 
 - Phase 1 data analysis was restarted on 2026-04-22. Old Phase-1 findings live
   in `docs/archive/research/phase-1/` and are not source of truth.
-- `src/injection_pipeline/` contains the package structure for the production
-  pipeline.
-- The working DICOM/JPG prototype still lives in `prototypes/dicom/`.
-- `MIGRATION_PLAN.md` describes the planned move from `prototypes/dicom/` into
-  `src/injection_pipeline/`.
+- `src/injection_pipeline/` contains the package structure and the migrated
+  DICOM/JPG injection pipeline.
+- Run the migrated DICOM/JPG path with `uv run injection-pipeline ...` or
+  `uv run python -m injection_pipeline ...`.
+- DICOM/JPG operational details live in `docs/dicom-injection.md`.
 - New Phase-1 findings belong in `docs/research/phase-1/findings/`.
 
 ## Stack
@@ -35,7 +35,7 @@ ground-truth artifact for every injected value.
 
 ```text
 InjectionPipeline/
-|-- src/injection_pipeline/       # Production package skeleton
+|-- src/injection_pipeline/       # Package code and migrated DICOM/JPG pipeline
 |   |-- models/
 |   |-- loaders/
 |   |-- engine/
@@ -43,7 +43,7 @@ InjectionPipeline/
 |   |-- validators/
 |   |-- config/
 |   `-- identity/
-|-- prototypes/dicom/             # Active DICOM/JPG prototype
+|-- prototypes/dicom/             # Frozen DICOM/JPG validation artifacts
 |-- tools/handwriting/            # Isolated handwriting tooling
 |-- tests/
 |-- configs/
@@ -80,14 +80,13 @@ Run all local gates:
 uv run ruff check src/ tests/ && uv run mypy src/ && uv run pytest tests/ -x
 ```
 
-Run the current prototype:
+Run the migrated DICOM/JPG pipeline:
 
 ```bash
-uv run python prototypes/dicom/inject.py --seed 42 --rotation-angle 20
+uv run injection-pipeline --seed 42 --rotation-angle 20
 ```
 
-The future production entry point is planned in `MIGRATION_PLAN.md`; it is not
-available yet.
+The same CLI is also available through `uv run python -m injection_pipeline`.
 
 ## Architecture Rules
 
@@ -107,8 +106,8 @@ Each run produces:
 | Modified document | Input document with injected synthetic PII |
 | Ground truth | Separate annotation artifact with positions, identifier type, value, and metadata |
 
-The prototype currently writes `ground_truth.json`; the planned production
-contract is JSONL.
+The migrated DICOM/JPG path currently writes `ground_truth.json` with schema
+`0.2.0-prototype`; the planned production contract remains JSONL.
 
 ## Not In Scope
 

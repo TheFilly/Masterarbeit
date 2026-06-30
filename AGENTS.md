@@ -27,7 +27,7 @@ InjectionPipeline/
 |   |-- validators/
 |   |-- config/
 |   `-- identity/
-|-- prototypes/dicom/        # Active DICOM/JPG prototype
+|-- prototypes/dicom/        # Frozen DICOM/JPG validation artifacts
 |-- tools/handwriting/       # Isolated handwriting tooling
 |-- tests/
 |-- configs/
@@ -45,7 +45,7 @@ InjectionPipeline/
 - `uv run ruff check src/ tests/` - lint
 - `uv run ruff format src/ tests/` - format
 - `uv run mypy src/` - type check
-- `uv run python prototypes/dicom/inject.py --seed 42` - run the current prototype
+- `uv run injection-pipeline --seed 42` - run the migrated DICOM/JPG pipeline
 
 ## Code Style
 
@@ -126,10 +126,15 @@ InjectionPipeline/
 
 ## Current Project State
 
-As of 2026-06-12:
+As of 2026-06-30:
 
-- `src/injection_pipeline/` contains the production package structure.
-- The active DICOM/JPG prototype still runs from `prototypes/dicom/`.
-- `MIGRATION_PLAN.md` defines the planned migration into `src/injection_pipeline/`.
+- `src/injection_pipeline/` contains the package structure and the migrated
+  DICOM/JPG injection pipeline.
+- The DICOM/JPG entry point is `uv run injection-pipeline ...` or
+  `uv run python -m injection_pipeline ...`.
+- `docs/dicom-injection.md` documents CLI usage, output artifacts, and the
+  `0.2.0-prototype` ground-truth schema.
+- `prototypes/dicom/` keeps frozen local validation artifacts; executable code
+  no longer lives there.
 - New findings belong in `docs/research/phase-1/findings/` using
   `docs/templates/finding.md`.

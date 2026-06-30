@@ -2,22 +2,21 @@
 
 ## Purpose
 
-Track the active DICOM/JPG prototype in `prototypes/dicom/`. The prototype
-proves feasibility for DICOM tag injection, visible pixel injection, reproducible
-placement, and a prototype ground-truth artifact. It does not define the final
-`src/` architecture.
+Record the concluded DICOM/JPG prototype and its handover into the package
+pipeline. The prototype proved feasibility for DICOM tag injection, visible
+pixel injection, reproducible placement, and a prototype ground-truth artifact.
 
-`PLAN.md` remains the project roadmap. `MIGRATION_PLAN.md` covers the planned
-move from prototype code into `src/injection_pipeline/`.
+`PLAN.md` remains the project roadmap. Operational usage now lives in
+`docs/dicom-injection.md`.
 
 ## Status
 
-- Scope: `prototypes/dicom/`
-- Status: active prototype, not yet migrated
-- Last reviewed: 2026-06-12
-- Main goal: preserve prototype evidence and prepare Phase-2 handover.
+- Scope: migrated from `prototypes/dicom/` to `src/injection_pipeline/`
+- Status: concluded and packaged
+- Last reviewed: 2026-06-30
+- Entry point: `uv run injection-pipeline ...`
 
-## Current Capabilities
+## Migrated Capabilities
 
 - Injects five fixed DICOM tags.
 - Renders visible PII for `PatientName`, `PatientID`, and `AccessionNumber`.
@@ -38,30 +37,27 @@ move from prototype code into `src/injection_pipeline/`.
 - AP5: expanded run folder and `run_id` schema.
 - AP6: mask-derived visible boxes for full text, PII value, and optional label.
 - Handwriting MVP: ScrabbleGAN scaffold, manifest contract, fake renderer,
-  validation, and prototype-side asset rendering.
+  validation, and package-side asset rendering.
+- Prototype migration: code moved into `src/injection_pipeline/` with CLI entry
+  point and equivalence checks against frozen baseline runs.
 
 Validation artifacts remain in gitignored `prototypes/dicom/output_validation_*`
 folders.
 
-## Open Work
+## Phase-2 Handover Notes
 
-1. Design the unified annotation schema for Phase 2.
+Open work carries forward to `PLAN.md` Phase 2:
+
+1. Design the unified annotation schema.
 2. Prepare the Phase-2 handover from prototype behavior to production models.
 3. Decide how ScrabbleGAN should become productive. `tools/handwriting/scrabblegan/UPSTREAM_REVIEW.md`
    lists current blockers for real generation.
 
-## Phase-2 Handover Notes
+Additional notes:
 
 - Separate `span_annotations`, `box_annotations`, and
   `dicom_tag_annotations`.
 - Define shared metadata and format-specific fields.
 - Keep the prototype schema `0.2.0-prototype` separate from the later
   production API.
-- Mark prototype heuristics explicitly before reusing them in `src/`.
-
-## Acceptance Criteria
-
-- This file names the active prototype state and open handover work.
-- Completed prototype tasks no longer appear as open tasks.
-- Annotation-schema work covers spans, boxes, and DICOM tags.
-- Prototype behavior stays separate from production design.
+- Mark prototype heuristics explicitly before reusing them in Phase 2 models.
