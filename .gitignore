@@ -25,6 +25,9 @@ htmlcov/
 # Ruff
 .ruff_cache/
 
+# Local git worktrees
+.worktrees/
+
 # Editors
 .vscode/
 .idea/
