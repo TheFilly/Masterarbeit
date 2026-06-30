@@ -10,8 +10,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from dicom_writer import inject_tags, load_dicom, save_dicom, summarize_dicom
-from identity import generate_identity
+from injection_pipeline.engine.dicom_tags import inject_tags
+from injection_pipeline.identity.generator import generate_identity
+from injection_pipeline.loaders.dicom import load_dicom, summarize_dicom
+from injection_pipeline.writers.dicom import save_dicom
 from PIL import Image
 from pixel_injection import (
     ALLOWED_ROTATIONS_DEGREES,
