@@ -20,7 +20,7 @@ from injection_pipeline.engine.pixel_injection import (
     inject_visible_text,
     inject_visible_text_into_image,
 )
-from view import create_annotated_preview
+from injection_pipeline.writers.preview import create_annotated_preview
 
 _DEFAULT_DICOM_DIR = Path("DycomData/Dicom-Files")
 _DEFAULT_IMAGE_DIR = Path("DycomData/images")
