@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pydicom
 from PIL import Image
-from pixel_injection import extract_preview_frame
+from injection_pipeline.engine.pixel_injection import extract_preview_frame
 
 DEFAULT_DICOM_PATH = Path(
     "DycomData/Anonymization/original_data/"

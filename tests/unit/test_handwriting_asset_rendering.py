@@ -9,7 +9,7 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "prototypes" / "dicom"))
 
 from inject import _apply_handwriting_assets, _build_record, _load_handwriting_manifest
-from pixel_injection import (
+from injection_pipeline.engine.pixel_injection import (
     _inject_visible_text_into_frame,
     _render_frame_with_annotations,
 )

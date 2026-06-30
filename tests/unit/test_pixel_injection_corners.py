@@ -1,4 +1,3 @@
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -12,9 +11,7 @@ from pydicom.uid import (
     generate_uid,
 )
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "prototypes" / "dicom"))
-
-from pixel_injection import (
+from injection_pipeline.engine.pixel_injection import (
     _build_box_annotation,
     _estimate_rotated_size,
     _prepare_annotation_overlay,

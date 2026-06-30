@@ -15,7 +15,7 @@ from injection_pipeline.identity.generator import generate_identity
 from injection_pipeline.loaders.dicom import load_dicom, summarize_dicom
 from injection_pipeline.writers.dicom import save_dicom
 from PIL import Image
-from pixel_injection import (
+from injection_pipeline.engine.pixel_injection import (
     ALLOWED_ROTATIONS_DEGREES,
     inject_visible_text,
     inject_visible_text_into_image,
