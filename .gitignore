@@ -45,3 +45,4 @@ tests/fixtures/*.txt
 prototypes/dicom/output*/
 prototypes/dicom/output_review/
 prototypes/dicom/output_review_90/
+output/

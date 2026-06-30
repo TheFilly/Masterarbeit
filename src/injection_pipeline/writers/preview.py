@@ -15,7 +15,7 @@ DEFAULT_DICOM_PATH = Path(
     "DycomData/Anonymization/original_data/"
     "patient_10080695_23273240/echo/91180014_0001.dcm"
 )
-DEFAULT_PREVIEW_PATH = Path("prototypes/dicom/output/preview.png")
+DEFAULT_PREVIEW_PATH = Path("output/preview.png")
 
 
 # Input: `source_path` mit DICOM- oder Bilddatei, `output_path` mit Zielpfad.

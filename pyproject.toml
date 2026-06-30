@@ -16,6 +16,9 @@ dependencies = [
     "matplotlib>=3.10.8",
 ]
 
+[project.scripts]
+injection-pipeline = "injection_pipeline.cli:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
