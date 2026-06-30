@@ -739,16 +739,14 @@ def _materialize_positions(
         corner = rng.choice(["top_left", "top_right", "bottom_left", "bottom_right"])
 
         if corner in ("bottom_left", "bottom_right"):
-            total_height = (
-                sum(rot_h for _, rot_h in sizes) + vertical_gap * max(0, len(sizes) - 1)
+            total_height = sum(rot_h for _, rot_h in sizes) + vertical_gap * max(
+                0, len(sizes) - 1
             )
             current_y = max(v_margin, image_height - v_margin - total_height)
         else:
             current_y = v_margin
 
-        for injection, (rot_w, rot_h) in zip(
-            visible_injections, sizes, strict=True
-        ):
+        for injection, (rot_w, rot_h) in zip(visible_injections, sizes, strict=True):
             if corner in ("top_right", "bottom_right"):
                 x = max(h_margin, image_width - h_margin - rot_w)
             else:
@@ -765,9 +763,7 @@ def _materialize_positions(
             current_y += rot_h + vertical_gap
 
     elif placement_mode == "free":
-        for injection, (rot_w, rot_h) in zip(
-            visible_injections, sizes, strict=True
-        ):
+        for injection, (rot_w, rot_h) in zip(visible_injections, sizes, strict=True):
             x_max = max(h_margin, image_width - rot_w - h_margin)
             y_max = max(v_margin, image_height - rot_h - v_margin)
             x = rng.randint(h_margin, x_max)

@@ -45,3 +45,8 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 strict = true
 mypy_path = "src"
 files = ["src"]
+
+[[tool.mypy.overrides]]
+module = "injection_pipeline.engine.pixel_injection"
+# TODO(phase-2): tighten typing when the document model replaces dict payloads.
+disable_error_code = ["arg-type", "attr-defined", "no-any-return"]

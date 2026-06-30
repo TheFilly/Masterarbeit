@@ -13,9 +13,10 @@ from injection_pipeline.runner import (
     _FONT_FAMILY_CHOICES,
     _SHOW_LABEL_BOX_CHOICES,
     _TEXT_BACKGROUND_CHOICES,
-    _select_default_input_path,
     run,
 )
+
+
 # Input: `raw_value` mit Nutzereingabe, `parameter_name` fuer Fehlermeldungen.
 # Output: Geparster Integer.
 # Die Funktion kapselt die CLI-Fehlermeldung und wirft bei ungueltigen Werten
@@ -207,9 +208,7 @@ def _collect_interactive_args() -> argparse.Namespace:
         purpose="Placement strategy for visible injected text.",
         expected_inputs="free or corners",
         default_value="corners",
-        parser=lambda raw: _validate_choice(
-            "placement-mode", raw, ("free", "corners")
-        ),
+        parser=lambda raw: _validate_choice("placement-mode", raw, ("free", "corners")),
     )
     font_family = _prompt_for_value(
         parameter_name="font-family",
@@ -249,7 +248,6 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise ValueError("--font-size-pct must be >= 1.")
     if args.handwriting_asset and args.handwriting_manifest is None:
         raise ValueError("--handwriting-asset requires --handwriting-manifest.")
-
 
 
 # Entry point for the DICOM/JPG injection pipeline.

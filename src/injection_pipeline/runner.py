@@ -7,16 +7,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from injection_pipeline.engine.dicom_tags import inject_tags
-from injection_pipeline.identity.generator import generate_identity
-from injection_pipeline.loaders.dicom import load_dicom, summarize_dicom
-from injection_pipeline.writers.dicom import save_dicom
 from PIL import Image
+
+from injection_pipeline.engine.dicom_tags import inject_tags
 from injection_pipeline.engine.pixel_injection import (
-    ALLOWED_ROTATIONS_DEGREES,
     inject_visible_text,
     inject_visible_text_into_image,
 )
+from injection_pipeline.identity.generator import generate_identity
+from injection_pipeline.loaders.dicom import load_dicom, summarize_dicom
+from injection_pipeline.writers.dicom import save_dicom
 from injection_pipeline.writers.preview import create_annotated_preview
 
 _DEFAULT_DICOM_DIR = Path("DycomData/Dicom-Files")
@@ -67,9 +67,7 @@ def _load_handwriting_manifest(manifest_path: Path) -> dict[str, dict[str, Any]]
     raw_text = manifest_path.read_text(encoding="utf-8")
     if manifest_path.suffix.lower() == ".jsonl":
         raw_assets = [
-            json.loads(line)
-            for line in raw_text.splitlines()
-            if line.strip()
+            json.loads(line) for line in raw_text.splitlines() if line.strip()
         ]
     else:
         payload = json.loads(raw_text)
@@ -663,26 +661,26 @@ def run(args: Any) -> None:
 
     record = _attach_dicom_contexts(
         _build_record(
-        run_id=run_id,
-        seed=args.seed,
-        rotation_degrees=args.rotation_angle,
-        placement_mode=args.placement_mode,
-        font_size_pct=args.font_size_pct,
-        font_family=args.font_family,
-        text_background=args.text_background,
-        document_type=document_type,
-        example_type=example_type,
-        input_path=input_path,
-        output_path=output_paths["output_file"],
-        preview_path=output_paths["preview_file"],
-        annotated_preview_path=output_paths["annotated_preview_file"],
-        identity=identity_a,
-        source_dicom_context=source_dicom_context,
-        output_dicom_context=output_dicom_context,
-        tag_annotations=tag_annotations,
-        box_annotations=pixel_result["box_annotations"],
-        visible_render_plan=visible_render_plan,
-        pixel_result=pixel_result,
+            run_id=run_id,
+            seed=args.seed,
+            rotation_degrees=args.rotation_angle,
+            placement_mode=args.placement_mode,
+            font_size_pct=args.font_size_pct,
+            font_family=args.font_family,
+            text_background=args.text_background,
+            document_type=document_type,
+            example_type=example_type,
+            input_path=input_path,
+            output_path=output_paths["output_file"],
+            preview_path=output_paths["preview_file"],
+            annotated_preview_path=output_paths["annotated_preview_file"],
+            identity=identity_a,
+            source_dicom_context=source_dicom_context,
+            output_dicom_context=output_dicom_context,
+            tag_annotations=tag_annotations,
+            box_annotations=pixel_result["box_annotations"],
+            visible_render_plan=visible_render_plan,
+            pixel_result=pixel_result,
         ),
         source_dicom_context=source_dicom_context,
         output_dicom_context=output_dicom_context,
@@ -707,4 +705,3 @@ def run(args: Any) -> None:
     print("\nSecond identity (seed+1, not injected):")
     for key, value in identity_b.items():
         print(f"  {key}: {value}")
-

@@ -65,11 +65,9 @@ def test_resolve_input_path_uses_default_selector_when_missing(
 def test_prompt_for_input_path_accepts_random_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    selected_path = Path("DycomData/images/random.jpg")
     prompts = iter([""])
 
     monkeypatch.setattr("builtins.input", lambda _: next(prompts))
-    monkeypatch.setattr(cli, "_select_default_input_path", lambda: selected_path)
 
     assert cli._prompt_for_input_path() is None
 
