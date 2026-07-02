@@ -11,6 +11,7 @@ from pydicom.uid import (
     generate_uid,
 )
 
+from injection_pipeline.engine import pixel_injection
 from injection_pipeline.engine.pixel_injection import (
     _build_box_annotation,
     _estimate_rotated_size,
@@ -91,6 +92,38 @@ def test_split_prefix_and_pii_text_for_prefixed_identifier() -> None:
     )
     assert prefix_text == "ACC-"
     assert pii_text == "0013389"
+
+
+def test_load_default_font_uses_first_existing_candidate(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    missing_path = tmp_path / "missing.ttf"
+    existing_path = tmp_path / "existing.ttf"
+    existing_path.write_bytes(b"font")
+    loaded_font = object()
+    calls: list[tuple[Path, int]] = []
+
+    def fake_truetype(
+        font: str | bytes | Path,
+        size: float = 10,
+        index: int = 0,
+        encoding: str = "",
+        layout_engine: ImageFont.Layout | None = None,
+    ) -> object:
+        del index, encoding, layout_engine
+        calls.append((Path(font), int(size)))
+        return loaded_font
+
+    monkeypatch.setitem(
+        pixel_injection._FONT_PATHS,
+        "arial",
+        (missing_path, existing_path),
+    )
+    monkeypatch.setattr(pixel_injection.ImageFont, "truetype", fake_truetype)
+
+    assert pixel_injection.load_default_font("arial", font_size_px=24) is loaded_font
+    assert calls == [(existing_path, 24)]
 
 
 def test_build_box_annotation_keeps_optional_label_corners() -> None:
