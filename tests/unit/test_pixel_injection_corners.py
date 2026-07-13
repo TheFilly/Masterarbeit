@@ -182,6 +182,30 @@ def test_prepare_annotation_overlay_tracks_mask_bounds_separately() -> None:
     )
 
 
+def test_prepare_annotation_overlay_serializes_path_font_name() -> None:
+    font = ImageFont.load_default()
+    font.path = Path("fixtures") / "unit-font.ttf"
+
+    overlay = _prepare_annotation_overlay(
+        {
+            "label": "PatientID",
+            "text": "SYNTH-433218",
+            "text_segments": [
+                {"kind": "generic", "text": "SYNTH-"},
+                {"kind": "pii", "text": "433218"},
+            ],
+            "rotation_degrees": 0,
+            "padding": 4,
+            "stroke_width": 0,
+        },
+        font,
+        font_family="unit_test",
+        text_background="white",
+    )
+
+    assert overlay["render_metadata"]["font_name"] == str(font.path)
+
+
 def test_render_single_annotation_background_does_not_expand_pii_box() -> None:
     image = Image.new("RGB", (220, 80), (0, 0, 0))
     font = ImageFont.load_default()

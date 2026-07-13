@@ -132,6 +132,7 @@ def _render_single_annotation(
 # Output: Gerenderte Overlay-Layer samt maskenbasierter Geometrie.
 # Die Funktion erzeugt getrennte Masken fuer Volltext, PII-Teil und optionales
 # Praefix und liest die finalen Bounds erst nach der Rotation aus den Masken aus.
+# Font-Metadaten werden dabei JSON-sicher normalisiert.
 def _prepare_annotation_overlay(
     annotation: dict[str, Any],
     font: ImageFont.ImageFont | ImageFont.FreeTypeFont,
@@ -220,6 +221,8 @@ def _prepare_annotation_overlay(
         rotation, expand=True, resample=Image.Resampling.BICUBIC
     )
     prefix_text, pii_text = _split_prefix_and_pii_text(text_segments)
+    font_path = getattr(font, "path", None)
+    font_name = "PillowDefaultFont" if font_path is None else str(font_path)
 
     return {
         "label": annotation.get("label", "visible_text"),
@@ -241,7 +244,7 @@ def _prepare_annotation_overlay(
         "label_rotated_bounds": _thresholded_mask_bounds(label_mask_rotated),
         "render_metadata": {
             "font_family": font_family,
-            "font_name": getattr(font, "path", "PillowDefaultFont"),
+            "font_name": font_name,
             "font_size": getattr(font, "size", None),
             "padding": padding,
             "fill_rgb": list(fill),
