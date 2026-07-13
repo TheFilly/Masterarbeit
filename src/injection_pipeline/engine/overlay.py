@@ -1,5 +1,6 @@
 """Font-text overlay rendering for pixel injection."""
 
+from pathlib import Path
 from typing import Any, cast
 
 import numpy as np
@@ -29,6 +30,18 @@ from injection_pipeline.engine.segments import (
 _TEXT_BACKGROUND_COLORS: dict[str, tuple[int, int, int]] = {
     "white": (255, 255, 255),
 }
+
+
+# Input: `font_path` from Pillow metadata or `None` for the default font.
+# Output: Stable string used in JSON render metadata.
+# The function keeps the prototype fallback and uses POSIX separators so
+# platform path syntax does not change serialized metadata.
+def _normalize_font_name(font_path: object) -> str:
+    if font_path is None:
+        return "PillowDefaultFont"
+    if isinstance(font_path, Path):
+        return font_path.as_posix()
+    return str(font_path).replace("\\", "/")
 
 
 # Input: `frame` mit Preview-Pixeln, `annotations` mit Overlay-Spezifikationen.
@@ -221,8 +234,6 @@ def _prepare_annotation_overlay(
         rotation, expand=True, resample=Image.Resampling.BICUBIC
     )
     prefix_text, pii_text = _split_prefix_and_pii_text(text_segments)
-    font_path = getattr(font, "path", None)
-    font_name = "PillowDefaultFont" if font_path is None else str(font_path)
 
     return {
         "label": annotation.get("label", "visible_text"),
@@ -244,7 +255,7 @@ def _prepare_annotation_overlay(
         "label_rotated_bounds": _thresholded_mask_bounds(label_mask_rotated),
         "render_metadata": {
             "font_family": font_family,
-            "font_name": font_name,
+            "font_name": _normalize_font_name(getattr(font, "path", None)),
             "font_size": getattr(font, "size", None),
             "padding": padding,
             "fill_rgb": list(fill),

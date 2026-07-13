@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import shutil
 from argparse import Namespace
 from datetime import datetime
 from pathlib import Path
@@ -25,10 +26,13 @@ _FIXED_RUN_TIMESTAMP = datetime(2026, 7, 10, 12, 0, 0)
 # - JSON record hashes changed because E2E now uses `_FIXED_RUN_TIMESTAMP`.
 # - DCM bytes changed from b5c13f... to a040f8... because `reference_date`
 #   now reproduces Fakers exact 2026-07-10 `date_of_birth` path.
+# Reference update 2026-07-13:
+# - JSON artifact and record hashes changed because E2E now uses a stable
+#   relative font fixture path instead of platform-specific matplotlib paths.
 _BINARY_REFERENCE_HASHES: dict[str, dict[str, str]] = {
     "dcm": {
         "ground_truth.json": (
-            "ab32d18ac71d9f97e0dc2de02c0f5029f726136a62a02277e2d111c9d67a062e"
+            "4bc99ae7aadd2e91d826761ef297fb9e9f6d2d1aa5ebea9a9ef6d61a75ff45dc"
         ),
         "preview.png": (
             "008b68b3b6f741f8b5e5e70efb54584ce0e7380f597121c1f8b091b66f27817e"
@@ -37,7 +41,7 @@ _BINARY_REFERENCE_HASHES: dict[str, dict[str, str]] = {
             "72c098a322f41d1ffaf1d0e5aea953050d19e6f432fc196ad7bcbcc12e52772e"
         ),
         "run_manifest.json": (
-            "1bab55ce3a37e587fe85fdf789bcc480c3dba0d80780d116518353d666e74098"
+            "551ea4f9ef4f58819c4cbfa54527b7c250c3bf1ffee91593a8e76ba73bf95a67"
         ),
         "synthetic_injected.dcm": (
             "a040f800edec2649dcaa67407d98599fceb4dcee858d9cdaea6f9d6af32557e3"
@@ -45,7 +49,7 @@ _BINARY_REFERENCE_HASHES: dict[str, dict[str, str]] = {
     },
     "jpg": {
         "ground_truth.json": (
-            "cc580063aaf36afebc96130b9537e41ef3a8b7d895826a1cacc99ffd8b62555c"
+            "be9ddccebb9c1d4ce5987e9843ab751261ced60db8b0f48edd806a30a0f24d24"
         ),
         "preview.png": (
             "1ecae9e8798567a5e48baa475cb8e25b9b51dad6a5f822ba91680a99ead21724"
@@ -54,7 +58,7 @@ _BINARY_REFERENCE_HASHES: dict[str, dict[str, str]] = {
             "d8109a29c3c6ff5ef01ec30533a16f629162dd2c2d0fc7bd5c593c31cda4c162"
         ),
         "run_manifest.json": (
-            "ba57f8db2dd426d919487503b027ddead80046386e785381d965f32139f24594"
+            "8615689c5d052ed1ebede338a459e87cb41a3312b15c73f1fac60b63d4aef668"
         ),
         "synthetic_injected.jpg": (
             "ae66c33fa49e6b0a705d762cff13c489d129db0845711ebbbd583c3c484f922c"
@@ -62,8 +66,8 @@ _BINARY_REFERENCE_HASHES: dict[str, dict[str, str]] = {
     },
 }
 _RECORD_REFERENCE_HASHES = {
-    "dcm": "62e64daa3693f621e46824a94aa261fe8b057ad693580e619ad91455efa147de",
-    "jpg": "4720d1e37662c68bd5e1e1c9204dd65bd2bc2431df4e2b232387a5ef3e27c8e8",
+    "dcm": "024d5239b39967a2aae0c1562a7cadfcd4a22a352948017ef48657ec8bf26957",
+    "jpg": "a3d39b22c9aa3d35592ef01b1de5fad18d41bd4a399cdc3cf410aed8c70816c1",
 }
 
 
@@ -71,6 +75,15 @@ _RECORD_REFERENCE_HASHES = {
 # Output: Lowercase SHA-256 digest for the complete file contents.
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _install_reference_font(relative_font_path: Path) -> Path:
+    source_font_path = (
+        Path(matplotlib.get_data_path()) / "fonts" / "ttf" / "DejaVuSans.ttf"
+    )
+    relative_font_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source_font_path, relative_font_path)
+    return relative_font_path
 
 
 # Input: Run record and its expected document type.
@@ -170,12 +183,12 @@ def test_pipeline_artifacts_match_frozen_references(
     capsys: pytest.CaptureFixture[str],
     document_type: str,
 ) -> None:
-    font_path = Path(matplotlib.get_data_path()) / "fonts" / "ttf" / "DejaVuSans.ttf"
-    monkeypatch.setitem(pixel_injection._FONT_PATHS, "arial", str(font_path))
     monkeypatch.chdir(tmp_path)
+    font_path = _install_reference_font(Path("fixtures") / "fonts" / "DejaVuSans.ttf")
+    monkeypatch.setitem(pixel_injection._FONT_PATHS, "arial", font_path.as_posix())
 
     input_dir = Path("fixtures")
-    input_dir.mkdir()
+    input_dir.mkdir(exist_ok=True)
     input_path = input_dir / f"synthetic.{document_type}"
     if document_type == "dcm":
         write_synthetic_dicom(input_path)
@@ -227,12 +240,12 @@ def test_pipeline_accepts_toy_identifier_schema_without_code_changes(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    font_path = Path(matplotlib.get_data_path()) / "fonts" / "ttf" / "DejaVuSans.ttf"
-    monkeypatch.setitem(pixel_injection._FONT_PATHS, "arial", str(font_path))
     monkeypatch.chdir(tmp_path)
+    font_path = _install_reference_font(Path("fixtures") / "fonts" / "DejaVuSans.ttf")
+    monkeypatch.setitem(pixel_injection._FONT_PATHS, "arial", font_path.as_posix())
 
     input_dir = Path("fixtures")
-    input_dir.mkdir()
+    input_dir.mkdir(exist_ok=True)
     input_path = input_dir / "synthetic.jpg"
     write_synthetic_jpg(input_path)
 

@@ -18,6 +18,7 @@ DycomData/
 .coverage.*
 coverage.xml
 htmlcov/
+.tmp_pytest_hashes/
 
 # Mypy
 .mypy_cache/

@@ -203,7 +203,7 @@ def test_prepare_annotation_overlay_serializes_path_font_name() -> None:
         text_background="white",
     )
 
-    assert overlay["render_metadata"]["font_name"] == str(font.path)
+    assert overlay["render_metadata"]["font_name"] == "fixtures/unit-font.ttf"
 
 
 def test_render_single_annotation_background_does_not_expand_pii_box() -> None:
