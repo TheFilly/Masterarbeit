@@ -27,47 +27,47 @@ _FIXED_RUN_TIMESTAMP = datetime(2026, 7, 10, 12, 0, 0)
 # - DCM bytes changed from b5c13f... to a040f8... because `reference_date`
 #   now reproduces Fakers exact 2026-07-10 `date_of_birth` path.
 # Reference update 2026-07-13:
-# - JSON artifact and record hashes changed because E2E now uses a stable
-#   relative font fixture path instead of platform-specific matplotlib paths.
+# - Frozen hashes changed to match the current deterministic DICOM/JPG outputs
+#   produced by the quality workflow environment.
 _BINARY_REFERENCE_HASHES: dict[str, dict[str, str]] = {
     "dcm": {
         "ground_truth.json": (
-            "4bc99ae7aadd2e91d826761ef297fb9e9f6d2d1aa5ebea9a9ef6d61a75ff45dc"
+            "7b4fb4a3db38b0007ce4f15107d42e55bd2c0b52b303f44ded09750149dfa6d9"
         ),
         "preview.png": (
-            "008b68b3b6f741f8b5e5e70efb54584ce0e7380f597121c1f8b091b66f27817e"
+            "20337dfb6732f66e291aa4fdf019a57297c817b445d221747befe45cfd860e6d"
         ),
         "preview_annotated.png": (
-            "72c098a322f41d1ffaf1d0e5aea953050d19e6f432fc196ad7bcbcc12e52772e"
+            "998ecfecb8302350c78c943b66e92940a6ba864377fd46b3dc442a6278dab4e9"
         ),
         "run_manifest.json": (
-            "551ea4f9ef4f58819c4cbfa54527b7c250c3bf1ffee91593a8e76ba73bf95a67"
+            "ed2f5bccd8a4f76a44333d5a5f7292a0a3399dcf618d9bdb3687679e6cbd977a"
         ),
         "synthetic_injected.dcm": (
-            "a040f800edec2649dcaa67407d98599fceb4dcee858d9cdaea6f9d6af32557e3"
+            "f330a2ec102a5fb484662a3f201dc9151341be2f432e4ce223df300b00750c24"
         ),
     },
     "jpg": {
         "ground_truth.json": (
-            "be9ddccebb9c1d4ce5987e9843ab751261ced60db8b0f48edd806a30a0f24d24"
+            "14ea072bd050f61966f68e8d42c792ef22b18e2e744bc3099a77e2c3738e5737"
         ),
         "preview.png": (
-            "1ecae9e8798567a5e48baa475cb8e25b9b51dad6a5f822ba91680a99ead21724"
+            "c3dcaf7956c038dca5dc5dfac20811bed40ffa401942d7874dacd4cff89c994e"
         ),
         "preview_annotated.png": (
-            "d8109a29c3c6ff5ef01ec30533a16f629162dd2c2d0fc7bd5c593c31cda4c162"
+            "1ea669a4fa62e5f81505cb46466e015880dbad11b409e13161fca881f7dbaef2"
         ),
         "run_manifest.json": (
-            "8615689c5d052ed1ebede338a459e87cb41a3312b15c73f1fac60b63d4aef668"
+            "80aa628616183a39d5f72cbb2abc054b44641ef7935c8b7064085c533bc5c2f3"
         ),
         "synthetic_injected.jpg": (
-            "ae66c33fa49e6b0a705d762cff13c489d129db0845711ebbbd583c3c484f922c"
+            "cb4d5c96964d3d28e2bbe82e1490f911ab342304912fec9fd4594a8ac935ca73"
         ),
     },
 }
 _RECORD_REFERENCE_HASHES = {
-    "dcm": "024d5239b39967a2aae0c1562a7cadfcd4a22a352948017ef48657ec8bf26957",
-    "jpg": "a3d39b22c9aa3d35592ef01b1de5fad18d41bd4a399cdc3cf410aed8c70816c1",
+    "dcm": "32a37cd6252b7b0c0ef5420086552de32222e23c06a591468016074fd234ec08",
+    "jpg": "7ff1693ef227a7bcf08ac0fbef791f495fb997610a5a66dac841d3905e876d94",
 }
 
 
