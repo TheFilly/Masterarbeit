@@ -8,6 +8,7 @@ Decision status values:
 - `accepted`
 - `superseded`
 
-Every decision should link to current findings. Do not base new decisions on
-archived Phase-1 findings unless the decision explicitly explains why the old
-evidence still applies.
+Accepted ADRs remain in this directory after implementation because they record
+why the project chose a contract, not just what work was performed. New
+decisions should link to current architecture or operational documentation;
+archived Phase-1 material is historical context only.

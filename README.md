@@ -9,14 +9,14 @@ ground-truth artifact for every injected value.
 
 ## Current Status
 
-- Phase 1 data analysis was restarted on 2026-04-22. Old Phase-1 findings live
-  in `docs/archive/research/phase-1/` and are not source of truth.
-- `src/injection_pipeline/` contains the package structure and the migrated
-  DICOM/JPG injection pipeline.
+- `src/injection_pipeline/` contains the DICOM/JPG core chain with pydantic
+  run models, an external identifier schema, split runner/engine stages, and
+  DCM/JPG adapters.
 - Run the migrated DICOM/JPG path with `uv run injection-pipeline ...` or
   `uv run python -m injection_pipeline ...`.
 - DICOM/JPG operational details live in `docs/dicom-injection.md`.
-- New Phase-1 findings belong in `docs/research/phase-1/findings/`.
+- Architecture status and open implementation gates live in
+  `docs/architecture/` and `docs/fable-work-packages.md`.
 
 ## Stack
 
@@ -36,20 +36,31 @@ ground-truth artifact for every injected value.
 ```text
 InjectionPipeline/
 |-- src/injection_pipeline/       # Package code and migrated DICOM/JPG pipeline
-|   |-- models/
-|   |-- loaders/
-|   |-- engine/
-|   |-- writers/
-|   |-- validators/
+|   |-- artifacts/
 |   |-- config/
-|   `-- identity/
-|-- prototypes/dicom/             # Frozen DICOM/JPG validation artifacts
+|   |-- engine/
+|   |-- identity/
+|   |-- loaders/
+|   |-- models/
+|   |-- runtime/
+|   |-- validators/
+|   `-- writers/
 |-- tools/handwriting/            # Isolated handwriting tooling
-|-- tests/
 |-- configs/
 |-- docs/
+|   |-- architecture/
+|   |-- archive/
+|   `-- decisions/
+|-- tests/
+|   |-- fixtures/
+|   |-- integration/
+|   `-- unit/
 |-- DycomData/                    # Local input data, not committed
+|-- output/                       # Local generated outputs, not committed
+|-- .github/
 |-- pyproject.toml
+|-- uv.lock
+|-- AGENTS.md
 `-- PLAN.md
 ```
 
@@ -88,14 +99,25 @@ uv run injection-pipeline --seed 42 --rotation-angle 20
 
 The same CLI is also available through `uv run python -m injection_pipeline`.
 
-## Architecture Rules
+With no CLI arguments, the command starts an interactive parameter setup. If at
+least one CLI argument is set and `--input` is missing, the pipeline chooses a
+seeded default from `DycomData/Dicom-Files` and `DycomData/images`.
 
-- Add format support through loaders and writers, not by changing engine logic.
-- Keep the pipeline taxonomy-agnostic. Identifier types come from an external
-  schema.
-- Keep document models, injection logic, writers, and validators separate.
-- Seed all randomness. Same config plus same seed must produce the same output.
-- Write annotations as versioned sidecar artifacts, not into the document.
+| Option | Default | Possible values | Description |
+|--------|---------|-----------------|-------------|
+| `--seed` | `42` | Any integer | Seed for identity generation, default input selection, and layout choices |
+| `--input` | Seeded auto-selection | Path ending in `.dcm`, `.jpg`, or `.jpeg` | Source document path |
+| `--output-dir` | `output` | Path | Root output directory; each run creates a subdirectory |
+| `--identifier-schema` | `configs/identifier_schemas/dicom-prototype.json` | Existing JSON schema path | External identifier schema for identity fields and routes |
+| `--rotation-angle` | `0` | `0`, `20`, `90`, `180`, `270` | Rotation angle for visible injected text |
+| `--font-size-pct` | `100` | Integer `>= 1` | Visible text size as a percentage of the prototype default |
+| `--placement-mode` | `corners` | `corners`, `free` | Placement strategy for visible injected text |
+| `--font-family` | `arial` | `arial`, `calibri`, `tahoma`, `consolas` | Font family used for visible rendering |
+| `--text-background` | none | `white` | Optional white background behind visible text |
+| `--show-label-boxes` | `n` | `y`, `n` | Draw generic prefix boxes in `preview_annotated.png` |
+| `--run-timestamp` | Current time | ISO-8601 datetime | Fixed timestamp for deterministic run IDs |
+| `--handwriting-manifest` | none | JSONL manifest or JSON manifest with `assets` | Manifest for generated handwriting assets |
+| `--handwriting-asset` | none | Repeatable `identity_field=asset_id` mapping | Map schema fields to handwriting assets; requires `--handwriting-manifest` |
 
 ## Outputs
 
@@ -117,9 +139,4 @@ The migrated DICOM/JPG path currently writes `ground_truth.json` with schema
 - Web application work
 - Real patient data
 
-## Contributing
 
-- Use conventional commits: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`.
-- Keep commits atomic.
-- Do not commit real patient data, MIMIC-derived sample data, checkpoints, or
-  generated local artifacts.

@@ -1,0 +1,132 @@
+{
+  "schema_id": "dicom-prototype",
+  "version": "1.0.0",
+  "description": "The five prototype fields, externalized without behaviour change.",
+  "identity_id_field": "patient_id",
+  "generator": {
+    "provider": "faker",
+    "locale": "en_US",
+    "reference_date": "2026-07-10",
+    "reference_date_policy": "faker-date_of_birth-reference-v1"
+  },
+  "fields": [
+    {
+      "name": "patient_name",
+      "category": "person_name",
+      "generation": {
+        "recipe": "dicom_person_name",
+        "arguments": {},
+        "value_template": "{value}"
+      },
+      "generic_prefix": null,
+      "routing": {
+        "dicom_tag": {
+          "keyword": "PatientName",
+          "address": "0010,0010",
+          "vr": "PN"
+        },
+        "visible_pixel": {
+          "enabled": true,
+          "line_index": 0
+        }
+      }
+    },
+    {
+      "name": "patient_id",
+      "category": "identifier",
+      "generation": {
+        "recipe": "numerify",
+        "arguments": {
+          "text": "######"
+        },
+        "value_template": "SYNTH-{value}"
+      },
+      "generic_prefix": "SYNTH-",
+      "routing": {
+        "dicom_tag": {
+          "keyword": "PatientID",
+          "address": "0010,0020",
+          "vr": "LO"
+        },
+        "visible_pixel": {
+          "enabled": true,
+          "line_index": 1
+        }
+      }
+    },
+    {
+      "name": "patient_birth_date",
+      "category": "date",
+      "generation": {
+        "recipe": "date_of_birth",
+        "arguments": {
+          "minimum_age": 18,
+          "maximum_age": 90,
+          "format": "%Y%m%d"
+        },
+        "value_template": "{value}"
+      },
+      "generic_prefix": null,
+      "routing": {
+        "dicom_tag": {
+          "keyword": "PatientBirthDate",
+          "address": "0010,0030",
+          "vr": "DA"
+        },
+        "visible_pixel": {
+          "enabled": false,
+          "line_index": null
+        }
+      }
+    },
+    {
+      "name": "patient_sex",
+      "category": "code",
+      "generation": {
+        "recipe": "random_element",
+        "arguments": {
+          "elements": [
+            "M",
+            "F"
+          ]
+        },
+        "value_template": "{value}"
+      },
+      "generic_prefix": null,
+      "routing": {
+        "dicom_tag": {
+          "keyword": "PatientSex",
+          "address": "0010,0040",
+          "vr": "CS"
+        },
+        "visible_pixel": {
+          "enabled": false,
+          "line_index": null
+        }
+      }
+    },
+    {
+      "name": "accession_number",
+      "category": "identifier",
+      "generation": {
+        "recipe": "numerify",
+        "arguments": {
+          "text": "#######"
+        },
+        "value_template": "ACC-{value}"
+      },
+      "generic_prefix": "ACC-",
+      "routing": {
+        "dicom_tag": {
+          "keyword": "AccessionNumber",
+          "address": "0008,0050",
+          "vr": "SH"
+        },
+        "visible_pixel": {
+          "enabled": true,
+          "line_index": 2
+        }
+      }
+    }
+  ]
+}

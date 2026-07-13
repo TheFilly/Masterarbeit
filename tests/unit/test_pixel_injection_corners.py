@@ -11,16 +11,18 @@ from pydicom.uid import (
     generate_uid,
 )
 
-from injection_pipeline.engine import pixel_injection
-from injection_pipeline.engine.pixel_injection import (
-    _build_box_annotation,
+from injection_pipeline.engine import fonts
+from injection_pipeline.engine.geometry import (
     _estimate_rotated_size,
+    _rotated_corners,
+)
+from injection_pipeline.engine.injector import _build_box_annotation
+from injection_pipeline.engine.overlay import (
     _prepare_annotation_overlay,
     _render_single_annotation,
-    _rotated_corners,
-    _split_prefix_and_pii_text,
-    _write_pixel_array,
 )
+from injection_pipeline.engine.pixel_injection import _write_pixel_array
+from injection_pipeline.engine.segments import _split_prefix_and_pii_text
 
 
 def _corners_to_tuples(corners: list[dict[str, float]]) -> list[tuple[float, float]]:
@@ -116,13 +118,13 @@ def test_load_default_font_uses_first_existing_candidate(
         return loaded_font
 
     monkeypatch.setitem(
-        pixel_injection._FONT_PATHS,
+        fonts._FONT_PATHS,
         "arial",
         (missing_path, existing_path),
     )
-    monkeypatch.setattr(pixel_injection.ImageFont, "truetype", fake_truetype)
+    monkeypatch.setattr(fonts.ImageFont, "truetype", fake_truetype)
 
-    assert pixel_injection.load_default_font("arial", font_size_px=24) is loaded_font
+    assert fonts.load_default_font("arial", font_size_px=24) is loaded_font
     assert calls == [(existing_path, 24)]
 
 
@@ -139,8 +141,11 @@ def test_build_box_annotation_keeps_optional_label_corners() -> None:
         },
         font_size_pct=120,
     )
-    assert annotation["label_corners"] == [{"x": 3.0, "y": 4.0}] * 4
-    assert annotation["font_size_pct"] == 120
+    assert annotation.label_corners is not None
+    assert (
+        annotation.label_corners.model_dump(mode="json") == [{"x": 3.0, "y": 4.0}] * 4
+    )
+    assert annotation.font_size_pct == 120
 
 
 def test_prepare_annotation_overlay_tracks_mask_bounds_separately() -> None:

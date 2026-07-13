@@ -12,10 +12,6 @@ from PIL import Image
 
 from injection_pipeline.engine.pixel_injection import extract_preview_frame
 
-DEFAULT_DICOM_PATH = Path(
-    "DycomData/Anonymization/original_data/"
-    "patient_10080695_23273240/echo/91180014_0001.dcm"
-)
 DEFAULT_PREVIEW_PATH = Path("output/preview.png")
 
 
@@ -166,14 +162,17 @@ def _load_preview_source(source_path: str | Path) -> tuple[Any, str]:
     return np.asarray(image), source.name
 
 
-# CLI entry point for standardized DICOM preview export.
+# Input: Keine Parameter; liest CLI-Argumente aus `sys.argv`.
+# Output: Keine Rueckgabe; schreibt das Preview-Bild auf das Dateisystem.
+# Die interne Modul-CLI verlangt einen expliziten DICOM-Pfad und oeffnet nur
+# mit `--show` ein Matplotlib-Fenster.
 def main() -> None:
     parser = argparse.ArgumentParser(description="Create a DICOM preview image.")
-    parser.add_argument("--dicom", type=str, default=str(DEFAULT_DICOM_PATH))
+    parser.add_argument("--dicom", type=str, required=True)
     parser.add_argument("--output", type=str, default=str(DEFAULT_PREVIEW_PATH))
     parser.add_argument("--annotations-json", type=str, default=None)
     parser.add_argument("--title", type=str, default=None)
-    parser.add_argument("--no-show", action="store_true", default=False)
+    parser.add_argument("--show", action="store_true", default=False)
     args = parser.parse_args()
 
     annotations = (
@@ -186,7 +185,7 @@ def main() -> None:
         output_path=args.output,
         visible_annotations=annotations,
         title=args.title,
-        show=not args.no_show,
+        show=args.show,
     )
 
 

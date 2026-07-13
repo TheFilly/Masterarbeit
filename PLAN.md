@@ -13,11 +13,16 @@ PII-Traegern und Adressierungsmodi kann das Dokumentmodell nicht stabil werden.
 
 ## Aktueller Stand
 
-**Phase 1:** Am 2026-04-22 neu gestartet. Fruehere Findings liegen unter
-`docs/archive/research/phase-1/` und sind nicht mehr gueltig.
+**Phase 1 / Forschungsdoku:** Die aktive Research-, Thesis- und Template-
+Dokumentationsschicht wurde entfernt. Material unter
+`docs/archive/research/phase-1/` ist historischer Kontext und keine aktuelle
+Quelle.
 
-**DICOM/JPG-Pipeline:** Der fruehere Prototyp ist nach
-`src/injection_pipeline/` migriert. Er injiziert fuenf DICOM-Tags, rendert
+**DICOM/JPG-Kernkette:** Der fruehere Prototyp ist nach
+`src/injection_pipeline/` migriert und in die Kernmodule aufgeteilt. Der
+aktuelle Stand umfasst pydantic-Modelle fuer RunRecord/Annotationen, ein
+externes Identifier-Schema, einen schlanken Runner, DCM/JPG-Adapter, E2E-
+Bytehash-Tests und CI. Er injiziert schema-definierte DICOM-Tags, rendert
 sichtbare PII fuer DCM/JPG und schreibt `ground_truth.json` im
 `0.2.0-prototype` Schema.
 
@@ -25,9 +30,10 @@ sichtbare PII fuer DCM/JPG und schreibt `ground_truth.json` im
 `uv run injection-pipeline ...` oder `uv run python -m injection_pipeline ...`.
 Operational Details stehen in `docs/dicom-injection.md`.
 
-`prototypes/prototype_plan.md` enthaelt den abgeschlossenen Prototyp-Status und
-Phase-2-Handover-Notizen. Lokale `prototypes/dicom/output_validation_*`
-Artefakte bleiben eingefrorene Referenzen.
+`docs/fable-work-packages.md` und `docs/architecture/` enthalten den aktuellen
+Status der WP-I- und WP-B..WP-G-Umsetzung. Lokale
+`prototypes/dicom/output_validation_*` Artefakte bleiben eingefrorene
+Referenzen.
 
 ## Priorisierung
 
@@ -64,7 +70,9 @@ Advisory-Reviews:
 
 ## Phase 1: Datenanalyse
 
-Status: offen.
+Status: ausserhalb der aktiven Dokumentationsschicht. Neue Analysearbeit
+braucht vorab eine neue Ablageentscheidung; die entfernten Ordner werden nicht
+wiederhergestellt.
 
 ### Ziel
 
@@ -82,9 +90,7 @@ PII-Traeger, Adressierungsmodi und Kanonisierungsrisiken.
 - PII-Traegeranalyse je Format und Feldtyp.
 - Adressierungsmodi: row/cell, text-span, DICOM-Tag, Header-Token.
 - Duplikat- und Kanonisierungsrisiken.
-- Findings unter `docs/research/phase-1/findings/`.
-- `docs/research/phase-1/summary.md`.
-- `docs/research/phase-1/open-questions.md`.
+- Ablageort fuer neue Analyseartefakte ist vor Beginn festzulegen.
 
 ### Definition of Done
 
@@ -174,7 +180,8 @@ reproduzierbar sind. Die Ergebnisse muessen als Thesis-Belege nutzbar sein.
 - Reproduzierbarkeitstests.
 - Skalierbarkeitsmessungen oder begruendete qualitative Bewertung.
 - Qualitaetskriterien fuer FF3.
-- Aktualisiertes `docs/thesis/claim-register.md`.
+- Entscheidungs- oder Statusnotiz in `docs/architecture/` oder
+  `docs/decisions/`, falls Validierung neue Architekturfolgen hat.
 
 ### Definition of Done
 

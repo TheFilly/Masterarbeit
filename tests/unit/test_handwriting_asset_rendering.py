@@ -5,15 +5,18 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from injection_pipeline.engine.pixel_injection import (
+from injection_pipeline.artifacts.ground_truth import build_record
+from injection_pipeline.config import load_identifier_schema
+from injection_pipeline.config.identifier_schema import DEFAULT_IDENTIFIER_SCHEMA_PATH
+from injection_pipeline.engine.handwriting_manifest import (
+    apply_handwriting_assets,
+    load_handwriting_manifest,
+)
+from injection_pipeline.engine.injector import (
     _inject_visible_text_into_frame,
     _render_frame_with_annotations,
 )
-from injection_pipeline.runner import (
-    _apply_handwriting_assets,
-    _build_record,
-    _load_handwriting_manifest,
-)
+from injection_pipeline.models import Identity
 
 
 def _write_asset(tmp_path: Path) -> Path:
@@ -54,7 +57,7 @@ def _write_asset(tmp_path: Path) -> Path:
 def test_load_handwriting_manifest_resolves_relative_paths(tmp_path: Path) -> None:
     manifest_path = _write_asset(tmp_path)
 
-    manifest = _load_handwriting_manifest(manifest_path)
+    manifest = load_handwriting_manifest(manifest_path)
 
     asset = manifest["patient-name-001"]
     assert asset["asset_id"] == "patient-name-001"
@@ -66,7 +69,7 @@ def test_load_handwriting_manifest_rejects_missing_manifest(tmp_path: Path) -> N
     manifest_path = tmp_path / "missing.jsonl"
 
     with pytest.raises(FileNotFoundError, match="Handwriting manifest not found"):
-        _load_handwriting_manifest(manifest_path)
+        load_handwriting_manifest(manifest_path)
 
 
 def test_load_handwriting_manifest_accepts_jsonl_generator_output(
@@ -93,7 +96,7 @@ def test_load_handwriting_manifest_accepts_jsonl_generator_output(
         encoding="utf-8",
     )
 
-    manifest = _load_handwriting_manifest(manifest_path)
+    manifest = load_handwriting_manifest(manifest_path)
 
     asset = manifest["patient-id-001"]
     assert asset["identity_field"] == "patient_id"
@@ -101,7 +104,7 @@ def test_load_handwriting_manifest_accepts_jsonl_generator_output(
 
 
 def test_apply_handwriting_assets_attaches_manifest_asset(tmp_path: Path) -> None:
-    manifest = _load_handwriting_manifest(_write_asset(tmp_path))
+    manifest = load_handwriting_manifest(_write_asset(tmp_path))
     render_plan = [
         {
             "label": "PatientName",
@@ -111,7 +114,7 @@ def test_apply_handwriting_assets_attaches_manifest_asset(tmp_path: Path) -> Non
         }
     ]
 
-    updated = _apply_handwriting_assets(
+    updated = apply_handwriting_assets(
         render_plan,
         manifest,
         {"patient_name": "patient-name-001"},
@@ -123,7 +126,7 @@ def test_apply_handwriting_assets_attaches_manifest_asset(tmp_path: Path) -> Non
 
 
 def test_apply_handwriting_assets_rejects_field_mismatch(tmp_path: Path) -> None:
-    manifest = _load_handwriting_manifest(_write_asset(tmp_path))
+    manifest = load_handwriting_manifest(_write_asset(tmp_path))
     render_plan = [
         {
             "label": "PatientID",
@@ -134,7 +137,7 @@ def test_apply_handwriting_assets_rejects_field_mismatch(tmp_path: Path) -> None
     ]
 
     with pytest.raises(ValueError, match="identity field"):
-        _apply_handwriting_assets(
+        apply_handwriting_assets(
             render_plan,
             manifest,
             {"patient_id": "patient-name-001"},
@@ -142,7 +145,7 @@ def test_apply_handwriting_assets_rejects_field_mismatch(tmp_path: Path) -> None
 
 
 def test_apply_handwriting_assets_rejects_text_mismatch(tmp_path: Path) -> None:
-    manifest = _load_handwriting_manifest(_write_asset(tmp_path))
+    manifest = load_handwriting_manifest(_write_asset(tmp_path))
     render_plan = [
         {
             "label": "PatientName",
@@ -153,7 +156,7 @@ def test_apply_handwriting_assets_rejects_text_mismatch(tmp_path: Path) -> None:
     ]
 
     with pytest.raises(ValueError, match="text"):
-        _apply_handwriting_assets(
+        apply_handwriting_assets(
             render_plan,
             manifest,
             {"patient_name": "patient-name-001"},
@@ -161,7 +164,7 @@ def test_apply_handwriting_assets_rejects_text_mismatch(tmp_path: Path) -> None:
 
 
 def test_render_handwriting_asset_uses_transformed_ink_mask(tmp_path: Path) -> None:
-    manifest = _load_handwriting_manifest(_write_asset(tmp_path))
+    manifest = load_handwriting_manifest(_write_asset(tmp_path))
     asset = manifest["patient-name-001"]
     frame = np.full((32, 32, 3), 255, dtype=np.uint8)
     annotations = [
@@ -193,7 +196,7 @@ def test_render_handwriting_asset_uses_transformed_ink_mask(tmp_path: Path) -> N
 
 
 def test_frame_renderer_reports_handwriting_assets_in_metadata(tmp_path: Path) -> None:
-    manifest = _load_handwriting_manifest(_write_asset(tmp_path))
+    manifest = load_handwriting_manifest(_write_asset(tmp_path))
     asset = manifest["patient-name-001"]
     frame = np.full((32, 32, 3), 255, dtype=np.uint8)
 
@@ -234,19 +237,23 @@ def test_frame_renderer_reports_handwriting_assets_in_metadata(tmp_path: Path) -
 
 
 def test_build_record_serializes_handwriting_asset_paths(tmp_path: Path) -> None:
-    manifest = _load_handwriting_manifest(_write_asset(tmp_path))
+    manifest = load_handwriting_manifest(_write_asset(tmp_path))
     visible_render_plan = [
         {
             "label": "PatientName",
             "text": "Doe^Jane",
+            "text_segments": [{"kind": "pii", "text": "Doe^Jane"}],
             "identity_field": "patient_name",
+            "region": "corners",
+            "rotation_degrees": 0,
+            "line_index": 0,
             "renderer_type": "handwriting_asset",
             "asset_id": "patient-name-001",
             "asset": manifest["patient-name-001"],
         }
     ]
 
-    record = _build_record(
+    record = build_record(
         run_id="unit-test-run",
         seed=42,
         rotation_degrees=0,
@@ -260,7 +267,12 @@ def test_build_record_serializes_handwriting_asset_paths(tmp_path: Path) -> None
         output_path=tmp_path / "output.jpg",
         preview_path=tmp_path / "preview.png",
         annotated_preview_path=tmp_path / "preview_annotated.png",
-        identity={"patient_id": "SYNTH-123456"},
+        identity=Identity(
+            identity_id="SYNTH-123456",
+            seed=42,
+            fields={"patient_id": "SYNTH-123456"},
+        ),
+        identifier_schema=load_identifier_schema(DEFAULT_IDENTIFIER_SCHEMA_PATH),
         source_dicom_context=None,
         output_dicom_context=None,
         tag_annotations=[],
@@ -270,11 +282,27 @@ def test_build_record_serializes_handwriting_asset_paths(tmp_path: Path) -> None
             "status": "rendered",
             "renderer_name": "unit",
             "preview_file": str(tmp_path / "preview.png"),
-            "render_metadata": {"visible_annotations": visible_render_plan},
+            "render_metadata": {
+                "seed": 42,
+                "rotation_degrees": 0,
+                "allowed_rotations_degrees": [0, 20, 90, 180, 270],
+                "frame_count": 1,
+                "applied_frame_indices": [0],
+                "effective_font_family": "arial",
+                "effective_font_size_px": 18,
+                "background_enabled": False,
+                "background_color": None,
+                "geometry_source": "mask_bbox_after_final_rotation",
+                "renderer_types": ["handwriting_asset"],
+                "handwriting_assets": [],
+                "geometry_notes": "unit",
+                "mask_alpha_threshold": 8,
+                "visible_annotations": [],
+            },
         },
     )
 
-    json.dumps(record)
-    asset = record["render_metadata"]["visible_render_plan"][0]["asset"]
+    serialized = record.model_dump(mode="json")
+    asset = serialized["render_metadata"]["visible_render_plan"][0]["asset"]
     assert asset["image_path"] == str(tmp_path / "name.png")
     assert asset["mask_path"] == str(tmp_path / "name_mask.png")

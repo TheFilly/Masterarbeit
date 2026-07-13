@@ -20,20 +20,31 @@ and a larger research effort.
 ```text
 InjectionPipeline/
 |-- src/injection_pipeline/
-|   |-- models/
-|   |-- loaders/
-|   |-- engine/
-|   |-- writers/
-|   |-- validators/
+|   |-- artifacts/
 |   |-- config/
-|   `-- identity/
-|-- prototypes/dicom/        # Frozen DICOM/JPG validation artifacts
+|   |-- engine/
+|   |-- identity/
+|   |-- loaders/
+|   |-- models/
+|   |-- runtime/
+|   |-- validators/
+|   `-- writers/
 |-- tools/handwriting/       # Isolated handwriting tooling
-|-- tests/
 |-- configs/
 |-- docs/
+|   |-- architecture/
+|   |-- archive/
+|   `-- decisions/
+|-- tests/
+|   |-- fixtures/
+|   |-- integration/
+|   `-- unit/
 |-- DycomData/               # Local input data, not committed
+|-- output/                  # Local generated outputs, not committed
+|-- .github/
 |-- pyproject.toml
+|-- uv.lock
+|-- PLAN.md
 |-- AGENTS.md
 `-- README.md
 ```
@@ -47,6 +58,26 @@ InjectionPipeline/
 - `uv run mypy src/` - type check
 - `uv run injection-pipeline --seed 42` - run the migrated DICOM/JPG pipeline
 
+`uv run injection-pipeline` starts an interactive setup when no CLI arguments
+are provided. With CLI arguments but without `--input`, it chooses a seeded
+default from `DycomData/Dicom-Files` and `DycomData/images`.
+
+| Option | Default | Possible values | Description |
+|--------|---------|-----------------|-------------|
+| `--seed` | `42` | Any integer | Seed for identity generation, default input selection, and layout choices |
+| `--input` | Seeded auto-selection | Path ending in `.dcm`, `.jpg`, or `.jpeg` | Source document path |
+| `--output-dir` | `output` | Path | Root output directory; each run creates a subdirectory |
+| `--identifier-schema` | `configs/identifier_schemas/dicom-prototype.json` | Existing JSON schema path | External identifier schema for identity fields and routes |
+| `--rotation-angle` | `0` | `0`, `20`, `90`, `180`, `270` | Rotation angle for visible injected text |
+| `--font-size-pct` | `100` | Integer `>= 1` | Visible text size as a percentage of the prototype default |
+| `--placement-mode` | `corners` | `corners`, `free` | Placement strategy for visible injected text |
+| `--font-family` | `arial` | `arial`, `calibri`, `tahoma`, `consolas` | Font family used for visible rendering |
+| `--text-background` | none | `white` | Optional white background behind visible text |
+| `--show-label-boxes` | `n` | `y`, `n` | Draw generic prefix boxes in `preview_annotated.png` |
+| `--run-timestamp` | Current time | ISO-8601 datetime | Fixed timestamp for deterministic run IDs |
+| `--handwriting-manifest` | none | JSONL manifest or JSON manifest with `assets` | Manifest for generated handwriting assets |
+| `--handwriting-asset` | none | Repeatable `identity_field=asset_id` mapping | Map schema fields to handwriting assets; requires `--handwriting-manifest` |
+
 ## Code Style
 
 - Follow PEP 8.
@@ -55,8 +86,8 @@ InjectionPipeline/
 - Use `pathlib.Path` for paths.
 - Use snake_case for functions and variables, PascalCase for classes, and
   UPPER_CASE for constants.
-- Add Google-style docstrings for public functions and classes.
-- Keep functions focused. Split functions once they become hard to scan.
+- Use commenting-guidelines skill for function comments
+- Keep functions focused. Split functions once they become hard to scan or larger than 100 lines
 - Avoid wildcard imports.
 
 ## Architecture Principles
@@ -69,6 +100,15 @@ InjectionPipeline/
 - **Reproducibility:** seed all randomness.
 - **Ground truth as artifact:** store annotations separately from output
   documents.
+
+## Architecture Rules
+
+- Add format support through loaders and writers, not by changing engine logic.
+- Keep the pipeline taxonomy-agnostic. Identifier types come from an external
+  schema.
+- Keep document models, injection logic, writers, and validators separate.
+- Seed all randomness. Same config plus same seed must produce the same output.
+- Write annotations as versioned sidecar artifacts, not into the document.
 
 ## Testing
 
@@ -110,31 +150,42 @@ InjectionPipeline/
 ## Documentation Rules
 
 - `PLAN.md` is the roadmap and prioritization layer.
-- `docs/` is the source for findings, summaries, decisions, and thesis
-  traceability.
+- `docs/` is the source for architecture notes, operational documentation,
+  decisions, and audit/status material.
 - `docs/archive/` contains superseded material. Do not use it as source of
   truth.
 - For documentation, docstring, and code-comment tasks, use the
   `commenting-guidelines` skill when available.
-- Start substantial work from the newest relevant `summary.md` and
-  `open-questions.md`. If they do not exist, note the gap and use only directly
-  relevant current files.
+- Start substantial documentation work from the newest relevant current file in
+  `docs/architecture/`, `docs/decisions/`, or operational docs. The retired
+  research/thesis/template layer is not active source material.
 - Treat accepted decisions as stable.
 - If a finding and summary disagree, update the summary instead of combining
   inconsistent states.
 - Read the smallest useful slice of `docs/`.
 
+## Contributing
+
+- Use conventional commits: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`.
+- Keep commits atomic.
+- Do not commit real patient data, MIMIC-derived sample data, checkpoints, or
+  generated local artifacts.
+
 ## Current Project State
 
-As of 2026-06-30:
+As of 2026-07-13:
 
-- `src/injection_pipeline/` contains the package structure and the migrated
-  DICOM/JPG injection pipeline.
+- `src/injection_pipeline/` contains the DICOM/JPG core chain: pydantic domain
+  models, artifact writers, runtime CLI/runner modules, external identifier
+  schema loading, split engine stages, and registered DCM/JPG loader/writer
+  adapters.
 - The DICOM/JPG entry point is `uv run injection-pipeline ...` or
   `uv run python -m injection_pipeline ...`.
 - `docs/dicom-injection.md` documents CLI usage, output artifacts, and the
   `0.2.0-prototype` ground-truth schema.
-- `prototypes/dicom/` keeps frozen local validation artifacts; executable code
-  no longer lives there.
-- New findings belong in `docs/research/phase-1/findings/` using
-  `docs/templates/finding.md`.
+- The retired `prototypes/` tree is no longer the active source of truth; use
+  `docs/dicom-injection.md`, `docs/architecture/`, and `docs/decisions/`.
+- WP-I and the implemented WP-B..WP-G slices are tracked in
+  `docs/fable-work-packages.md` and `docs/architecture/`. ADR-0008
+  provenance/reproducibility emission, PDF composition, and the WP-G
+  environment block remain open.

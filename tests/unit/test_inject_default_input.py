@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-import injection_pipeline.cli as cli
-import injection_pipeline.runner as runner
+import injection_pipeline.runtime.cli as cli
+import injection_pipeline.runtime.inputs as inputs
 
 
 def test_collect_default_input_candidates_uses_dicom_and_image_dirs(
@@ -19,7 +19,7 @@ def test_collect_default_input_candidates_uses_dicom_and_image_dirs(
     (image_dir / "face.jpg").write_bytes(b"")
     (image_dir / "ignore.png").write_bytes(b"")
 
-    candidates = runner._collect_default_input_candidates(dicom_dir, image_dir)
+    candidates = inputs.collect_default_input_candidates(dicom_dir, image_dir)
 
     assert candidates == [
         dicom_dir / "scan_b.dcm",
@@ -28,9 +28,25 @@ def test_collect_default_input_candidates_uses_dicom_and_image_dirs(
     ]
 
 
-def test_select_random_default_input_rejects_empty_candidates() -> None:
+def test_select_seeded_default_input_rejects_empty_candidates() -> None:
     with pytest.raises(ValueError, match="No default input files found"):
-        runner._select_random_default_input([])
+        inputs.select_seeded_default_input([], seed=42)
+
+
+def test_select_seeded_default_input_is_stable_over_sorted_candidates(
+    tmp_path: Path,
+) -> None:
+    candidates = [
+        tmp_path / "b.jpg",
+        tmp_path / "a.dcm",
+        tmp_path / "c.jpeg",
+    ]
+
+    assert inputs.select_seeded_default_input(candidates, seed=42) == tmp_path / "b.jpg"
+    assert (
+        inputs.select_seeded_default_input(list(reversed(candidates)), seed=42)
+        == tmp_path / "b.jpg"
+    )
 
 
 def test_resolve_input_path_prefers_explicit_input(
@@ -38,12 +54,13 @@ def test_resolve_input_path_prefers_explicit_input(
 ) -> None:
     explicit_path = Path("custom/source.dcm")
 
-    def fail_if_called() -> Path:
+    def fail_if_called(seed: int) -> Path:
+        _ = seed
         raise AssertionError("default selector should not run for explicit input")
 
-    monkeypatch.setattr(runner, "_select_default_input_path", fail_if_called)
+    monkeypatch.setattr(inputs, "select_default_input_path", fail_if_called)
 
-    input_path, was_auto_selected = runner._resolve_input_path(str(explicit_path))
+    input_path, was_auto_selected = inputs.resolve_input_path(str(explicit_path), 42)
 
     assert input_path == explicit_path
     assert was_auto_selected is False
@@ -54,9 +71,9 @@ def test_resolve_input_path_uses_default_selector_when_missing(
 ) -> None:
     selected_path = Path("DycomData/images/random.jpg")
 
-    monkeypatch.setattr(runner, "_select_default_input_path", lambda: selected_path)
+    monkeypatch.setattr(inputs, "select_default_input_path", lambda seed: selected_path)
 
-    input_path, was_auto_selected = runner._resolve_input_path(None)
+    input_path, was_auto_selected = inputs.resolve_input_path(None, 42)
 
     assert input_path == selected_path
     assert was_auto_selected is True

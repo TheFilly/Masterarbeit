@@ -204,16 +204,19 @@ def test_render_cli_with_fake_renderer_writes_valid_manifest(tmp_path: Path) -> 
     )
 
     assert manifest_path == output_root / "unit-run" / "manifest.jsonl"
-    assert run_validate(
-        [
-            "--manifest",
-            str(manifest_path),
-            "--checkpoint",
-            str(checkpoint_path),
-            "--checkpoint-sha256",
-            checkpoint_sha,
-        ]
-    ) == 0
+    assert (
+        run_validate(
+            [
+                "--manifest",
+                str(manifest_path),
+                "--checkpoint",
+                str(checkpoint_path),
+                "--checkpoint-sha256",
+                checkpoint_sha,
+            ]
+        )
+        == 0
+    )
     record = json.loads(manifest_path.read_text(encoding="utf-8").strip())
     assert record["image_path"] == "images/patient-name-001.png"
     assert record["mask_path"] == "masks/patient-name-001-mask.png"
