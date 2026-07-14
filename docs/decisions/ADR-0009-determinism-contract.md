@@ -45,8 +45,13 @@ compatibility exceptions below:
 The identifier schema owns date-sensitive Faker semantics through
 `generator.reference_date` and `generator.reference_date_policy`. The prototype
 schema fixes `reference_date = "2026-07-10"` to remove Faker
-`date_of_birth()`'s execution-day input by reproducing Fakers exact
-`date_of_birth()` path for July 10, 2026.
+`date_of_birth()`'s execution-day input. As of 2026-07-14 the recipe no longer
+calls Faker's `date_of_birth()`/`date_time_ad()` convenience methods at all:
+their internal `_rand_seconds` branches on `platform.system()` (`randint` on
+Windows, `uniform` elsewhere), which breaks byte-identity across operating
+systems for a fixed seed. The recipe now draws the age-window offset via
+`fake.random.randint()` directly, matching Faker's former Windows-only
+behavior on every platform.
 
 ## Alternatives Considered
 
@@ -81,6 +86,16 @@ Implemented 2026-07-12 for random draws and clocks:
 
 The unused `identity_b` generation was removed by WP-R on 2026-07-13. This does
 not change the accepted rule that every future random draw uses a named stream.
+
+On 2026-07-14, `identity/recipes.py::date_of_birth` was changed to stop calling
+Faker's `date_of_birth()`/`date_time_ad()` convenience methods, because their
+internal OS branch broke byte-identity between Windows and Linux for the same
+seed (see `docs/architecture/determinism-audit.md` N14). The same date fix
+also surfaced a font-resolution gap on `ubuntu-latest` CI (`docs/architecture/
+determinism-audit.md` N7/N8) and a pre-existing platform difference in raw
+JSON/PNG artifact bytes (line endings, PNG re-encoding) that does not affect
+parsed record content; E2E binary reference hashes are now pinned to the CI
+(Linux) environment for that reason.
 
 Still open: environment provenance is not emitted because ADR-0008 has not
 opened a compatible RunRecord version for additive fields.

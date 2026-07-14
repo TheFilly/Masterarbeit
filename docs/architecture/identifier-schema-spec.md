@@ -186,8 +186,12 @@ test: seed 42 through the schema-driven path equals today's
 
 `date_of_birth` must not read the execution day. It uses
 `generator.reference_date` and `generator.reference_date_policy` from the
-schema; the prototype fixes `2026-07-10` to reproduce Fakers exact
-`date_of_birth` path for that day.
+schema; the prototype fixes `2026-07-10` as the age-window anchor for that day.
+The recipe draws the birth-date offset via `fake.random.randint()` directly
+rather than calling Faker's own `date_of_birth()`/`date_time_ad()`: those
+methods branch on `platform.system()` internally (`randint` on Windows,
+`uniform` elsewhere), which is not reproducible across operating systems for a
+fixed seed (see `docs/architecture/determinism-audit.md` N14).
 
 ## What this does *not* cover
 

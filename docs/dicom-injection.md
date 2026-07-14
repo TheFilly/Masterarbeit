@@ -177,7 +177,9 @@ hashes for:
 - `preview.png`
 - `preview_annotated.png`
 
-CI runs `uv sync --locked --all-extras`, `uv run ruff check src/ tests/`,
+CI installs `fonts-liberation2` (the Linux `arial` fallback font Pillow needs
+for tests that do not pin a fixture font), then runs
+`uv sync --locked --all-extras`, `uv run ruff check src/ tests/`,
 `uv run mypy src/`, and `uv run pytest tests/ -x` on push and pull request.
 
 ## Validation State
@@ -187,6 +189,15 @@ present. Regression validation therefore uses the committed synthetic DCM/JPG
 fixtures and full-artifact hashes in `tests/integration/test_end_to_end.py`.
 
 The E2E harness passes a fixed timestamp and compares complete artifact bytes,
-including `ground_truth.json` and `run_manifest.json`. Preview hashes stayed
-stable after WP-G. The DCM output hash changed only because `PatientBirthDate`
-now uses the schema reference date instead of Faker's execution day.
+including `ground_truth.json` and `run_manifest.json`. The DCM/JPG output
+hashes changed once because `PatientBirthDate` used the schema reference date
+instead of Faker's execution day, and again on 2026-07-14 because
+`date_of_birth` stopped calling Faker's own `date_of_birth()`/`date_time_ad()`
+(their internal OS branch made the birth date, and therefore these hashes,
+differ between Windows and Linux for the same seed — see
+`docs/architecture/determinism-audit.md` N14). `ground_truth.json`,
+`run_manifest.json`, and both preview PNGs are pinned to the bytes produced on
+CI (ubuntu-latest): their rendered content is byte-identical across platforms,
+but the raw file bytes are not (JSON embeds `os.linesep`; PNGs are re-encoded
+by a platform-specific Pillow/matplotlib build). See
+`docs/architecture/determinism-audit.md` N8/N9.
