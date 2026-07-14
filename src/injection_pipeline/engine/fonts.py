@@ -60,6 +60,9 @@ def _iter_font_paths(font_paths: _FontPathConfig) -> tuple[Path, ...]:
 # Output: Geladener Pillow-Font.
 # Die Funktion prueft plattformabhaengige Kandidaten nacheinander und meldet
 # alle versuchten Pfade, wenn kein Font geladen werden kann.
+# `layout_engine=BASIC` wird erzwungen, weil Pillow sonst RAQM waehlt, sobald
+# die installierte Wheel libraqm mitbringt - das aendert Kerning/Shaping und
+# damit Bounding-Boxes je nach Plattform-Wheel, nicht je nach Pillow-Version.
 def load_default_font(
     font_family: str = "arial",
     font_size_px: int = _DEFAULT_FONT_SIZE_PX,
@@ -75,7 +78,9 @@ def load_default_font(
         if not font_path.exists():
             continue
         try:
-            return ImageFont.truetype(font_path, size=font_size_px)
+            return ImageFont.truetype(
+                font_path, size=font_size_px, layout_engine=ImageFont.Layout.BASIC
+            )
         except OSError:
             continue
     raise RuntimeError(
