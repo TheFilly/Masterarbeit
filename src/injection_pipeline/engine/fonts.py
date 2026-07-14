@@ -15,6 +15,7 @@ _FONT_PATHS: dict[str, _FontPathConfig] = {
         Path("/Library/Fonts/Arial.ttf"),
         Path("/usr/share/fonts/truetype/msttcorefonts/Arial.ttf"),
         Path("/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"),
+        Path("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"),
     ),
     "calibri": (
         Path("C:/Windows/Fonts/calibri.ttf"),
