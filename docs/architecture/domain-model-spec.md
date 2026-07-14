@@ -1,9 +1,8 @@
 # Canonical Domain & Ground-Truth Schema Design (WP-B)
 
-Status: implemented for the DICOM/JPG core chain, updated 2026-07-12. Implements
-ADR-0005 for current runs and partially implements ADR-0008 by parsing/emitting
-`0.2.0-prototype`. Version-safe additive provenance fields and PDF sidecars
-remain open.
+Status: implemented for the DICOM/JPG core chain and extended for the PDF
+sidecar, updated 2026-07-14. Implements ADR-0005 and the shared ADR-0008
+lineage (`0.2.0-prototype` run records and `0.3.0-pdf-prototype` sidecars).
 
 Source of truth for current behaviour: `ground_truth.build_record()`, the
 planning functions in `planning.py`, annotation construction in
@@ -22,7 +21,7 @@ surface in `docs/dicom-injection.md`.
 3. **Taxonomy-agnostic.** No model hardcodes field names like `patient_name`;
    identity payloads are keyed dynamically and validated against the WP-C
    identifier schema at load time, not by model structure.
-4. **One hierarchy for all formats.** DCM, JPG (and later PDF) reuse the same
+4. **One hierarchy for all formats.** DCM, JPG, and PDF reuse the same
    annotation and record models; format-specific data lives in clearly marked
    optional substructures.
 
@@ -57,10 +56,11 @@ Implemented:
 
 Open:
 
-- ADR-0008 schema changelog and future emitted versions.
+- Future emitted DICOM/JPG schema versions and their ADR-0008 changelog
+  entries.
 - Identifier-schema provenance and reproducibility/environment fields in the
   emitted record.
-- PDF sidecar models and composer output.
+- Broader PDF sidecar integration fixtures and any future provenance fields.
 
 ### Geometry (`models/geometry.py`)
 
@@ -246,15 +246,18 @@ above. Pydantic serialization handles paths and nested typed metadata.
 - One lineage, documented in a `docs/architecture/schema-changelog.md` started
   by the implementer:
   - `0.2.0-prototype` — current run record (this spec's byte-compat target).
-  - `0.3.0-pdf-prototype` — PDF sidecar (`PdfAnnotationRecord`, defined by the
-    PDF plan WP1 but its point/quad models come from `models/geometry.py`).
+  - `0.3.0-pdf-prototype` — PDF sidecar for the PDF loader/writer path; its
+    point/quad models come from `models/geometry.py`.
   - `0.4.0` — first version emitted *by* the pydantic models once byte-compat
     with `0.2.0-prototype` is deliberately retired (future ADR; not part of
     this package).
-- The models parse all published versions: a `schema_version`-dispatching
-  `load_run_record(path)` in `models/record.py`, with golden fixture files per
-  version under `tests/fixtures/schemas/`. Old `ground_truth.json` files keep
-  parsing forever or their version is explicitly dropped by ADR.
+- `load_run_record(path)` currently validates `0.2.0-prototype` DICOM/JPG
+  `RunRecord` artifacts only. The `0.3.0-pdf-prototype` sidecar is validated
+  directly with `PdfAnnotationRecord.model_validate_json()` by the PDF path;
+  it is not dispatched through `load_run_record()`. Version-specific golden
+  fixtures under `tests/fixtures/schemas/` remain a future requirement for
+  additional published versions. Old `ground_truth.json` files keep parsing
+  forever or their version is explicitly dropped by ADR.
 - Additive change = MINOR bump + new golden file. Breaking change = MAJOR (or
   pre-1.0: MINOR with migration note) + ADR.
 
@@ -366,9 +369,8 @@ The JPG variant differs exactly as `docs/dicom-injection.md` documents:
 
 ### Remaining
 
-- `docs/architecture/schema-changelog.md` has not been created.
-- ADR-0008 still needs an emitted version for provenance fields and future PDF
-  sidecar records.
+- `docs/architecture/schema-changelog.md` records the shared lineage.
+- Future DICOM/JPG provenance fields require a later additive schema bump.
 
 Definition of done update: the DICOM/JPG `RunRecord` path is implemented and
 strict-typechecked. ADR-0008 still owns future emitted versions and PDF sidecar

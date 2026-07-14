@@ -12,7 +12,7 @@ based_on:
 
 Before WP-F, DICOM had adapter helpers while JPG load/save lived in the
 orchestrator. Each new injected source format required another branch in
-`runner.run`. PDF remains a downstream composer candidate, not an engine input.
+`runner.run`. PDF now follows the same first-class modality principle.
 
 ## Decision
 
@@ -27,8 +27,9 @@ no forced inheritance) in `models/adapters.py`, per
 - A small registry maps file extensions / format ids to adapter pairs; the
   orchestrator looks up, never branches on format.
 
-DICOM and JPG conform first; PDF composes on top as a downstream consumer of a
-completed run (it is a *composer*, not a loader — see adapter-contract.md §PDF).
+ DICOM and JPG conform first; PDF uses a dedicated loader/writer operation. It
+loads a PDF template, consumes an injected DICOM plus validated JSON annotation,
+and writes a new PDF and sidecar without mutating sources.
 
 ## Alternatives Considered
 
@@ -64,9 +65,12 @@ Implemented 2026-07-12 for DICOM and JPG:
   `writers/jpg.py` implement the contract. DICOM pixel writeback lives in the
   DICOM writer.
 
-Still open: PDF composition remains outside the injected-source adapter path.
+PDF implementation is complete as a dedicated workflow pair (`PdfLoader` and
+`PdfWriterAdapter`); broader operational fixture coverage remains tracked by
+`docs/pdf-template-injection-plan.md`.
 
 ## Review Notes
 
-Accepted with the WP-F DICOM/JPG implementation on 2026-07-12. PDF work needs
-its own composer implementation and schema gate.
+Accepted with the WP-F DICOM/JPG implementation on 2026-07-12; PDF extension
+approved by the project owner on 2026-07-14 under ADR-0008 schema version
+`0.3.0-pdf-prototype`.

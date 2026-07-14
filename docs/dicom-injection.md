@@ -1,6 +1,7 @@
-# DICOM/JPG Injection Pipeline
+# DICOM/JPG/PDF Injection Pipeline
 
-Operational documentation for the migrated DICOM/JPG injection path in
+Operational documentation for the migrated DICOM/JPG injection paths and the
+PDF adapter in
 `src/injection_pipeline/`. The implementation preserves the prototype contract:
 schema-driven DICOM tag injection, visible pixel injection, and
 `ground_truth.json` schema `0.2.0-prototype`.
@@ -12,8 +13,10 @@ schema-driven DICOM tag injection, visible pixel injection, and
 - Ground truth: prototype JSON file, schema `0.2.0-prototype`.
 - Current architecture: pydantic run models, an external identifier schema,
   split runner/engine stages, and registered DCM/JPG loader/writer adapters.
-- Not in scope: final production schemas, PDF composition, or
-  de-identification.
+- PDF path: a PDF template plus an already injected DICOM and its JSON
+  annotation are loaded by the PDF adapter; a new PDF and PDF annotation
+  sidecar are written. The input files remain unchanged.
+- Not in scope: PDF-native free-text/table injection or de-identification.
 
 ## Run
 
@@ -26,6 +29,7 @@ uv run injection-pipeline --seed 42 --font-family tahoma --font-size-pct 120 --t
 uv run injection-pipeline --seed 42 --rotation-angle 20 --show-label-boxes y
 uv run injection-pipeline --input DycomData/images/faces-00a0d634ad200ced.jpg --seed 42 --rotation-angle 20
 uv run injection-pipeline --handwriting-manifest DycomData/HandwritingAssets/scrabblegan/runs/demo/manifest.jsonl --handwriting-asset patient_name=patient-name-001
+uv run injection-pipeline inject-pdf --input-pdf DycomData/pdf/Briefmarken.1Stk.17.03.2026_1345.pdf --input-dicom DycomData/InjectedDicom/<run-id>/<source-stem>_injected.dcm --dicom-annotation DycomData/InjectedDicom/<run-id>/ground_truth.json
 ```
 
 `uv run python -m injection_pipeline ...` is equivalent. With no CLI arguments,
@@ -95,6 +99,29 @@ The runner loads the source through `loaders/registry.py`, which resolves DICOM
 and JPG adapters by extension. DICOM writes through `writers/dicom.py`; JPG
 writes through `writers/jpg.py`. Adding another injected source format should
 use a loader/writer pair and registry entry, not a new runner branch.
+
+## PDF injection
+
+The PDF command requires three inputs: `--input-pdf`, `--input-dicom`, and
+`--dicom-annotation`. Optional flags are `--output-dir`, `--slot`, and
+`--page-index`. `compose-pdf` is retained as an equivalent command alias.
+The PDF loader validates template pages; the DICOM annotation is parsed by the
+canonical `RunRecord` loader. The PDF writer resolves the `preview_file` named
+by that `RunRecord` (relative paths are resolved beside the annotation), embeds
+that preview associated with the injected DICOM frame, transforms image-space
+annotation corners to PDF points, and writes:
+
+```text
+output/pdf/<run_id>/<template-stem>-<slot>/
+|-- pdf_injected.pdf
+|-- pdf_injected_annotated.pdf
+|-- pdf_annotations.json
+```
+
+The sidecar uses schema `0.3.0-pdf-prototype` in the ADR-0008 lineage. PDF
+points use a bottom-left origin and image points use a top-left pixel origin;
+aspect-fit mapping uses the actual placement rectangle. Source PDF, DICOM, and
+JSON files are never overwritten.
 
 ## Ground Truth
 

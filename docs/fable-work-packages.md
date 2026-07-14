@@ -10,11 +10,11 @@ of three WP-R items followed on 2026-07-13. Remaining work stays explicit below.
 | Package | Deliverable status |
 |---|---|
 | WP-A | Blueprint and ADR review recorded in `docs/architecture/target-architecture.md`. |
-| WP-B | Implemented for DICOM/JPG: pydantic models, `RunRecord`, and round-trip tests. Remaining: ADR-0008 schema changelog and PDF sidecar version work. |
+| WP-B | Implemented for DICOM/JPG: pydantic models, `RunRecord`, and round-trip tests. Shared geometry and PDF sidecar models are implemented; broader PDF fixture coverage remains. |
 | WP-C | Implemented for DICOM/JPG: identifier schema loader, default schema, schema-driven identity generation, and planning. Remaining: emitted schema provenance after ADR-0008. |
-| WP-D | Implemented for DICOM/JPG: runner split, `RunRecord` wiring, adapter lookup. Remaining: PDF composer hook if that package lands. |
+| WP-D | Implemented for DICOM/JPG: runner split, `RunRecord` wiring, and adapter lookup. PDF adapter CLI integration is implemented under the approved PDF plan; broader operational fixture coverage remains. |
 | WP-E | Implemented for DICOM/JPG: mypy override removed, engine split, dead API removed, DICOM pixel writeback moved. Remaining: none for DICOM/JPG core typing after WP-P. |
-| WP-F | Implemented for DICOM/JPG: adapter models, registry, DICOM/JPG loaders and writers. Remaining: PDF composer is not implemented. |
+| WP-F | Implemented for DICOM/JPG: adapter models, registry, DICOM/JPG loaders and writers. The PDF loader/writer pair is implemented under the approved PDF plan; broader operational fixture coverage remains. |
 | WP-G | Partially implemented: seeded default input, injectable clock, stable seed derivation, deterministic `reference_date`. Remaining: environment/provenance emission after ADR-0008. |
 | WP-H | Completed: active documentation no longer depends on the retired Research/Thesis/Templates layer. |
 

@@ -186,6 +186,7 @@ As of 2026-07-13:
 - The retired `prototypes/` tree is no longer the active source of truth; use
   `docs/dicom-injection.md`, `docs/architecture/`, and `docs/decisions/`.
 - WP-I and the implemented WP-B..WP-G slices are tracked in
-  `docs/fable-work-packages.md` and `docs/architecture/`. ADR-0008
-  provenance/reproducibility emission, PDF composition, and the WP-G
-  environment block remain open.
+  `docs/fable-work-packages.md` and `docs/architecture/`. The PDF
+  loader/writer, annotation sidecar, and CLI are implemented; broader PDF
+  operational fixture coverage, ADR-0008 provenance/reproducibility
+  emission, and the WP-G environment block remain open.

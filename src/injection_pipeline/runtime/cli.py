@@ -9,6 +9,8 @@ from typing import Any
 
 from injection_pipeline.config import DEFAULT_IDENTIFIER_SCHEMA_PATH
 from injection_pipeline.engine.pixel_injection import ALLOWED_ROTATIONS_DEGREES
+from injection_pipeline.loaders.pdf import PdfLoader
+from injection_pipeline.pdf.models import PdfCompositionArtifacts
 from injection_pipeline.runtime.inputs import DEFAULT_INPUT_EXTENSIONS
 from injection_pipeline.runtime.options import (
     DEFAULT_OUTPUT_DIR,
@@ -17,6 +19,7 @@ from injection_pipeline.runtime.options import (
     TEXT_BACKGROUND_CHOICES,
 )
 from injection_pipeline.runtime.runner import run
+from injection_pipeline.writers.pdf import PdfWriterAdapter
 
 
 # Input: `raw_value` mit Nutzereingabe, `parameter_name` fuer Fehlermeldungen.
@@ -312,11 +315,54 @@ def _validate_args(args: argparse.Namespace) -> None:
         args.run_timestamp = _parse_run_timestamp(args.run_timestamp)
 
 
+# Input: CLI-Argumente fuer PDF, DICOM und DICOM-Ground-Truth.
+# Output: Keine Rueckgabe; schreibt PDF- und Sidecar-Artefakte.
+# Die Funktion verbindet den PDF-Loader mit dem PDF-Writer und laesst die
+# bestehenden DICOM/JPG-Argumente und den normalen Runner unveraendert.
+def _run_pdf_injection(args: argparse.Namespace) -> PdfCompositionArtifacts:
+    template = PdfLoader().load(Path(args.input_pdf))
+    artifacts = PdfWriterAdapter().write(
+        template=template,
+        dicom_path=Path(args.input_dicom),
+        annotation_path=Path(args.dicom_annotation),
+        output_root=Path(args.output_dir),
+        slot=args.slot,
+        page_index=args.page_index,
+    )
+    print(
+        f"PDF written to {artifacts.clean_pdf}\n"
+        f"Annotated PDF written to {artifacts.annotated_pdf}\n"
+        f"PDF annotations written to {artifacts.annotation_json}"
+    )
+    return artifacts
+
+
+# Input: Keine Parameter.
+# Output: PDF-CLI-Parser fuer den separaten PDF-Aufruf.
+# Die Funktion kapselt die Subcommand-Argumente, damit der etablierte
+# DICOM/JPG-Aufruf rueckwaertskompatibel bleibt.
+def _build_pdf_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Inject an already injected DICOM image into a PDF template."
+    )
+    parser.add_argument("--input-pdf", required=True)
+    parser.add_argument("--input-dicom", required=True)
+    parser.add_argument("--dicom-annotation", required=True)
+    parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
+    parser.add_argument("--slot", choices=["top_left", "top_right"], default="top_left")
+    parser.add_argument("--page-index", type=int, default=0)
+    return parser
+
+
 # Input: Keine Parameter.
 # Output: Keine Rueckgabe.
 # Die Funktion parst CLI-Argumente oder startet den interaktiven Modus und
 # delegiert danach an den Runner.
 def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1] in {"inject-pdf", "compose-pdf"}:
+        pdf_args = _build_pdf_parser().parse_args(sys.argv[2:])
+        _run_pdf_injection(pdf_args)
+        return
     parser = argparse.ArgumentParser(description="DICOM injection prototype")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--input", type=str, default=None)

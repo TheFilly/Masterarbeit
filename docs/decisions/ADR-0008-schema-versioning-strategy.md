@@ -1,6 +1,6 @@
 ---
 id: ADR-0008
-status: proposed
+status: accepted
 based_on:
   - docs/decisions/ADR-0001-prototype-ground-truth-schema.md
   - docs/pdf-template-injection-plan.md
@@ -11,10 +11,11 @@ based_on:
 
 ## Context
 
-`0.2.0-prototype` is a bare string constant (`runner.py:49`) with no validator.
-The PDF plan introduces `0.3.0-pdf-prototype` for its sidecar only, explicitly
-not replacing the run schema. Two independently evolving version strings with
-no shared rules is guaranteed drift.
+`0.2.0-prototype` is the current DICOM/JPG run-record version. The PDF
+modality introduces `0.3.0-pdf-prototype` for its distinct annotation sidecar;
+it accepts an input PDF plus an injected DICOM and validated JSON annotation.
+Two independently evolving version strings with no shared rules is guaranteed
+drift, so both records remain in one lineage.
 
 ## Decision
 
@@ -46,28 +47,29 @@ no shared rules is guaranteed drift.
 
 - A schema change is: bump version in one place, add a golden file, note the
   changelog entry. Old artifacts stay parseable.
-- The PDF work (`pdf-template-injection-plan.md` WP1) must take its models from
-  `models/` instead of defining its own (adapter-contract.md records this
-  adjustment).
+- The PDF sidecar reuses shared geometry models from `models/` while keeping
+  page, placement, and PDF-file models under `injection_pipeline/pdf/`.
 
 ## Implementation Status
 
-Partially implemented 2026-07-12:
+Accepted and partially implemented 2026-07-14:
 
 - `RunRecord` validates and emits the existing `0.2.0-prototype` DICOM/JPG
   record.
 - `load_run_record()` accepts only `0.2.0-prototype`; tests pin round-trip
   behavior.
+- The shared schema changelog is maintained at
+  `docs/architecture/schema-changelog.md`.
 
 Still open:
 
-- No schema changelog exists yet.
 - The emitted DICOM/JPG record has no version-safe slot for identifier-schema
   provenance or the ADR-0009 `reproducibility` block.
-- `0.3.0-pdf-prototype` remains planned; no PDF sidecar model or composer
-  exists in `src/`.
+- `0.3.0-pdf-prototype` sidecar models and PDF loader/writer are implemented
+  under the approved PDF plan; broader operational fixture coverage remains
+  in progress.
 
 ## Review Notes
 
-Proposed by WP-A/WP-B. Blocker review — PLAN.md marks every schema change as a
-blocker gate.
+Accepted by the project owner on 2026-07-14. Future schema changes require a
+changelog entry; breaking changes require a superseding ADR.

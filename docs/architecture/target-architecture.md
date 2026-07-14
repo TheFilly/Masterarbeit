@@ -1,20 +1,20 @@
 # Target Architecture Blueprint (WP-A)
 
-Status: active blueprint, updated 2026-07-13.
+Status: active blueprint, updated 2026-07-14.
 Anchor document for the architecture-alignment packages in
 `docs/fable-work-packages.md`. WP-B..WP-G landed for the DICOM/JPG core chain;
-PDF composition and version-safe provenance emission remain open.
+PDF adapter integration is implemented; version-safe provenance emission remains open.
 
 Load-bearing choices are recorded as ADRs:
 
 - ADR-0005 - canonical pydantic domain model: accepted, implemented for
-  DICOM/JPG.
-- ADR-0006 - format adapter contract: accepted, implemented for DICOM/JPG.
+  DICOM/JPG with shared geometry reused by PDF.
+- ADR-0006 - format adapter contract: accepted, implemented for DICOM/JPG
+  and the dedicated PDF loader/writer workflow.
 - ADR-0007 - identifier-schema externalization: accepted, implemented for the
   prototype schema.
-- ADR-0008 - schema versioning strategy: proposed; `0.2.0-prototype` parsing
-  exists, emitted provenance/reproducibility fields and PDF sidecar remain
-  open.
+- ADR-0008 - schema versioning strategy: accepted; `0.2.0-prototype` remains
+  the DICOM/JPG record and `0.3.0-pdf-prototype` is the PDF sidecar version.
 - ADR-0009 - determinism contract: accepted; seeds and clocks implemented,
   environment provenance open.
 
@@ -22,7 +22,7 @@ The migration invariant holds throughout: existing DCM/JPG runs stay
 byte-identical with an injected run timestamp unless an ADR approves a change
 (`docs/dicom-injection.md`, Validation State).
 
-## Implementation snapshot, 2026-07-12
+## Implementation snapshot, 2026-07-14
 
 Implemented:
 
@@ -43,9 +43,11 @@ Implemented:
 
 Open:
 
-- ADR-0008 emitted version for identifier-schema provenance and
-  reproducibility/environment fields.
-- PDF composer, PDF sidecar schema, and `compose-pdf` CLI.
+- Emission of identifier-schema provenance and reproducibility/environment
+  fields for future DICOM/JPG schema versions.
+- Broader PDF operational fixture validation. The
+  implemented path accepts a template PDF plus an injected DICOM and its JSON
+  annotation; it is not a post-run composer.
 - Validators/DICOM conformance policy, batch mode, manifest split, and output
   hygiene packages listed in `docs/fable-work-packages.md`.
 
@@ -110,7 +112,7 @@ in `docs/architecture/adapter-contract.md` (WP-F).
 ## Component map
 
 The table below preserves the 2026-07-06 gap analysis. Use the implementation
-snapshot above for the 2026-07-12 code state.
+snapshot above for the 2026-07-14 code state.
 
 | Component | Today | Target | Fate |
 |---|---|---|---|
@@ -124,7 +126,7 @@ snapshot above for the 2026-07-12 code state.
 | `engine/dicom_tags.py` | 13-line tag setter | stays; gains typed `TagPlan` input | stays |
 | `loaders/dicom.py`, `writers/dicom.py` | ad-hoc helpers | first implementations of the Loader/Writer contract (WP-F) | stays, conforms |
 | JPG handling | inline in `runner.py:638,651` | `loaders/jpg.py` + `writers/jpg.py` per contract | created (WP-F) |
-| PDF path | plan only (`docs/pdf-template-injection-plan.md`) | `pdf/` composer conforming to the contract; models fold into WP-B hierarchy | created later (WP-F review) |
+| PDF path | dedicated loader/writer and sidecar implemented (`loaders/pdf.py`, `writers/pdf.py`, `pdf/`) | `pdf/` loader/writer pair; shared geometry models from WP-B and PDF-specific page/sidecar models | implemented in PDF implementation pass |
 | `writers/preview.py` | matplotlib previews + own CLI, hardcoded default path | preview writer with required input and opt-in display | stays, cleaned |
 | `validators/` | empty docstring | schema round-trip validation, annotation-geometry checks, format validity | created (post-WP-B; PLAN.md Phase 4) |
 | handwriting manifest logic | in `runner.py:59-168` | `engine/handwriting_manifest.py` (load/parse/apply), typed asset model | moves (WP-D) |
@@ -142,7 +144,10 @@ snapshot above for the 2026-07-12 code state.
    consumed by identity generation and injection planning (ADR-0007).
 5. **One schema lineage.** All ground-truth-style artifacts (run record, PDF
    sidecar) version under a single strategy (ADR-0008).
-6. **Determinism is a contract**, not a habit: every random draw comes from a
+6. **Each modality owns its adapter.** PDF loads a template and writes a new
+   PDF using the injected DICOM and validated JSON annotation; it does not
+   mutate or depend on source-run output directories.
+7. **Determinism is a contract**, not a habit: every random draw comes from a
    named, seeded, recorded stream; clocks are injectable (ADR-0009).
 
 ## Implementation Status
@@ -157,15 +162,17 @@ WP-A is not implemented directly; it gates the other packages.
   identity generation, and schema-driven planning.
 - WP-D runner split and WP-E engine split for the DICOM/JPG core path.
 - WP-F DICOM/JPG adapters and registry.
+- PDF loader/writer adapters, sidecar models, and `inject-pdf` CLI operation
+  under `0.3.0-pdf-prototype`.
 - WP-G seeded input selection, injectable clock, stable seed derivation, and
   deterministic `reference_date`.
 - WP-H documentation-reality cleanup and WP-R preview/identity hygiene.
 
 ### Remaining
 
-- ADR-0008 emitted schema evolution.
-- PDF composer path.
-- Recorded environment/provenance fields, blocked by ADR-0008.
+- Broader PDF operational fixture validation (unit and CLI coverage exists;
+  full modality integration fixtures remain open).
+- Recorded environment/provenance fields for a future DICOM/JPG schema bump.
 
 Definition of done for the blueprint itself: every module in `src/` appears in
 the component map with a fate; all five ADRs exist with options considered;

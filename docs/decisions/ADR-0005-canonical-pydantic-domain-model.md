@@ -66,8 +66,10 @@ Implemented 2026-07-12 for the DICOM/JPG core chain:
   assert JSON round-trip byte compatibility for `ground_truth.json` and
   `run_manifest.json`.
 
-Still open: ADR-0008 has not opened an emitted version for additive
-provenance/reproducibility fields, and PDF sidecar models remain unimplemented.
+Still open: ADR-0008 has not opened an emitted DICOM/JPG version for additive
+provenance/reproducibility fields. PDF sidecar models are implemented under
+the `0.3.0-pdf-prototype` lineage; broader PDF operational fixture coverage
+remains tracked by the PDF implementation plan.
 
 ## Review Notes
 

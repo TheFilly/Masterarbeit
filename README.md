@@ -9,9 +9,9 @@ ground-truth artifact for every injected value.
 
 ## Current Status
 
-- `src/injection_pipeline/` contains the DICOM/JPG core chain with pydantic
-  run models, an external identifier schema, split runner/engine stages, and
-  DCM/JPG adapters.
+- `src/injection_pipeline/` contains the DICOM/JPG core chain plus the PDF
+  loader/writer path with pydantic models, an external identifier schema, and
+  split runner/engine stages.
 - Run the migrated DICOM/JPG path with `uv run injection-pipeline ...` or
   `uv run python -m injection_pipeline ...`.
 - DICOM/JPG operational details live in `docs/dicom-injection.md`.
@@ -26,6 +26,7 @@ ground-truth artifact for every injected value.
 | `uv` | Package and virtual environment management |
 | Pydantic v2 | Data models and validation |
 | pydicom | DICOM handling |
+| reportlab + pypdf | PDF overlay generation and template merging |
 | pandas | Tabular data such as MIMIC-IV CSVs |
 | pytest + pytest-cov | Tests and coverage |
 | ruff | Linting and formatting |
@@ -41,6 +42,7 @@ InjectionPipeline/
 |   |-- engine/
 |   |-- identity/
 |   |-- loaders/
+|   |-- pdf/
 |   |-- models/
 |   |-- runtime/
 |   |-- validators/
@@ -97,6 +99,16 @@ Run the migrated DICOM/JPG pipeline:
 uv run injection-pipeline --seed 42 --rotation-angle 20
 ```
 
+Inject an already injected DICOM into an existing PDF template:
+
+```bash
+uv run injection-pipeline inject-pdf --input-pdf DycomData/pdf/Briefmarken.1Stk.17.03.2026_1345.pdf --input-dicom DycomData/InjectedDicom/<run-id>/<source-stem>_injected.dcm --dicom-annotation DycomData/InjectedDicom/<run-id>/ground_truth.json
+```
+
+`compose-pdf` is an alias. Both commands accept `--output-dir`, `--slot`, and
+`--page-index`; they write a new PDF and `pdf_annotations.json` under
+`output/pdf/<run_id>/<template-stem>-<slot>/` without changing source files.
+
 The same CLI is also available through `uv run python -m injection_pipeline`.
 
 With no CLI arguments, the command starts an interactive parameter setup. If at
@@ -121,15 +133,19 @@ seeded default from `DycomData/Dicom-Files` and `DycomData/images`.
 
 ## Outputs
 
-Each run produces:
+Each DICOM/JPG run produces:
 
 | Artifact | Description |
 |----------|-------------|
 | Modified document | Input document with injected synthetic PII |
 | Ground truth | Separate annotation artifact with positions, identifier type, value, and metadata |
 
-The migrated DICOM/JPG path currently writes `ground_truth.json` with schema
-`0.2.0-prototype`; the planned production contract remains JSONL.
+The migrated DICOM/JPG path writes `ground_truth.json` with schema
+`0.2.0-prototype`. PDF writes `pdf_annotations.json` with schema
+`0.3.0-pdf-prototype` under the shared ADR-0008 lineage. A PDF invocation
+creates new `pdf_injected.pdf`, `pdf_injected_annotated.pdf`, and
+`pdf_annotations.json` artifacts; it never modifies the source PDF, DICOM, or
+JSON annotation.
 
 ## Not In Scope
 
