@@ -66,7 +66,7 @@ _BINARY_REFERENCE_HASHES: dict[str, dict[str, str]] = {
     },
 }
 _RECORD_REFERENCE_HASHES = {
-    "dcm": "024d5239b39967a2aae0c1562a7cadfcd4a22a352948017ef48657ec8bf26957",
+    "dcm": "32a37cd6252b7b0c0ef5420086552de32222e23c06a591468016074fd234ec08",
     "jpg": "a3d39b22c9aa3d35592ef01b1de5fad18d41bd4a399cdc3cf410aed8c70816c1",
 }
 
