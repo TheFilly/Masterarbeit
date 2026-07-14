@@ -1,12 +1,13 @@
 """Validation tests for external identifier schemas."""
 
 from copy import deepcopy
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 import faker.providers.date_time as faker_date_time
 import pytest
 from faker import Faker
+from faker.providers.date_time import change_year, datetime_to_timestamp
 from pydantic import ValidationError
 
 from injection_pipeline.config import (
@@ -78,13 +79,26 @@ def _freeze_faker_today(
     monkeypatch.setattr(faker_date_time, "datetime", FrozenDateTime)
 
 
+# `fake.date_of_birth()` itself branches on `platform.system()` inside
+# Faker's `_rand_seconds` (randint on Windows, uniform elsewhere), so it
+# cannot serve as a cross-platform reference value. This helper instead
+# duplicates the platform-independent primitives that
+# `identity.recipes.date_of_birth` uses, as an independent computation to
+# cross-check the schema-driven recipe against.
 def _faker_schema_path_birth_date(seed: int) -> str:
     fake = Faker("en_US")
     fake.seed_instance(seed)
     fake.last_name()
     fake.first_name()
     fake.numerify(text="######")
-    return fake.date_of_birth(minimum_age=18, maximum_age=90).strftime("%Y%m%d")
+    reference_date = date(2026, 7, 10)
+    start_date = change_year(reference_date, -91)
+    end_date = change_year(reference_date, -18)
+    birth_seconds = fake.random.randint(
+        datetime_to_timestamp(start_date), datetime_to_timestamp(end_date)
+    )
+    birth_date = (datetime(1970, 1, 1) + timedelta(seconds=birth_seconds)).date()
+    return birth_date.strftime("%Y%m%d")
 
 
 def test_default_identifier_schema_loads() -> None:

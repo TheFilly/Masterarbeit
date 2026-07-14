@@ -1,11 +1,11 @@
 """Faker recipe registry for schema-driven identity generation."""
 
 from collections.abc import Callable
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from faker import Faker
-from faker.providers.date_time import change_year
+from faker.providers.date_time import change_year, datetime_to_timestamp
 
 Recipe = Callable[[Faker, dict[str, Any], date], str]
 
@@ -79,8 +79,11 @@ def numerify(
 
 # Input: `fake`, Alters-/Formatargumente und `reference_date` aus dem Schema.
 # Output: Formatiertes Geburtsdatum.
-# Die Funktion spiegelt Fakers Alterslogik am Schema-Referenzdatum und ersetzt
-# nur den Systemtag, damit der Faker-RNG-Verbrauch gleich bleibt.
+# Die Funktion spiegelt Fakers Alterslogik am Schema-Referenzdatum und zieht
+# den Sekunden-Offset selbst per `randint`, statt `fake.date_time_ad()` zu
+# rufen: dessen `_rand_seconds` verzweigt in Faker selbst nach
+# `platform.system()` (Windows: randint/int, sonst: uniform/float) und liefert
+# bei gleichem Seed je nach Betriebssystem ein anderes Datum.
 def date_of_birth(
     fake: Faker,
     arguments: dict[str, Any],
@@ -102,10 +105,10 @@ def date_of_birth(
 
     start_date = change_year(reference_date, -(maximum_age + 1))
     end_date = change_year(reference_date, -minimum_age)
-    birth_date = fake.date_time_ad(
-        start_datetime=start_date,
-        end_datetime=end_date,
-    ).date()
+    start_seconds = datetime_to_timestamp(start_date)
+    end_seconds = datetime_to_timestamp(end_date)
+    birth_seconds = fake.random.randint(start_seconds, end_seconds)
+    birth_date = (datetime(1970, 1, 1) + timedelta(seconds=birth_seconds)).date()
     if birth_date == start_date:
         birth_date += timedelta(days=1)
     if not isinstance(birth_date, date):

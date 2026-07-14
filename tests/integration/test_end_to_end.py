@@ -29,19 +29,29 @@ _FIXED_RUN_TIMESTAMP = datetime(2026, 7, 10, 12, 0, 0)
 # Reference update 2026-07-13:
 # - JSON artifact and record hashes changed because E2E now uses a stable
 #   relative font fixture path instead of platform-specific matplotlib paths.
+# Reference update 2026-07-14:
+# - `ground_truth.json`/`run_manifest.json` and the two preview PNGs are
+#   pinned to the values produced on the CI runner (ubuntu-latest), which is
+#   the only platform these hashes are asserted against. Their raw bytes are
+#   not cross-platform-identical by construction: the JSON files embed
+#   `os.linesep`, and the PNGs are pixel-identical across platforms (verified
+#   byte-for-byte pixel diff) but re-encoded by a platform-specific
+#   Pillow/matplotlib Agg build, which changes PNG compression bytes without
+#   changing pixel content. `synthetic_injected.{dcm,jpg}` are unaffected and
+#   stay byte-identical across platforms.
 _BINARY_REFERENCE_HASHES: dict[str, dict[str, str]] = {
     "dcm": {
         "ground_truth.json": (
-            "4bc99ae7aadd2e91d826761ef297fb9e9f6d2d1aa5ebea9a9ef6d61a75ff45dc"
+            "2fdaa8d60159afcec7b2f828dd10ee8ffce17f0b4912ec15da00054fdced1d5b"
         ),
         "preview.png": (
-            "008b68b3b6f741f8b5e5e70efb54584ce0e7380f597121c1f8b091b66f27817e"
+            "7cded07de64d9888da102fe451d35a42c09083d9a1e044b78e008f188ca0be56"
         ),
         "preview_annotated.png": (
-            "72c098a322f41d1ffaf1d0e5aea953050d19e6f432fc196ad7bcbcc12e52772e"
+            "ca81c94bc91ad276709ebf3eabbc71aabfc4c4bab14a6ac3a3230f3a50152328"
         ),
         "run_manifest.json": (
-            "551ea4f9ef4f58819c4cbfa54527b7c250c3bf1ffee91593a8e76ba73bf95a67"
+            "c5c4b3e5fca11dc3b5cd54aa625f9e9eee0b9205fe0d287030845a5c7cf4d521"
         ),
         "synthetic_injected.dcm": (
             "a040f800edec2649dcaa67407d98599fceb4dcee858d9cdaea6f9d6af32557e3"
@@ -49,16 +59,16 @@ _BINARY_REFERENCE_HASHES: dict[str, dict[str, str]] = {
     },
     "jpg": {
         "ground_truth.json": (
-            "be9ddccebb9c1d4ce5987e9843ab751261ced60db8b0f48edd806a30a0f24d24"
+            "a65e901c702b0a4af5b33bff2d1a06a1c726b005382e2008d07702d69e303eff"
         ),
         "preview.png": (
-            "1ecae9e8798567a5e48baa475cb8e25b9b51dad6a5f822ba91680a99ead21724"
+            "38a840a9a648ac39643d1ca8299864f6715848e4734b61f2c30e10ff0c1213d4"
         ),
         "preview_annotated.png": (
-            "d8109a29c3c6ff5ef01ec30533a16f629162dd2c2d0fc7bd5c593c31cda4c162"
+            "d8358edd67b9a28e570bc43a7a31a7e719ac295f4d4ea4a7e8becb815ea4e0e6"
         ),
         "run_manifest.json": (
-            "8615689c5d052ed1ebede338a459e87cb41a3312b15c73f1fac60b63d4aef668"
+            "92d12fbacc2f2f8eb84b5c166bb6467eab25afcfc37ee676c56a527f49e68c4b"
         ),
         "synthetic_injected.jpg": (
             "ae66c33fa49e6b0a705d762cff13c489d129db0845711ebbbd583c3c484f922c"
@@ -66,7 +76,7 @@ _BINARY_REFERENCE_HASHES: dict[str, dict[str, str]] = {
     },
 }
 _RECORD_REFERENCE_HASHES = {
-    "dcm": "32a37cd6252b7b0c0ef5420086552de32222e23c06a591468016074fd234ec08",
+    "dcm": "024d5239b39967a2aae0c1562a7cadfcd4a22a352948017ef48657ec8bf26957",
     "jpg": "a3d39b22c9aa3d35592ef01b1de5fad18d41bd4a399cdc3cf410aed8c70816c1",
 }
 
