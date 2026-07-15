@@ -219,3 +219,37 @@ directories; this is an environment limitation, not a failed model run.
 - Web application work
 - Real patient data
 
+## References
+
+This project injects fully synthetic PII, but individual experiments may use
+external research code, datasets, or standards. 
+
+### Handwriting Generation
+
+- ScrabbleGAN method and generated handwriting assets:
+  Fogel, S., Averbuch-Elor, H., Cohen, S., Mazor, S., & Litman, R. (2020).
+  ScrabbleGAN: Semi-Supervised Varying Length Handwritten Text Generation. In
+  *Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern
+  Recognition (CVPR)*.
+- Official ScrabbleGAN implementation used by the isolated handwriting tooling:
+  Amazon Science / Amazon Rekognition Israel. (2020). *ScrabbleGAN:
+  Semi-Supervised Varying Length Handwritten Text Generation* [Source code].
+  GitHub. <https://github.com/amzn/convolutional-handwriting-gan>
+
+### MIMIC-IV and PhysioNet
+
+- MIMIC-IV v3.1 resource citation:
+  Johnson, A., Bulgarelli, L., Pollard, T., Gow, B., Moody, B., Horng, S.,
+  Celi, L. A., & Mark, R. (2024). *MIMIC-IV* (version 3.1). PhysioNet.
+  RRID:SCR_007345. <https://doi.org/10.13026/kpb9-mt58>
+- MIMIC-IV dataset publication:
+  Johnson, A. E. W., Bulgarelli, L., Shen, L., et al. (2023). MIMIC-IV, a
+  freely accessible electronic health record dataset. *Scientific Data, 10*, 1.
+  <https://doi.org/10.1038/s41597-022-01899-x>
+- PhysioNet platform citation:
+  Goldberger, A., Amaral, L., Glass, L., Hausdorff, J., Ivanov, P. C.,
+  Mark, R., Mietus, J. E., Moody, G. B., Peng, C. K., & Stanley, H. E. (2000).
+  PhysioBank, PhysioToolkit, and PhysioNet: Components of a new research
+  resource for complex physiologic signals. *Circulation, 101*(23), e215-e220.
+  RRID:SCR_007345.
+
