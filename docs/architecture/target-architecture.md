@@ -50,6 +50,9 @@ Open:
   annotation; it is not a post-run composer.
 - Validators/DICOM conformance policy, batch mode, manifest split, and output
   hygiene packages listed in `docs/fable-work-packages.md`.
+- ScrabbleGAN real-model generation and the integrated handwriting asset
+  provider/cache. The current manifest loader supports explicit assets, but
+  the runner does not yet generate or persist missing assets.
 
 ## Before / after
 
@@ -88,6 +91,10 @@ cli.py ──> argparse.Namespace + options.py defaults
              ▼
         IdentityProvider (identity/, schema-driven) 
              │  Identity                            [ADR-0007]
+             ▼
+        HandwritingAssetProvider (planned, handwriting mode only)
+             │  cache hit or generated image/mask/manifest under
+             │  DycomData/HandwritingAssets/
              ▼
         InjectionPlanner (planning.py)
              │  InjectionPlan = TagPlan + VisibleRenderPlan (typed)
@@ -130,6 +137,7 @@ snapshot above for the 2026-07-14 code state.
 | `writers/preview.py` | matplotlib previews + own CLI, hardcoded default path | preview writer with required input and opt-in display | stays, cleaned |
 | `validators/` | empty docstring | schema round-trip validation, annotation-geometry checks, format validity | created (post-WP-B; PLAN.md Phase 4) |
 | handwriting manifest logic | in `runner.py:59-168` | `engine/handwriting_manifest.py` (load/parse/apply), typed asset model | moves (WP-D) |
+| handwriting generation/cache | not present; explicit manifests only | isolated ScrabbleGAN asset provider shared by injection and standalone seed command; cache lookup after identity generation | planned in WP-J |
 | dead engine API (`build_visible_text_annotations`, `render_annotations_for_dataset`) | exported, uncalled, duplicates prefix taxonomy | deleted | removed |
 
 ## Boundaries and rules
@@ -149,6 +157,14 @@ snapshot above for the 2026-07-14 code state.
    mutate or depend on source-run output directories.
 7. **Determinism is a contract**, not a habit: every random draw comes from a
    named, seeded, recorded stream; clocks are injectable (ADR-0009).
+8. **Legacy handwriting runtime stays isolated.** The main pipeline consumes a
+   typed/local asset-provider boundary and may invoke the isolated generator,
+   but ScrabbleGAN's Python/PyTorch environment is not added to the Python
+   3.13 project.
+9. **Cache identity must be explicit.** A handwriting asset may be reused only
+   when its cache identity matches the selected seed, generated text, schema,
+   generator/checkpoint, and any other parameters approved by the final WP-J
+   contract.
 
 ## Implementation Status
 

@@ -14,13 +14,15 @@ from injection_pipeline.engine.prepared_overlay import (
 )
 
 _VALID_PLACEMENT_MODES: tuple[str, ...] = ("free", "corners")
+_HANDWRITING_FONT_FAMILY = "handwriting"
 
 
 # Input: sichtbare Injektionen, Preview-Frame und Renderkonfiguration.
 # Output: Injektionen mit finalen Pixelpositionen und internem Prepared-Overlay.
 # Die Platzierung basiert auf derselben maskenbasierten Overlay-Geometrie wie die
-# spaetere Annotation, damit keine Offsets zur Ground Truth entstehen. Das
-# vorbereitete Overlay wird privat weitergereicht und nicht serialisiert.
+# spaetere Annotation, damit keine Offsets zur Ground Truth entstehen. Fonts
+# werden nur fuer Font-Renderer geladen; reine Handschriftlaeufe umgehen den
+# Fontpfad vollstaendig.
 def _materialize_positions(
     visible_injections: list[dict[str, Any]],
     frame: np.ndarray,
@@ -38,11 +40,21 @@ def _materialize_positions(
     v_margin = max(24, int(image_height * 0.03))
     vertical_gap = max(10, int(image_height * 0.015))
     padding = 4
-    font = load_default_font(font_family=font_family, font_size_px=font_size_px)
+    font: Any | None = None
 
     prepared_overlays: list[PreparedOverlay] = []
     sizes: list[tuple[int, int]] = []
     for injection in visible_injections:
+        if injection.get("renderer_type") != "handwriting_asset" and font is None:
+            if font_family == _HANDWRITING_FONT_FAMILY:
+                raise ValueError(
+                    "font_family='handwriting' requires handwriting assets for "
+                    "all visible annotations."
+                )
+            font = load_default_font(
+                font_family=font_family,
+                font_size_px=font_size_px,
+            )
         overlay = _prepare_overlay_for_placement(
             {**injection, "padding": padding, "stroke_width": 1},
             font=font,
@@ -123,12 +135,14 @@ def _materialize_positions(
 def _prepare_overlay_for_placement(
     annotation: dict[str, Any],
     *,
-    font: Any,
+    font: Any | None,
     font_family: str,
     text_background: str | None,
 ) -> PreparedOverlay:
     if annotation.get("renderer_type") == "handwriting_asset":
         return _prepare_handwriting_asset_overlay(annotation)
+    if font is None:
+        raise ValueError("Font renderer placement requires a loaded font.")
     return _prepare_annotation_overlay(
         annotation,
         font,

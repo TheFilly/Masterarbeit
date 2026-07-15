@@ -26,9 +26,11 @@ uv run injection-pipeline --seed 42 --rotation-angle 20
 uv run injection-pipeline --seed 42 --rotation-angle 20 --run-timestamp 2026-07-10T12:00:00
 uv run injection-pipeline --seed 42 --identifier-schema configs/identifier_schemas/dicom-prototype.json
 uv run injection-pipeline --seed 42 --font-family tahoma --font-size-pct 120 --text-background white
+uv run injection-pipeline --seed 42 --font-family handwriting
 uv run injection-pipeline --seed 42 --rotation-angle 20 --show-label-boxes y
 uv run injection-pipeline --input DycomData/images/faces-00a0d634ad200ced.jpg --seed 42 --rotation-angle 20
 uv run injection-pipeline --handwriting-manifest DycomData/HandwritingAssets/scrabblegan/runs/demo/manifest.jsonl --handwriting-asset patient_name=patient-name-001
+uv run injection-pipeline generate-handwriting --seed 42
 uv run injection-pipeline inject-pdf --input-pdf DycomData/pdf/Briefmarken.1Stk.17.03.2026_1345.pdf --input-dicom DycomData/InjectedDicom/<run-id>/<source-stem>_injected.dcm --dicom-annotation DycomData/InjectedDicom/<run-id>/ground_truth.json
 ```
 
@@ -37,7 +39,13 @@ the command starts interactive mode. If at least one CLI argument is set and
 `--input` is missing, the command chooses a local default file from sorted
 `DycomData/Dicom-Files` and `DycomData/images` candidates using the seeded
 `input_selection` stream. Pass `--input` to replay the resolved file directly.
-Pass `--run-timestamp` to make the run directory name deterministic.
+Pass `--run-timestamp` to make the run directory name deterministic. The
+`--font-family handwriting` mode generates the Faker identity first,
+looks up the corresponding asset bundle, generates missing assets through the
+isolated ScrabbleGAN tooling, and then injects the assets. The standalone
+`generate-handwriting --seed` command performs the same asset generation and
+persistence without requiring an input document. Exact option names and the
+cache identity are defined in `docs/scrabblegan-implementation-plan.md`.
 
 ## Parameters
 
@@ -50,12 +58,28 @@ Pass `--run-timestamp` to make the run directory name deterministic.
 | `--rotation-angle` | `0` | One of `0`, `20`, `90`, `180`, `270` |
 | `--font-size-pct` | `100` | Font size percentage, minimum `1` |
 | `--placement-mode` | `corners` | `corners` or `free` |
-| `--font-family` | `arial` | `arial`, `calibri`, `tahoma`, `consolas` |
+| `--font-family` | `arial` | `arial`, `calibri`, `tahoma`, `consolas`, `handwriting` |
 | `--text-background` | none | Optional `white` background |
 | `--show-label-boxes` | `n` | Draw generic prefix boxes in blue |
 | `--run-timestamp` | current time | Optional ISO-8601 timestamp used in `run_id` |
-| `--handwriting-manifest` | none | JSON or JSONL handwriting manifest |
-| `--handwriting-asset` | none | Repeatable `identity_field=asset_id` mapping |
+| `--handwriting-manifest` | none | Explicit JSON or JSONL handwriting manifest (compatibility path) |
+| `--handwriting-asset` | none | Repeatable explicit `identity_field=asset_id` mapping (compatibility path) |
+| `--handwriting-asset-root` | `DycomData/HandwritingAssets` | Persistent cache root for generated assets |
+| `--handwriting-checkpoint` | `DycomData/HandwritingAssets/scrabblegan/checkpoints/latest_net_G.pth` | ScrabbleGAN generator checkpoint |
+| `--handwriting-checkpoint-sha256` | auto-hash local file | Expected checkpoint SHA-256 |
+| `--handwriting-options-json` | checkpoint-adjacent sidecar | Optional options sidecar; otherwise `options.json`, `test_opt.json`, `train_opt.json`, `test_opt.txt`, or `train_opt.txt` next to the checkpoint |
+| `--handwriting-source-dir` | `DycomData/HandwritingAssets/scrabblegan/source` | Official Amazon source checkout or source copy |
+| `--handwriting-upstream-commit` | source `.git_commit` or Git HEAD | Pinned upstream commit recorded in manifests |
+| `--handwriting-runtime-command` | automatic Docker runtime | Optional host-side runtime override; default starts the configured Docker image |
+| `--handwriting-container-image` | `injection-scrabblegan` | Docker image used on cache misses |
+| `--handwriting-generator-command` | built-in `generate_single.py` wrapper | Optional single-text generator command template |
+
+In interactive mode, the seed prompt is followed immediately by one common
+font-family/renderer choice, then input/schema and the remaining rotation,
+size, placement, background, label-box, and timestamp parameters follow that
+choice. Normal font choices keep the existing Pillow path; `handwriting`
+selects automatic asset lookup/generation for the visible fields
+`patient_name`, `patient_id`, and `accession_number`.
 
 ## Identifier Schema and Determinism
 
@@ -171,7 +195,14 @@ does not. ADR-0004 records this compatibility detail.
 
 Generated handwriting assets live under `DycomData/HandwritingAssets/` and stay
 out of git. The pipeline accepts JSON manifests with an `assets` list and JSONL
-manifests with one asset per line.
+manifests with one asset per line. The integrated handwriting mode uses the
+same manifest contract as the explicit compatibility path, but adds a cache
+lookup after Faker identity generation. If the cache does not contain a
+compatible asset for a selected identity value, the isolated ScrabbleGAN
+runtime starts automatically, creates the image and mask, writes the manifest,
+and the runner uses that asset immediately. If the runtime, checkpoint, options
+sidecar, `.git_commit`/Git checkout metadata, or generator command is missing,
+the run fails; it does not fall back to a normal font.
 
 Each asset needs:
 
@@ -182,14 +213,18 @@ Each asset needs:
 - `identity_field` or `field`
 - `ink_color`: `black`, `gray`, or `white`
 - `background_mode` or `background`: `transparent` or `white`
+- checkpoint SHA-256, ScrabbleGAN commit, generator manifest hash, and
+  `generator_options_sha256`/`options_sha256` metadata for cache identity
 
 When `renderer_type = "handwriting_asset"`, the pipeline creates one box for
 the full visible PII value. It does not create character, word-part, or prefix
 boxes in v1.
 
-The ScrabbleGAN tooling is a scaffold with a fake renderer and validation. Real
-generation is currently blocked; see
-`tools/handwriting/scrabblegan/UPSTREAM_REVIEW.md`.
+The ScrabbleGAN tooling has the host-side provider/cache path, automatic Docker
+runtime wiring, fake renderer validation, option-sidecar hashing, and hard
+prerequisite checks. The real Docker/upstream checkpoint path was verified on
+2026-07-15 with three generated assets, manifest validation, cache reuse, and a
+full DICOM injection; see `tools/handwriting/scrabblegan/UPSTREAM_REVIEW.md`.
 
 ## Local Gates
 
@@ -228,3 +263,8 @@ CI (ubuntu-latest): their rendered content is byte-identical across platforms,
 but the raw file bytes are not (JSON embeds `os.linesep`; PNGs are re-encoded
 by a platform-specific Pillow/matplotlib build). See
 `docs/architecture/determinism-audit.md` N8/N9.
+
+As of 2026-07-15, 44 focused handwriting tests pass, `uv run ruff check
+src/ tests/` passes, and `uv run mypy src/` passes. The complete frozen-hash
+test remains locally red only for the known Windows JSON/PNG byte differences;
+the DCM/JPG pixel artifacts remain identical.

@@ -7,6 +7,7 @@ from pathlib import Path
 from .hashing import sha256_file
 from .manifest import load_input_manifest, write_output_manifest
 from .masks import build_asset_images
+from .options import extract_alphabet, load_options_sidecar, resolve_options_sidecar
 from .render import read_source_commit, render_raw_asset
 from .validate import validate_checkpoint, validate_output_manifest
 
@@ -34,8 +35,22 @@ def run_render(argv=None):
     source_dir = Path(args.source_dir)
     checkpoint_path = Path(args.checkpoint)
     validate_checkpoint(checkpoint_path, args.checkpoint_sha256)
+    options_sidecar_path = resolve_options_sidecar(
+        checkpoint_path,
+        None if args.options_json is None else Path(args.options_json),
+    )
+    options = (
+        None
+        if options_sidecar_path is None
+        else load_options_sidecar(options_sidecar_path)
+    )
+    if not args.fake_renderer and options_sidecar_path is None:
+        raise ValueError(
+            "Real ScrabbleGAN rendering requires --options-json or a "
+            "test_opt/train_opt sidecar next to the checkpoint."
+        )
     source_commit = read_source_commit(source_dir)
-    records = load_input_manifest(input_path)
+    records = load_input_manifest(input_path, alphabet=extract_alphabet(options))
 
     output_records = []
     failures = []
@@ -51,6 +66,7 @@ def run_render(argv=None):
                 source_commit=source_commit,
                 checkpoint_path=checkpoint_path,
                 checkpoint_sha256=args.checkpoint_sha256,
+                options_sidecar_path=options_sidecar_path,
                 generator_command=args.generator_command,
                 fake_renderer=args.fake_renderer,
             )
@@ -126,6 +142,7 @@ def _build_render_parser(subparsers=None):
     parser.add_argument("--source-dir", required=True)
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--checkpoint-sha256", required=True)
+    parser.add_argument("--options-json", default=None)
     parser.add_argument("--generator-command", default=None)
     parser.add_argument("--fake-renderer", action="store_true")
     return parser
@@ -162,10 +179,11 @@ def _render_one_record(
     source_commit,
     checkpoint_path,
     checkpoint_sha256,
+    options_sidecar_path,
     generator_command,
     fake_renderer,
 ):
-    # type: (dict, Path, Path, Path, Path, Path, str, Path, str, str, bool) -> dict
+    # type: (dict, Path, Path, Path, Path, Path, str, Path, str, Path | None, str, bool) -> dict
     asset_id = record["asset_id"]
     raw_path = raw_dir / f"{asset_id}-raw.png"
     image_path = image_dir / f"{asset_id}.png"
@@ -176,6 +194,7 @@ def _render_one_record(
         raw_path=raw_path,
         source_dir=source_dir,
         checkpoint_path=checkpoint_path,
+        options_sidecar_path=options_sidecar_path,
         generator_command=generator_command,
         fake_renderer=fake_renderer,
     )
@@ -196,6 +215,9 @@ def _render_one_record(
         "image_sha256": sha256_file(image_path),
         "mask_sha256": sha256_file(mask_path),
         "checkpoint_sha256": checkpoint_sha256,
+        "generator_options_sha256": (
+            None if options_sidecar_path is None else sha256_file(options_sidecar_path)
+        ),
         "scrabblegan_repo_url": _SCRABBLEGAN_REPO_URL,
         "scrabblegan_commit": source_commit,
         "ink_color": record["ink_color"],

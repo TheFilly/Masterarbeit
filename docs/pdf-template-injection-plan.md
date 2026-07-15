@@ -21,6 +21,11 @@ and writes a new PDF plus a PDF annotation sidecar. Neither source file is
 modified. PDF-native text/table injection is out of scope for this first
 modality slice.
 
+Handwriting generation is not a PDF concern. If the source DICOM was created
+with the planned integrated ScrabbleGAN mode, the source run has already
+resolved/generated and recorded the handwriting assets; this adapter consumes
+the resulting preview and annotations like any other DICOM run.
+
 The adapter boundary remains explicit: PDF-specific models describe template
 pages, placement, and output artifacts; shared `ImagePoint`, `PdfPoint`, and
 `Quad` models describe annotation geometry. The PDF CLI selects the dedicated

@@ -13,8 +13,17 @@ sys.path.insert(0, str(TOOL_ROOT))
 
 from scrabblegan_tool.cli import run_render, run_validate  # noqa: E402
 from scrabblegan_tool.hashing import sha256_file  # noqa: E402
-from scrabblegan_tool.manifest import load_input_manifest  # noqa: E402
+from scrabblegan_tool.manifest import (  # noqa: E402
+    load_input_manifest,
+    load_output_manifest,
+)
 from scrabblegan_tool.masks import build_asset_images  # noqa: E402
+from scrabblegan_tool.options import (  # noqa: E402
+    extract_alphabet,
+    load_options_sidecar,
+    resolve_options_sidecar,
+)
+from scrabblegan_tool.render import _build_generator_command  # noqa: E402
 from scrabblegan_tool.validate import validate_output_manifest  # noqa: E402
 
 
@@ -105,6 +114,86 @@ def test_load_input_manifest_rejects_invalid_records(
         load_input_manifest(manifest_path)
 
 
+def test_load_output_manifest_accepts_pipeline_json_assets_document(
+    tmp_path: Path,
+) -> None:
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps({"assets": [{"asset_id": "asset-001"}]}, indent=2),
+        encoding="utf-8",
+    )
+
+    assert load_output_manifest(manifest_path) == [{"asset_id": "asset-001"}]
+
+
+def test_load_input_manifest_rejects_white_on_white(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "batch.jsonl"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "asset_id": "asset-001",
+                "field": "patient_name",
+                "text": "Jane Doe",
+                "ink_color": "white",
+                "background": "white",
+                "seed": 42,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="white-on-white"):
+        load_input_manifest(manifest_path)
+
+
+def test_load_input_manifest_rejects_text_outside_checkpoint_alphabet(
+    tmp_path: Path,
+) -> None:
+    manifest_path = tmp_path / "batch.jsonl"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "asset_id": "asset-001",
+                "field": "patient_name",
+                "text": "Jane-Doe",
+                "ink_color": "black",
+                "background": "transparent",
+                "seed": 42,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="outside checkpoint alphabet"):
+        load_input_manifest(manifest_path, alphabet="JaneDo")
+
+
+def test_load_options_sidecar_reads_upstream_opt_text(tmp_path: Path) -> None:
+    sidecar_path = tmp_path / "test_opt.txt"
+    sidecar_path.write_text(
+        "----------------- Options ---------------\n"
+        "                 alphabet: abc-123  \t[default: alphabet]\n"
+        "                    model: CharInterGAN                   \n",
+        encoding="utf-8",
+    )
+
+    options = load_options_sidecar(sidecar_path)
+
+    assert extract_alphabet(options) == "abc-123"
+    assert options["model"] == "CharInterGAN"
+
+
+def test_resolve_options_sidecar_prefers_local_test_opt(tmp_path: Path) -> None:
+    checkpoint_path = tmp_path / "latest_net_G.pth"
+    checkpoint_path.write_bytes(b"checkpoint")
+    sidecar_path = tmp_path / "test_opt.txt"
+    sidecar_path.write_text("alphabet: abc\n", encoding="utf-8")
+
+    assert resolve_options_sidecar(checkpoint_path) == sidecar_path
+
+
 def test_build_asset_images_writes_rgba_image_mask_and_bbox(tmp_path: Path) -> None:
     raw_path = tmp_path / "raw.png"
     raw = Image.new("RGBA", (6, 5), (0, 0, 0, 0))
@@ -128,6 +217,54 @@ def test_build_asset_images_writes_rgba_image_mask_and_bbox(tmp_path: Path) -> N
     assert metadata["image_size"] == {"width": 6, "height": 5}
 
 
+def test_build_asset_images_derives_mask_from_grayscale_without_alpha(
+    tmp_path: Path,
+) -> None:
+    raw_path = tmp_path / "raw.png"
+    raw = Image.new("L", (6, 5), 255)
+    raw.putpixel((2, 1), 20)
+    raw.putpixel((4, 3), 20)
+    raw.save(raw_path)
+
+    image_path = tmp_path / "images" / "asset.png"
+    mask_path = tmp_path / "masks" / "asset-mask.png"
+    metadata = build_asset_images(
+        raw_path=raw_path,
+        image_path=image_path,
+        mask_path=mask_path,
+        ink_color="black",
+        background="transparent",
+    )
+
+    assert metadata["ink_bbox"] == {"x": 2, "y": 1, "width": 3, "height": 3}
+    assert Image.open(mask_path).getbbox() == (2, 1, 5, 4)
+
+
+def test_build_asset_images_preserves_grayscale_antialiasing(
+    tmp_path: Path,
+) -> None:
+    raw_path = tmp_path / "raw.png"
+    raw = Image.new("L", (3, 1), 255)
+    raw.putpixel((1, 0), 128)
+    raw.putpixel((2, 0), 20)
+    raw.save(raw_path)
+
+    image_path = tmp_path / "images" / "asset.png"
+    mask_path = tmp_path / "masks" / "asset-mask.png"
+    build_asset_images(
+        raw_path=raw_path,
+        image_path=image_path,
+        mask_path=mask_path,
+        ink_color="black",
+        background="transparent",
+    )
+
+    mask = Image.open(mask_path).convert("L")
+    assert mask.getpixel((0, 0)) == 0
+    assert 0 < mask.getpixel((1, 0)) < 255
+    assert mask.getpixel((2, 0)) > mask.getpixel((1, 0))
+
+
 def test_build_asset_images_rejects_empty_masks(tmp_path: Path) -> None:
     raw_path = tmp_path / "raw.png"
     Image.new("RGBA", (6, 5), (0, 0, 0, 0)).save(raw_path)
@@ -140,6 +277,74 @@ def test_build_asset_images_rejects_empty_masks(tmp_path: Path) -> None:
             ink_color="black",
             background="transparent",
         )
+
+
+def test_build_generator_command_defaults_to_single_text_wrapper(
+    tmp_path: Path,
+) -> None:
+    source_dir = _write_source(tmp_path)
+    checkpoint_path, _ = _write_checkpoint(tmp_path)
+    options_path = tmp_path / "test_opt.txt"
+    options_path.write_text("alphabet: JaneDo\n", encoding="utf-8")
+    raw_path = tmp_path / "raw.png"
+    record = {
+        "asset_id": "asset-001",
+        "field": "patient_name",
+        "text": "Jane",
+        "ink_color": "black",
+        "background": "transparent",
+        "seed": 42,
+    }
+
+    command = _build_generator_command(
+        record=record,
+        text="Jane",
+        raw_path=raw_path,
+        source_dir=source_dir,
+        checkpoint_path=checkpoint_path,
+        options_sidecar_path=options_path,
+        generator_command=None,
+    )
+
+    assert command[0] == sys.executable
+    assert command[1].endswith("wrapper\\generate_single.py") or command[1].endswith(
+        "wrapper/generate_single.py"
+    )
+    assert "--options-json" in command
+    assert str(options_path) in command
+
+
+def test_render_cli_with_fake_renderer_validates_alphabet_from_options(
+    tmp_path: Path,
+) -> None:
+    input_path = _write_input_manifest(tmp_path)
+    source_dir = _write_source(tmp_path)
+    checkpoint_path, checkpoint_sha = _write_checkpoint(tmp_path)
+    options_path = tmp_path / "test_opt.txt"
+    options_path.write_text("alphabet: DoeJan^\n", encoding="utf-8")
+
+    manifest_path = run_render(
+        [
+            "--input",
+            str(input_path),
+            "--output-root",
+            str(tmp_path / "runs"),
+            "--run-id",
+            "unit-run",
+            "--source-dir",
+            str(source_dir),
+            "--checkpoint",
+            str(checkpoint_path),
+            "--checkpoint-sha256",
+            checkpoint_sha,
+            "--options-json",
+            str(options_path),
+            "--fake-renderer",
+        ]
+    )
+
+    record = json.loads(manifest_path.read_text(encoding="utf-8").strip())
+    assert record["generator_options_sha256"] == sha256_file(options_path)
 
 
 def test_validate_output_manifest_rejects_hash_mismatch(tmp_path: Path) -> None:

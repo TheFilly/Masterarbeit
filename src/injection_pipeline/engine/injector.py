@@ -44,6 +44,8 @@ from injection_pipeline.writers.dicom import (
     _write_pixel_array,
 )
 
+_HANDWRITING_FONT_FAMILY = "handwriting"
+
 
 # Input: `ds` mit DICOM-Dataset, sichtbare Injektionen und Renderoptionen.
 # Output: Prototype-Renderpayload fuer den Orchestrator.
@@ -142,7 +144,8 @@ def inject_visible_text_into_image(
 # Input: `frame` mit Pixelarray, `visible_injections` mit Renderplan und Renderoptionen.
 # Output: Render-Ergebnis mit Pixelarray, Preview-Pfad, Boxen und Metadaten.
 # Die Funktion validiert Optionen, materialisiert Positionen deterministisch aus
-# dem Seed und schreibt die Preview-Datei als Nebeneffekt.
+# dem Seed und schreibt die Preview-Datei als Nebeneffekt. `handwriting` ist nur
+# ohne Font-Renderer gueltig und loest keinen Font-Fallback aus.
 def _inject_visible_text_into_frame(
     *,
     frame: np.ndarray,
@@ -164,8 +167,20 @@ def _inject_visible_text_into_frame(
             "placement_mode must be one of "
             f"{_VALID_PLACEMENT_MODES}, got {placement_mode!r}."
         )
-    if font_family not in _FONT_PATHS:
-        raise ValueError(f"font_family must be one of {tuple(_FONT_PATHS)}.")
+    has_font_renderer = any(
+        injection.get("renderer_type") != "handwriting_asset"
+        for injection in visible_injections
+    )
+    if font_family == _HANDWRITING_FONT_FAMILY and has_font_renderer:
+        raise ValueError(
+            "font_family='handwriting' requires handwriting assets for all "
+            "visible annotations."
+        )
+    if font_family not in _FONT_PATHS and not (
+        font_family == _HANDWRITING_FONT_FAMILY and not has_font_renderer
+    ):
+        allowed = (*tuple(_FONT_PATHS), _HANDWRITING_FONT_FAMILY)
+        raise ValueError(f"font_family must be one of {allowed}.")
     if text_background is not None and text_background not in _TEXT_BACKGROUND_COLORS:
         raise ValueError(
             "text_background must be None or one of "
@@ -248,9 +263,9 @@ def _inject_visible_text_into_frame(
 
 # Input: `frame` mit Preview-Pixeln, `annotations` mit Overlay-Spezifikationen.
 # Output: Gerendertes Preview-Bild und sichtbare Annotationen.
-# Die Funktion laedt die konfigurierte Schrift und rendert je Annotation den
-# Font- oder Handschrift-Renderer. Intern vorbereitete Overlays werden
-# wiederverwendet, wenn die Platzierung sie mitgegeben hat.
+# Die Funktion laedt die konfigurierte Schrift nur bei Font-Annotationen und
+# rendert je Annotation den Font- oder Handschrift-Renderer. Intern vorbereitete
+# Overlays werden wiederverwendet, wenn die Platzierung sie mitgegeben hat.
 def render_visible_annotations(
     frame: np.ndarray,
     annotations: list[dict[str, Any]],
@@ -259,7 +274,7 @@ def render_visible_annotations(
     text_background: str | None = None,
 ) -> tuple[Image.Image, list[dict[str, Any]]]:
     preview = frame_to_image(frame)
-    font = load_default_font(font_family=font_family, font_size_px=font_size_px)
+    font: Any | None = None
     render_records: list[dict[str, Any]] = []
 
     for annotation in annotations:
@@ -270,6 +285,16 @@ def render_visible_annotations(
                 prepared_overlay=get_prepared_overlay(annotation),
             )
         else:
+            if font is None:
+                if font_family == _HANDWRITING_FONT_FAMILY:
+                    raise ValueError(
+                        "font_family='handwriting' requires handwriting assets "
+                        "for all visible annotations."
+                    )
+                font = load_default_font(
+                    font_family=font_family,
+                    font_size_px=font_size_px,
+                )
             preview, record = _render_single_annotation(
                 preview,
                 annotation,

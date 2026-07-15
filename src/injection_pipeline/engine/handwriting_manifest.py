@@ -104,11 +104,11 @@ def apply_handwriting_assets(
                 f"Handwriting asset {asset_id!r} has identity field "
                 f"{asset_identity_field!r}, expected {identity_field!r}."
             )
-        asset_text = asset.get("text")
+        asset_text = asset.get("source_text", asset.get("text"))
         if asset_text != item.get("text"):
             raise ValueError(
-                f"Handwriting asset {asset_id!r} text does not match current "
-                "render text."
+                f"Handwriting asset {asset_id!r} source text does not match "
+                "current render text."
             )
         updated_plan.append(
             {

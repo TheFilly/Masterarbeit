@@ -4,7 +4,7 @@
 from PIL import Image
 
 _WHITE_THRESHOLD = 245
-_ALPHA_THRESHOLD = 0
+_ALPHA_CUTOFF = 8
 _INK_RGB = {
     "black": (20, 20, 20),
     "gray": (110, 110, 110),
@@ -41,29 +41,33 @@ def build_asset_images(raw_path, image_path, mask_path, ink_color, background):
     }
 
 
-# Input: `image` als RGBA und Hintergrundmodus.
-# Output: L-Modus-Maske mit sichtbarer Tinte.
-# Transparente Assets nutzen Alpha, weisse Hintergruende nutzen Distanz zu
-# Weiss als deterministische Schwelle.
+# Input: `image` als Generatorausgabe und Hintergrundmodus.
+# Output: L-Modus-Alpha-Maske mit erhaltener Tintenintensitaet.
+# Transparente Assets bewahren vorhandene Alpha-Werte. Graue ScrabbleGAN-
+# Ausgaben ohne Alpha werden ueber die Weissdistanz in eine weiche Alpha-Maske
+# umgerechnet, damit Anti-Aliasing nicht als harte Schwarzflaeche endet.
 def _build_mask(image, background):
     # type: (Image.Image, str) -> Image.Image
-    if background == "transparent":
-        return image.getchannel("A").point(
-            lambda value: 255 if value > _ALPHA_THRESHOLD else 0
-        )
+    if "A" in image.getbands():
+        alpha = image.getchannel("A")
+        alpha_min, alpha_max = alpha.getextrema()
+        if alpha_min < alpha_max or alpha_max < 255:
+            return alpha.point(lambda value: value if value > _ALPHA_CUTOFF else 0)
 
-    rgb = image.convert("RGB")
-    mask = Image.new("L", image.size, 0)
-    rgb_pixels = rgb.load()
-    mask_pixels = mask.load()
-    for y in range(image.size[1]):
-        for x in range(image.size[0]):
-            red, green, blue = rgb_pixels[x, y]
-            if min(abs(red - 255), abs(green - 255), abs(blue - 255)) > (
-                255 - _WHITE_THRESHOLD
-            ):
-                mask_pixels[x, y] = 255
-    return mask
+    grayscale = image.convert("L")
+    return grayscale.point(_grayscale_to_alpha)
+
+
+# Input: `value` als Graustufenwert zwischen 0 und 255.
+# Output: Alpha-Wert mit niedrigen Werten fuer weisse Flaechen.
+# Die Funktion bildet Dunkelheit weich auf Alpha ab und unterdrueckt nur sehr
+# schwache Hintergrundabweichungen, damit Graustufen und Kanten erhalten bleiben.
+def _grayscale_to_alpha(value):
+    # type: (int) -> int
+    if value >= _WHITE_THRESHOLD:
+        return 0
+    alpha = int(((_WHITE_THRESHOLD - value) * 255) / _WHITE_THRESHOLD)
+    return alpha if alpha > _ALPHA_CUTOFF else 0
 
 
 # Input: Quellbild, Maske, Tintenfarbe und Hintergrundmodus.
@@ -79,4 +83,3 @@ def _normalize_rgba(source, mask, ink_color, background):
 
     ink_layer = Image.new("RGBA", source.size, _INK_RGB[ink_color] + (255,))
     return Image.composite(ink_layer, base, mask)
-

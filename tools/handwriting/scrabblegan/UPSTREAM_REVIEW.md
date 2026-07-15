@@ -4,12 +4,18 @@ Date: 2026-06-11. Compared the local v1 batch tooling against the official
 Amazon repository (`https://github.com/amzn/convolutional-handwriting-gan`,
 README and `environmentPytorch12.yml` on `master`).
 
+Implementation status update: the blockers below were addressed by the
+repository's single-text wrapper, Micromamba CPU image, checkpoint-option
+adapter, companion-checkpoint handling, and manifest compatibility changes.
+The real Docker/upstream path was verified with the local IAM checkpoint on
+2026-07-15. This file remains the historical review record; the current
+operational instructions are in `tools/handwriting/scrabblegan/README.md`.
+
 ## Verdict
 
-The local code is a clean batch *scaffold* (manifest contract, hashing,
-validation, fake renderer), but the actual ScrabbleGAN integration does not
-match upstream reality. As written, neither the Docker image nor the default
-generator command can produce a single handwriting image with the real model.
+The original review verdict was that the local code was only a batch scaffold.
+That verdict applied before the implementation work described above and is
+retained below as historical context.
 
 ## Findings
 

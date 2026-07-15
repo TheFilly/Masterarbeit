@@ -98,6 +98,10 @@ def _validate_record_shape(record, index):
         raise ValueError("Unsupported background in output manifest: {}".format(
             record["background"]
         ))
+    if record["ink_color"] == "white" and record["background"] == "white":
+        raise ValueError("Invisible white-on-white asset in output manifest: {}".format(
+            record["asset_id"]
+        ))
 
 
 # Input: Manifest-Wurzel, relativer Pfad und Feldname.

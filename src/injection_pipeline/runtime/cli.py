@@ -13,12 +13,17 @@ from injection_pipeline.loaders.pdf import PdfLoader
 from injection_pipeline.pdf.models import PdfCompositionArtifacts
 from injection_pipeline.runtime.inputs import DEFAULT_INPUT_EXTENSIONS
 from injection_pipeline.runtime.options import (
+    DEFAULT_HANDWRITING_ASSET_ROOT,
+    DEFAULT_HANDWRITING_CHECKPOINT_PATH,
+    DEFAULT_HANDWRITING_CONTAINER_IMAGE,
+    DEFAULT_HANDWRITING_SOURCE_DIR,
     DEFAULT_OUTPUT_DIR,
     FONT_FAMILY_CHOICES,
+    HANDWRITING_FONT_FAMILY,
     SHOW_LABEL_BOX_CHOICES,
     TEXT_BACKGROUND_CHOICES,
 )
-from injection_pipeline.runtime.runner import run
+from injection_pipeline.runtime.runner import generate_handwriting_assets, run
 from injection_pipeline.writers.pdf import PdfWriterAdapter
 
 
@@ -224,10 +229,6 @@ def _prompt_for_run_timestamp() -> datetime | None:
 # Einzelwerte direkt waehrend der Eingabe.
 def _collect_interactive_args() -> argparse.Namespace:
     print("No CLI arguments were provided. Starting interactive parameter setup.\n")
-    input_path = _prompt_for_input_path()
-    identifier_schema = _prompt_for_identifier_schema_path(
-        DEFAULT_IDENTIFIER_SCHEMA_PATH
-    )
     seed = _prompt_for_value(
         parameter_name="seed",
         purpose=(
@@ -237,6 +238,20 @@ def _collect_interactive_args() -> argparse.Namespace:
         expected_inputs="an integer",
         default_value=42,
         parser=lambda raw: _parse_int(raw, "seed"),
+    )
+    font_family = _prompt_for_value(
+        parameter_name="font-family",
+        purpose=(
+            "Renderer choice for visible injected text; 'handwriting' uses "
+            "generated asset overlays."
+        ),
+        expected_inputs=f"one of {', '.join(FONT_FAMILY_CHOICES)}",
+        default_value="arial",
+        parser=lambda raw: _validate_choice("font-family", raw, FONT_FAMILY_CHOICES),
+    )
+    input_path = _prompt_for_input_path()
+    identifier_schema = _prompt_for_identifier_schema_path(
+        DEFAULT_IDENTIFIER_SCHEMA_PATH
     )
     rotation_angle = _prompt_for_value(
         parameter_name="rotation-angle",
@@ -264,13 +279,6 @@ def _collect_interactive_args() -> argparse.Namespace:
         default_value="corners",
         parser=lambda raw: _validate_choice("placement-mode", raw, ("free", "corners")),
     )
-    font_family = _prompt_for_value(
-        parameter_name="font-family",
-        purpose="Prototype font family used for visible injected text rendering.",
-        expected_inputs=f"one of {', '.join(FONT_FAMILY_CHOICES)}",
-        default_value="arial",
-        parser=lambda raw: _validate_choice("font-family", raw, FONT_FAMILY_CHOICES),
-    )
     text_background = _prompt_for_text_background(default_value=None)
     show_label_boxes = _prompt_for_show_label_boxes(default_value="n")
     run_timestamp = _prompt_for_run_timestamp()
@@ -281,6 +289,15 @@ def _collect_interactive_args() -> argparse.Namespace:
         identifier_schema=identifier_schema,
         handwriting_manifest=None,
         handwriting_asset=[],
+        handwriting_asset_root=str(DEFAULT_HANDWRITING_ASSET_ROOT),
+        handwriting_checkpoint=str(DEFAULT_HANDWRITING_CHECKPOINT_PATH),
+        handwriting_checkpoint_sha256=None,
+        handwriting_options_json=None,
+        handwriting_source_dir=str(DEFAULT_HANDWRITING_SOURCE_DIR),
+        handwriting_upstream_commit=None,
+        handwriting_runtime_command=None,
+        handwriting_container_image=DEFAULT_HANDWRITING_CONTAINER_IMAGE,
+        handwriting_generator_command=None,
         rotation_angle=rotation_angle,
         font_size_pct=font_size_pct,
         placement_mode=placement_mode,
@@ -309,10 +326,30 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise ValueError("--font-size-pct must be >= 1.")
     if args.handwriting_asset and args.handwriting_manifest is None:
         raise ValueError("--handwriting-asset requires --handwriting-manifest.")
+    if (
+        args.font_family == HANDWRITING_FONT_FAMILY
+        and args.handwriting_manifest is not None
+        and not args.handwriting_asset
+    ):
+        raise ValueError(
+            "--font-family handwriting with --handwriting-manifest requires "
+            "--handwriting-asset mappings for every visible field."
+        )
     if not hasattr(args, "run_timestamp"):
         args.run_timestamp = None
     if isinstance(args.run_timestamp, str):
         args.run_timestamp = _parse_run_timestamp(args.run_timestamp)
+
+
+# Input: `args` mit Standalone-Handschriftargumenten.
+# Output: Keine Rueckgabe.
+# Die Funktion validiert nur die schematischen Eingaben fuer die Asset-Erzeugung;
+# Checkpoint- und Runtime-Fehler bleiben harte Provider-Fehler beim Aufruf.
+def _validate_generate_handwriting_args(args: argparse.Namespace) -> None:
+    if not Path(args.identifier_schema).is_file():
+        raise ValueError(
+            f"--identifier-schema must point to a JSON file: {args.identifier_schema}"
+        )
 
 
 # Input: CLI-Argumente fuer PDF, DICOM und DICOM-Ground-Truth.
@@ -354,6 +391,96 @@ def _build_pdf_parser() -> argparse.ArgumentParser:
     return parser
 
 
+# Input: `parser` fuer normale oder Standalone-Handschrift-CLI.
+# Output: Keine Rueckgabe; erweitert den Parser.
+# Die Funktion haelt die Provider-Konfiguration fuer Runner und Generatorbefehl
+# identisch und setzt repo-relative Defaults fuer lokale Artefakte.
+def _add_handwriting_provider_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--handwriting-asset-root",
+        type=str,
+        default=str(DEFAULT_HANDWRITING_ASSET_ROOT),
+        help="Root directory for deterministic handwriting cache bundles.",
+    )
+    parser.add_argument(
+        "--handwriting-checkpoint",
+        type=str,
+        default=str(DEFAULT_HANDWRITING_CHECKPOINT_PATH),
+        help="ScrabbleGAN generator checkpoint used by the handwriting provider.",
+    )
+    parser.add_argument(
+        "--handwriting-checkpoint-sha256",
+        type=str,
+        default=None,
+        help=(
+            "Expected checkpoint SHA-256. When omitted, the local checkpoint is "
+            "hashed before provider execution."
+        ),
+    )
+    parser.add_argument(
+        "--handwriting-options-json",
+        type=str,
+        default=None,
+        help=(
+            "Optional ScrabbleGAN options sidecar. Defaults to options/test_opt/"
+            "train_opt next to the checkpoint."
+        ),
+    )
+    parser.add_argument(
+        "--handwriting-source-dir",
+        type=str,
+        default=str(DEFAULT_HANDWRITING_SOURCE_DIR),
+        help="Mounted ScrabbleGAN source directory for the isolated generator.",
+    )
+    parser.add_argument(
+        "--handwriting-upstream-commit",
+        type=str,
+        default=None,
+        help="Pinned ScrabbleGAN upstream commit; defaults to source .git_commit.",
+    )
+    parser.add_argument(
+        "--handwriting-runtime-command",
+        type=str,
+        default=None,
+        help=(
+            "Optional host-side batch command override. By default the provider "
+            "starts the configured Docker image."
+        ),
+    )
+    parser.add_argument(
+        "--handwriting-container-image",
+        type=str,
+        default=DEFAULT_HANDWRITING_CONTAINER_IMAGE,
+        help="Docker image used for handwriting generation on cache misses.",
+    )
+    parser.add_argument(
+        "--handwriting-generator-command",
+        type=str,
+        default=None,
+        help=(
+            "Optional single-text generator command template passed to the batch tool."
+        ),
+    )
+
+
+# Input: Keine Parameter.
+# Output: Parser fuer `generate-handwriting`.
+# Die Funktion definiert den Standalone-Durchstich ohne Dokumentinjektion.
+def _build_generate_handwriting_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Generate handwriting assets for the seeded synthetic identity."
+    )
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--identifier-schema",
+        type=str,
+        default=str(DEFAULT_IDENTIFIER_SCHEMA_PATH),
+        help="Path to the external identifier schema JSON.",
+    )
+    _add_handwriting_provider_args(parser)
+    return parser
+
+
 # Input: Keine Parameter.
 # Output: Keine Rueckgabe.
 # Die Funktion parst CLI-Argumente oder startet den interaktiven Modus und
@@ -362,6 +489,11 @@ def main() -> None:
     if len(sys.argv) > 1 and sys.argv[1] in {"inject-pdf", "compose-pdf"}:
         pdf_args = _build_pdf_parser().parse_args(sys.argv[2:])
         _run_pdf_injection(pdf_args)
+        return
+    if len(sys.argv) > 1 and sys.argv[1] == "generate-handwriting":
+        handwriting_args = _build_generate_handwriting_parser().parse_args(sys.argv[2:])
+        _validate_generate_handwriting_args(handwriting_args)
+        generate_handwriting_assets(handwriting_args)
         return
     parser = argparse.ArgumentParser(description="DICOM injection prototype")
     parser.add_argument("--seed", type=int, default=42)
@@ -400,8 +532,8 @@ def main() -> None:
         default="arial",
         choices=list(FONT_FAMILY_CHOICES),
         help=(
-            "Prototype font family choice. Only fixed Windows-style choices "
-            "are supported."
+            "Renderer/font choice. Use 'handwriting' for generated handwriting "
+            "asset overlays."
         ),
     )
     parser.add_argument(
@@ -440,6 +572,7 @@ def main() -> None:
         metavar="FIELD=ASSET_ID",
         help="Map an identity schema field to a handwriting asset ID.",
     )
+    _add_handwriting_provider_args(parser)
     args = _collect_interactive_args() if len(sys.argv) == 1 else parser.parse_args()
     _validate_args(args)
     run(args, now=args.run_timestamp)

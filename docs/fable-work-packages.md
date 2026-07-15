@@ -47,12 +47,15 @@ a repository artifact.
 
 ---
 
-## WP-J — ScrabbleGAN Restart: Real Handwriting Generation (design, then implementation)
+## WP-J — ScrabbleGAN Restart and Injection Integration (design, then implementation)
 
 **Goal.** Make real ScrabbleGAN handwriting generation work end-to-end in this
 repo: a runnable environment, a working single-text inference path, a pinned
 checkpoint, and generated assets flowing through the existing manifest
-contract into an injection run.
+contract into an injection run. Extend that batch contract so the injection
+pipeline can generate missing assets after Faker identity generation, reuse
+them from `DycomData/HandwritingAssets/`, and expose the same behavior through
+a standalone seed-based console command.
 
 **Why now.** The first attempt produced a sound batch scaffold
 (`tools/handwriting/scrabblegan/`: manifest contract, hashing, validation,
@@ -145,15 +148,20 @@ committed) and pin the upstream commit (`Dockerfile:9` still says
 7. Rewrite `UPSTREAM_REVIEW.md` findings as resolved/superseded; update both
    READMEs' "blocked" notices.
 
-**Scope / DoD.** One real generated asset for each of the three v1 fields
-(`patient_name`, `patient_id`, `accession_number`) injected into a DCM run;
-existing fake-renderer tests still pass; no legacy dependencies enter the
-Python 3.13 project (`tools/handwriting/README.md` runtime boundary holds);
-no datasets, weights, or generated assets committed.
+**Scope / DoD.** One real generated asset for each selected v1 field
+(`patient_name`, `patient_id`, `accession_number` unless the field decision
+expands the set) is injected into a DCM run; a second run with the same
+compatible seed/cache identity reuses the persisted assets; a standalone seed
+command produces the same reusable bundle; existing fake-renderer tests still
+pass; no legacy dependencies enter the Python 3.13 project
+(`tools/handwriting/README.md` runtime boundary holds); no datasets, weights,
+or generated assets are committed.
 
-**Depends on.** Nothing in the main pipeline (isolated tooling). **Leverage.**
-High for datasets that require realistic handwriting; the existing scaffold
-reduces the integration work but not the model/checkpoint risk.
+**Depends on.** The real generator core remains isolated, but the integrated
+asset-provider seam touches the main pipeline's runtime CLI, runner, render
+plan, and ground-truth metadata. **Leverage.** High for datasets that require
+realistic handwriting; the existing scaffold reduces the integration work but
+not the model/checkpoint or cache-contract risk.
 
 ---
 
@@ -336,7 +344,8 @@ depends on the ADR-0008 version decision. **Leverage.** Low.
 ```text
 Architecture handoffs (docs/architecture/*, ADR review)   done for DICOM/JPG core
 WP-I  E2E harness + CI          done 2026-07-12
-WP-J  ScrabbleGAN restart       open, parallel track, isolated from the pipeline
+WP-J  ScrabbleGAN + injection integration  open, parallel generator track with
+     a defined runtime/CLI integration handoff
   after WP-B..WP-G DICOM/JPG handoffs:
 WP-K  Validators & DICOM conformance
 WP-L  Multi-frame policy        open, pairs with WP-K

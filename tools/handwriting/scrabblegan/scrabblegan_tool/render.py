@@ -1,8 +1,10 @@
 """Rendering adapter around a mounted ScrabbleGAN checkout."""
 
+import random
 import shlex
 import subprocess
 import sys
+from pathlib import Path
 
 from PIL import Image, ImageDraw
 
@@ -18,7 +20,11 @@ def read_source_commit(source_dir):
 
     commit_file = source_dir / ".git_commit"
     if commit_file.exists():
-        commit = commit_file.read_text(encoding="utf-8").strip()
+        try:
+            commit = commit_file.read_text(encoding="utf-8-sig").strip()
+        except UnicodeDecodeError:
+            # Windows PowerShell 5 writes `>` as UTF-16 by default.
+            commit = commit_file.read_text(encoding="utf-16").strip()
         if commit:
             return commit
 
@@ -49,60 +55,126 @@ def render_raw_asset(
     raw_path,
     source_dir,
     checkpoint_path,
+    options_sidecar_path=None,
     generator_command=None,
     fake_renderer=False,
 ):
-    # type: (dict, Path, Path, Path, str, bool) -> None
+    # type: (dict, Path, Path, Path, Path | None, str, bool) -> None
     raw_path.parent.mkdir(parents=True, exist_ok=True)
     if fake_renderer:
         _render_fake_asset(record, raw_path)
         return
 
+    words = _split_words(record["text"])
+    if len(words) == 1:
+        _render_single_word(
+            record=record,
+            text=words[0],
+            raw_path=raw_path,
+            source_dir=source_dir,
+            checkpoint_path=checkpoint_path,
+            options_sidecar_path=options_sidecar_path,
+            generator_command=generator_command,
+        )
+    else:
+        word_paths = []
+        for index, word in enumerate(words, start=1):
+            word_path = raw_path.parent / f"{raw_path.stem}-word-{index}.png"
+            _render_single_word(
+                record=record,
+                text=word,
+                raw_path=word_path,
+                source_dir=source_dir,
+                checkpoint_path=checkpoint_path,
+                options_sidecar_path=options_sidecar_path,
+                generator_command=generator_command,
+            )
+            word_paths.append(word_path)
+        _compose_word_images(word_paths, raw_path, record["seed"], record["asset_id"])
+
+    if not raw_path.exists():
+        raise ValueError(f"ScrabbleGAN command did not write raw output: {raw_path}")
+
+
+# Input: Render-Record, Worttext, Zielpfad, Source, Checkpoint und Optionen.
+# Output: Keine Rueckgabe.
+# Die Funktion fuehrt genau einen upstream Single-Text-Wrapper-Aufruf aus und
+# prueft, dass das erwartete PNG geschrieben wurde.
+def _render_single_word(
+    record,
+    text,
+    raw_path,
+    source_dir,
+    checkpoint_path,
+    options_sidecar_path,
+    generator_command,
+):
+    # type: (dict, str, Path, Path, Path, Path | None, str) -> None
     command = _build_generator_command(
-        record, raw_path, source_dir, checkpoint_path, generator_command
+        record=record,
+        text=text,
+        raw_path=raw_path,
+        source_dir=source_dir,
+        checkpoint_path=checkpoint_path,
+        options_sidecar_path=options_sidecar_path,
+        generator_command=generator_command,
     )
     subprocess.check_call(command, cwd=str(source_dir))
     if not raw_path.exists():
         raise ValueError(f"ScrabbleGAN command did not write raw output: {raw_path}")
 
 
-# Input: Render-Record, Zielpfad, Source, Checkpoint und optionale Template.
+# Input: Render-Record, Worttext, Zielpfad, Source, Checkpoint und optionale Template.
 # Output: Argumentliste fuer `subprocess`.
-# Die Funktion bietet einen konservativen Default fuer `generate.py`, erlaubt
-# aber projektspezifische Upstream-Wrapper ueber Platzhalter.
+# Die Funktion nutzt standardmaessig den lokalen `generate_single.py`-Wrapper
+# und erlaubt projektspezifische Templates ueber stabile Platzhalter.
 def _build_generator_command(
-    record, raw_path, source_dir, checkpoint_path, generator_command
+    record,
+    text,
+    raw_path,
+    source_dir,
+    checkpoint_path,
+    options_sidecar_path,
+    generator_command,
 ):
-    # type: (dict, Path, Path, Path, str) -> list
+    # type: (dict, str, Path, Path, Path, Path | None, str) -> list
     placeholders = {
-        "text": record["text"],
+        "text": text,
         "seed": str(record["seed"]),
         "output": str(raw_path),
         "source_dir": str(source_dir),
         "checkpoint": str(checkpoint_path),
+        "options_json": (
+            "" if options_sidecar_path is None else str(options_sidecar_path)
+        ),
         "asset_id": record["asset_id"],
         "field": record["field"],
     }
     if generator_command:
         return [part.format(**placeholders) for part in shlex.split(generator_command)]
 
-    generate_py = source_dir / "generate.py"
+    if options_sidecar_path is None:
+        raise ValueError("ScrabbleGAN options sidecar is required for real rendering.")
+    generate_py = (
+        Path(__file__).resolve().parent.parent / "wrapper" / "generate_single.py"
+    )
     if not generate_py.exists():
-        raise ValueError(
-            "No generator command supplied and generate.py was not found in "
-            f"{source_dir}."
-        )
+        raise ValueError(f"ScrabbleGAN single-text wrapper not found: {generate_py}")
     return [
         sys.executable,
         str(generate_py),
         "--text",
-        record["text"],
+        text,
         "--seed",
         str(record["seed"]),
         "--checkpoint",
         str(checkpoint_path),
+        "--options-json",
+        str(options_sidecar_path),
         "--output",
         str(raw_path),
+        "--source-dir",
+        str(source_dir),
     ]
 
 
@@ -119,3 +191,51 @@ def _render_fake_asset(record, raw_path):
     x_offset = 4 + int(record["seed"]) % 5
     draw.rectangle((x_offset, 9, width - 8, 20), fill=(0, 0, 0, 255))
     image.save(raw_path)
+
+
+# Input: `text` aus einem validierten Manifest-Record.
+# Output: Liste einzelner Woerter fuer upstream ScrabbleGAN.
+# Die Funktion haelt Leerzeichen als Batch-Tool-Komposition und schuetzt den
+# Single-Word-Wrapper vor leeren Wortaufrufen.
+def _split_words(text):
+    # type: (str) -> list
+    words = text.split(" ")
+    if any(not word for word in words):
+        raise ValueError(f"Text contains empty word segment: {text!r}")
+    return words
+
+
+# Input: rohe Word-PNGs, Zielpfad, Seed und Asset-ID.
+# Output: Keine Rueckgabe.
+# Die Funktion komponiert Multi-Word-Ausgaben deterministisch horizontal auf
+# weissem Rohhintergrund, damit die spaetere Maskierung wie bei ScrabbleGAN greift.
+def _compose_word_images(word_paths, raw_path, seed, asset_id):
+    # type: (list, Path, int, str) -> None
+    images = [_flatten_on_white(Image.open(path)) for path in word_paths]
+    rng = random.Random(f"{seed}:{asset_id}")
+    gaps = [8 + rng.randint(0, 4) for _ in range(max(0, len(images) - 1))]
+    width = sum(image.size[0] for image in images) + sum(gaps)
+    height = max(image.size[1] for image in images)
+    canvas = Image.new("RGB", (width, height), (255, 255, 255))
+
+    x_offset = 0
+    for index, image in enumerate(images):
+        y_offset = height - image.size[1]
+        canvas.paste(image, (x_offset, y_offset))
+        x_offset += image.size[0]
+        if index < len(gaps):
+            x_offset += gaps[index]
+    canvas.save(raw_path)
+
+
+# Input: `image` als beliebige Pillow-Ausgabe.
+# Output: RGB-Bild ohne Alpha auf weissem Hintergrund.
+# Die Funktion normalisiert Word-Fragmente fuer die Multi-Word-Komposition,
+# ohne die eigentliche Tintenfarbe festzulegen.
+def _flatten_on_white(image):
+    # type: (Image.Image) -> Image.Image
+    if "A" not in image.getbands():
+        return image.convert("RGB")
+    base = Image.new("RGBA", image.size, (255, 255, 255, 255))
+    base.alpha_composite(image.convert("RGBA"))
+    return base.convert("RGB")
