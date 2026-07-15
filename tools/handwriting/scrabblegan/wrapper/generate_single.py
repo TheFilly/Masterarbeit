@@ -142,7 +142,7 @@ def _validate_alphabet(text, alphabet):
 # upstream erwartete `checkpoints_dir/name/latest_net_G.pth`-Layout ab.
 @contextlib.contextmanager
 def _temporary_checkpoint_layout(checkpoint_path, options):
-    # type: (Path, dict)
+    # type: (Path, dict) -> object
     with tempfile.TemporaryDirectory(prefix="scrabblegan-single-") as tmp_dir:
         tmp_root = Path(tmp_dir)
         experiment_name = str(options.get("name", "single_text"))
