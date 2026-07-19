@@ -11,6 +11,7 @@ from typing import Any
 
 import matplotlib
 import pytest
+from PIL import Image
 
 from injection_pipeline.config import DEFAULT_IDENTIFIER_SCHEMA_PATH
 from injection_pipeline.engine import pixel_injection
@@ -43,39 +44,47 @@ _FIXED_RUN_TIMESTAMP = datetime(2026, 7, 10, 12, 0, 0)
 # - JSON artifact and record hashes changed because visible annotations now
 #   serialize `category`, `prefix`, `suffix`, `prefix_corners`, and
 #   `suffix_corners`; DICOM tag annotations now serialize schema `category`.
-_BINARY_REFERENCE_HASHES: dict[str, dict[str, str]] = {
+#
+# Platform boundary:
+# - `ground_truth.json` and `run_manifest.json` keep semantic/model/path checks
+#   because their raw bytes include platform-native newlines.
+# - Preview PNGs keep pixel/dimension regression checks because PNG compression
+#   bytes can vary across Pillow/libpng builds while decoded pixels stay stable.
+# - Injected DCM/JPG artifacts remain byte-hashed because they are the actual
+#   regression target for document output stability.
+_INJECTED_DOCUMENT_REFERENCE_HASHES: dict[str, dict[str, str]] = {
     "dcm": {
-        "ground_truth.json": (
-            "0b2377be7025acc91e0340eb3c072a34e9b2e009b8c2fea9f2664da5e6061a20"
-        ),
-        "preview.png": (
-            "008b68b3b6f741f8b5e5e70efb54584ce0e7380f597121c1f8b091b66f27817e"
-        ),
-        "preview_annotated.png": (
-            "72c098a322f41d1ffaf1d0e5aea953050d19e6f432fc196ad7bcbcc12e52772e"
-        ),
-        "run_manifest.json": (
-            "0095057890aa7d5b9a40c3c7c9cd758c9f686bec1792c6c5f486e7a52c8e2185"
-        ),
         "synthetic_injected.dcm": (
             "a040f800edec2649dcaa67407d98599fceb4dcee858d9cdaea6f9d6af32557e3"
         ),
     },
     "jpg": {
-        "ground_truth.json": (
-            "5849bb38bf47a5cc34823be967cd1f19d0ef8857837031746fa04e084f0bee39"
-        ),
-        "preview.png": (
-            "1ecae9e8798567a5e48baa475cb8e25b9b51dad6a5f822ba91680a99ead21724"
-        ),
-        "preview_annotated.png": (
-            "d8109a29c3c6ff5ef01ec30533a16f629162dd2c2d0fc7bd5c593c31cda4c162"
-        ),
-        "run_manifest.json": (
-            "77263424bde23ea9b04aee28a39da6845aa702da8c3025e8ef61e8450d922e1d"
-        ),
         "synthetic_injected.jpg": (
             "ae66c33fa49e6b0a705d762cff13c489d129db0845711ebbbd583c3c484f922c"
+        ),
+    },
+}
+_PREVIEW_REFERENCE_FINGERPRINTS: dict[
+    str, dict[str, tuple[tuple[int, int], str]]
+] = {
+    "dcm": {
+        "preview.png": (
+            (256, 256),
+            "95604e8dedccb04945deaaa5653b699eeccfe27d84716c3d48ce95aa1fb83008",
+        ),
+        "preview_annotated.png": (
+            (954, 985),
+            "72a8c3f458e0d4100cc2a28f76c032c3901ae8e297c8ff54fdcb9e2f0c070bfa",
+        ),
+    },
+    "jpg": {
+        "preview.png": (
+            (256, 256),
+            "a95e5b4241cfdce87b6949c196f89a103b6488c9712b0493404e3a8476affaed",
+        ),
+        "preview_annotated.png": (
+            (954, 985),
+            "121fb8a9ce2781ece2eea9702b0f9703bdee486cda63b927c5d3ab5e0b7399c3",
         ),
     },
 }
@@ -89,6 +98,16 @@ _RECORD_REFERENCE_HASHES = {
 # Output: Lowercase SHA-256 digest for the complete file contents.
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+# Input: `path` with a preview PNG produced by the pipeline.
+# Output: Image dimensions and SHA-256 digest of decoded RGBA pixel bytes.
+# Raw PNG bytes are intentionally avoided because encoder output varies by
+# platform even when the rendered pixels are unchanged.
+def _preview_fingerprint(path: Path) -> tuple[tuple[int, int], str]:
+    with Image.open(path) as image:
+        canonical = image.convert("RGBA")
+        return canonical.size, hashlib.sha256(canonical.tobytes()).hexdigest()
 
 
 def _install_reference_font(relative_font_path: Path) -> Path:
@@ -267,7 +286,9 @@ def test_pipeline_artifacts_match_frozen_references(
         == (_RECORD_REFERENCE_HASHES[document_type])
     )
 
-    expected_artifact_names = set(_BINARY_REFERENCE_HASHES[document_type]) | {
+    document_references = _INJECTED_DOCUMENT_REFERENCE_HASHES[document_type]
+    preview_references = _PREVIEW_REFERENCE_FINGERPRINTS[document_type]
+    expected_artifact_names = set(document_references) | set(preview_references) | {
         "ground_truth.json",
         "run_manifest.json",
     }
@@ -275,10 +296,13 @@ def test_pipeline_artifacts_match_frozen_references(
     assert all(path.is_file() for path in artifacts)
     assert {path.name for path in artifacts} == expected_artifact_names
     artifact_hashes = {
-        name: _sha256(run_dir / name)
-        for name in _BINARY_REFERENCE_HASHES[document_type]
+        name: _sha256(run_dir / name) for name in document_references
     }
-    assert artifact_hashes == _BINARY_REFERENCE_HASHES[document_type]
+    assert artifact_hashes == document_references
+    preview_fingerprints = {
+        name: _preview_fingerprint(run_dir / name) for name in preview_references
+    }
+    assert preview_fingerprints == preview_references
 
 
 def test_pipeline_accepts_toy_identifier_schema_without_code_changes(
