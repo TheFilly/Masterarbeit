@@ -39,19 +39,23 @@ _FIXED_RUN_TIMESTAMP = datetime(2026, 7, 10, 12, 0, 0)
 #   Pillow/matplotlib Agg build, which changes PNG compression bytes without
 #   changing pixel content. `synthetic_injected.{dcm,jpg}` are unaffected and
 #   stay byte-identical across platforms.
+# Reference update 2026-07-19:
+# - JSON artifact and record hashes changed because visible annotations now
+#   serialize `category`, `prefix`, `suffix`, `prefix_corners`, and
+#   `suffix_corners`; DICOM tag annotations now serialize schema `category`.
 _BINARY_REFERENCE_HASHES: dict[str, dict[str, str]] = {
     "dcm": {
         "ground_truth.json": (
-            "2fdaa8d60159afcec7b2f828dd10ee8ffce17f0b4912ec15da00054fdced1d5b"
+            "0b2377be7025acc91e0340eb3c072a34e9b2e009b8c2fea9f2664da5e6061a20"
         ),
         "preview.png": (
-            "7cded07de64d9888da102fe451d35a42c09083d9a1e044b78e008f188ca0be56"
+            "008b68b3b6f741f8b5e5e70efb54584ce0e7380f597121c1f8b091b66f27817e"
         ),
         "preview_annotated.png": (
-            "ca81c94bc91ad276709ebf3eabbc71aabfc4c4bab14a6ac3a3230f3a50152328"
+            "72c098a322f41d1ffaf1d0e5aea953050d19e6f432fc196ad7bcbcc12e52772e"
         ),
         "run_manifest.json": (
-            "c5c4b3e5fca11dc3b5cd54aa625f9e9eee0b9205fe0d287030845a5c7cf4d521"
+            "0095057890aa7d5b9a40c3c7c9cd758c9f686bec1792c6c5f486e7a52c8e2185"
         ),
         "synthetic_injected.dcm": (
             "a040f800edec2649dcaa67407d98599fceb4dcee858d9cdaea6f9d6af32557e3"
@@ -59,16 +63,16 @@ _BINARY_REFERENCE_HASHES: dict[str, dict[str, str]] = {
     },
     "jpg": {
         "ground_truth.json": (
-            "a65e901c702b0a4af5b33bff2d1a06a1c726b005382e2008d07702d69e303eff"
+            "5849bb38bf47a5cc34823be967cd1f19d0ef8857837031746fa04e084f0bee39"
         ),
         "preview.png": (
-            "38a840a9a648ac39643d1ca8299864f6715848e4734b61f2c30e10ff0c1213d4"
+            "1ecae9e8798567a5e48baa475cb8e25b9b51dad6a5f822ba91680a99ead21724"
         ),
         "preview_annotated.png": (
-            "d8358edd67b9a28e570bc43a7a31a7e719ac295f4d4ea4a7e8becb815ea4e0e6"
+            "d8109a29c3c6ff5ef01ec30533a16f629162dd2c2d0fc7bd5c593c31cda4c162"
         ),
         "run_manifest.json": (
-            "92d12fbacc2f2f8eb84b5c166bb6467eab25afcfc37ee676c56a527f49e68c4b"
+            "77263424bde23ea9b04aee28a39da6845aa702da8c3025e8ef61e8450d922e1d"
         ),
         "synthetic_injected.jpg": (
             "ae66c33fa49e6b0a705d762cff13c489d129db0845711ebbbd583c3c484f922c"
@@ -76,8 +80,8 @@ _BINARY_REFERENCE_HASHES: dict[str, dict[str, str]] = {
     },
 }
 _RECORD_REFERENCE_HASHES = {
-    "dcm": "024d5239b39967a2aae0c1562a7cadfcd4a22a352948017ef48657ec8bf26957",
-    "jpg": "a3d39b22c9aa3d35592ef01b1de5fad18d41bd4a399cdc3cf410aed8c70816c1",
+    "dcm": "a142a3bed9b1c0b96d494d7749fe2b127a4f18405a76ad6b9599abb2768eec07",
+    "jpg": "18837b47c05c7882a5177936de23c86a744306d39b87451d2677fb1d2a449300",
 }
 
 
@@ -181,8 +185,39 @@ def _load_and_validate_records(
     assert ground_truth["document_type"] == document_type
     assert ground_truth["seed"] == 42
     assert len(ground_truth["box_annotations"]) == 3
+    box_by_label = {
+        annotation["label"]: annotation
+        for annotation in ground_truth["box_annotations"]
+    }
+    assert box_by_label["PatientName"]["category"] == "person_name"
+    assert box_by_label["PatientName"]["prefix"] == ""
+    assert box_by_label["PatientName"]["suffix"] == ""
+    assert box_by_label["PatientName"]["prefix_corners"] is None
+    assert box_by_label["PatientName"]["suffix_corners"] is None
+    assert box_by_label["PatientID"]["category"] == "identifier"
+    assert box_by_label["PatientID"]["prefix"] == "SYNTH-"
+    assert box_by_label["PatientID"]["suffix"] == ""
+    assert box_by_label["PatientID"]["prefix_corners"] is not None
+    assert box_by_label["PatientID"]["suffix_corners"] is None
+    assert box_by_label["AccessionNumber"]["category"] == "identifier"
+    assert box_by_label["AccessionNumber"]["prefix"] == "ACC-"
+    assert box_by_label["AccessionNumber"]["suffix"] == ""
+    assert box_by_label["AccessionNumber"]["prefix_corners"] is not None
+    assert box_by_label["AccessionNumber"]["suffix_corners"] is None
     expected_tag_count = 5 if document_type == "dcm" else 0
     assert len(ground_truth["dicom_tag_annotations"]) == expected_tag_count
+    if document_type == "dcm":
+        tag_categories = {
+            annotation["tag_keyword"]: annotation["category"]
+            for annotation in ground_truth["dicom_tag_annotations"]
+        }
+        assert tag_categories == {
+            "PatientName": "person_name",
+            "PatientID": "identifier",
+            "PatientBirthDate": "date",
+            "PatientSex": "code",
+            "AccessionNumber": "identifier",
+        }
     return ground_truth
 
 

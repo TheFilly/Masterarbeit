@@ -125,6 +125,53 @@ def test_apply_handwriting_assets_attaches_manifest_asset(tmp_path: Path) -> Non
     assert updated[0]["asset"]["text"] == "Doe^Jane"
 
 
+def test_apply_handwriting_assets_attaches_arbitrary_text_asset(tmp_path: Path) -> None:
+    image_path = tmp_path / "age.png"
+    mask_path = tmp_path / "age_mask.png"
+    image_path.write_bytes(b"image")
+    mask_path.write_bytes(b"mask")
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "0.1.0-handwriting-assets",
+                "assets": [
+                    {
+                        "asset_id": "age-asset",
+                        "field": "age",
+                        "text": "Patient is 95 years old",
+                        "source_text": "Patient is 95 years old",
+                        "identity_field": "age",
+                        "image_path": image_path.name,
+                        "mask_path": mask_path.name,
+                        "ink_color": "black",
+                        "background_mode": "transparent",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    render_plan = [
+        {
+            "label": "age",
+            "text": "Patient is 95 years old",
+            "identity_field": "age",
+            "rotation_degrees": 20,
+        }
+    ]
+
+    updated = apply_handwriting_assets(
+        render_plan,
+        load_handwriting_manifest(manifest_path),
+        {"age": "age-asset"},
+    )
+
+    assert updated[0]["renderer_type"] == "handwriting_asset"
+    assert updated[0]["asset_id"] == "age-asset"
+    assert updated[0]["asset"]["source_text"] == "Patient is 95 years old"
+
+
 def test_apply_handwriting_assets_rejects_field_mismatch(tmp_path: Path) -> None:
     manifest = load_handwriting_manifest(_write_asset(tmp_path))
     render_plan = [
@@ -193,6 +240,81 @@ def test_render_handwriting_asset_uses_transformed_ink_mask(tmp_path: Path) -> N
     assert record["label_corners"] is None
     assert record["render_metadata"]["renderer_type"] == "handwriting_asset"
     assert record["render_metadata"]["geometry_source"] == "transformed_ink_mask"
+
+
+def test_render_handwriting_asset_preserves_segmented_api_contract(
+    tmp_path: Path,
+) -> None:
+    image_path = tmp_path / "age.png"
+    mask_path = tmp_path / "age_mask.png"
+    image = Image.new("RGBA", (60, 8), (0, 0, 0, 0))
+    mask = Image.new("L", (60, 8), 0)
+    for x in range(4, 56):
+        for y in range(2, 6):
+            image.putpixel((x, y), (0, 0, 0, 255))
+            mask.putpixel((x, y), 255)
+    image.save(image_path)
+    mask.save(mask_path)
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "0.1.0-handwriting-assets",
+                "assets": [
+                    {
+                        "asset_id": "age-asset",
+                        "text": "Patient is 95 years old",
+                        "source_text": "Patient is 95 years old",
+                        "identity_field": "age",
+                        "image_path": image_path.name,
+                        "mask_path": mask_path.name,
+                        "ink_color": "black",
+                        "background_mode": "transparent",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    asset = load_handwriting_manifest(manifest_path)["age-asset"]
+    frame = np.full((80, 100, 3), 255, dtype=np.uint8)
+    annotations = [
+        {
+            "label": "Age",
+            "category": "Age",
+            "text": "Patient is 95 years old",
+            "text_segments": [
+                {"kind": "generic", "text": "Patient is "},
+                {"kind": "pii", "text": "95"},
+                {"kind": "generic", "text": " years old"},
+            ],
+            "identity_field": "age",
+            "renderer_type": "handwriting_asset",
+            "asset_id": "age-asset",
+            "asset": asset,
+            "position": (10, 9),
+            "region": "unit_test",
+            "rotation_degrees": 0,
+        }
+    ]
+
+    _, records = _render_frame_with_annotations(frame, annotations)
+
+    record = records[0]
+    assert record["label"] == "Age"
+    assert record["category"] == "Age"
+    assert record["text"] == "95"
+    assert record["pii_text"] == "95"
+    assert record["rendered_text"] == "Patient is 95 years old"
+    assert record["prefix"] == "Patient is "
+    assert record["suffix"] == " years old"
+    assert record["prefix_corners"] is not None
+    assert record["suffix_corners"] is not None
+    assert record["corners"] != record["render_metadata"]["rendered_text_corners"]
+    assert (
+        record["render_metadata"]["segment_geometry_source"]
+        == "text_advance_clipped_ink_mask"
+    )
 
 
 def test_frame_renderer_reports_handwriting_assets_in_metadata(tmp_path: Path) -> None:

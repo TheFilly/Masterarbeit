@@ -30,6 +30,7 @@ class FakeProvider:
     def __init__(self, generated: GeneratedHandwritingManifest) -> None:
         self.generated = generated
         self.calls: list[tuple[Identity, IdentifierSchema]] = []
+        self.text_asset_calls: list[dict[str, object]] = []
 
     def resolve_assets(
         self,
@@ -37,6 +38,26 @@ class FakeProvider:
         schema: IdentifierSchema,
     ) -> GeneratedHandwritingManifest:
         self.calls.append((identity, schema))
+        return self.generated
+
+    def resolve_text_asset(
+        self,
+        *,
+        field: str,
+        text: str,
+        seed: int,
+        schema_id: str = "arbitrary-text",
+        schema_version: str = "1.0.0",
+    ) -> GeneratedHandwritingManifest:
+        self.text_asset_calls.append(
+            {
+                "field": field,
+                "text": text,
+                "seed": seed,
+                "schema_id": schema_id,
+                "schema_version": schema_version,
+            }
+        )
         return self.generated
 
 
@@ -105,6 +126,85 @@ def test_generate_handwriting_assets_uses_seeded_identity_and_provider(
     assert result == generated
     assert provider.calls[0][0].fields == identity.fields
     assert provider.calls[0][1].schema_id == schema.schema_id
+
+
+def test_runner_api_handwriting_override_uses_exact_text_asset(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    asset = _write_single_asset(tmp_path, "age-asset", "Patient is 95 years old")
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "0.1.0-handwriting-assets",
+                "assets": [
+                    {
+                        **asset,
+                        "source_text": "Patient is 95 years old",
+                        "image_path": Path(asset["image_path"])
+                        .relative_to(tmp_path)
+                        .as_posix(),
+                        "mask_path": Path(asset["mask_path"])
+                        .relative_to(tmp_path)
+                        .as_posix(),
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    generated = GeneratedHandwritingManifest(
+        manifest_path=manifest_path,
+        assets={},
+        asset_mappings={"age": "age-asset"},
+        generated_asset_ids=["age-asset"],
+        cache_hit_asset_ids=[],
+    )
+    provider = FakeProvider(generated)
+    monkeypatch.setattr(runner, "_build_handwriting_provider", lambda args: provider)
+    schema = load_identifier_schema(DEFAULT_IDENTIFIER_SCHEMA_PATH)
+    render_plan = [
+        {
+            "label": "Age",
+            "category": "Age",
+            "text": "Patient is 95 years old",
+            "text_segments": [
+                {"kind": "generic", "text": "Patient is "},
+                {"kind": "pii", "text": "95"},
+                {"kind": "generic", "text": " years old"},
+            ],
+            "identity_field": "age",
+            "region": "corners",
+            "rotation_degrees": 20,
+            "line_index": 0,
+        }
+    ]
+    args = _handwriting_args(tmp_path, seed=99)
+    args.handwriting_text_asset_override = {
+        "field": "age",
+        "text": "Patient is 95 years old",
+    }
+
+    updated = runner._resolve_handwriting_render_plan(
+        args,
+        Identity(identity_id="95", seed=99, fields={"age": "95"}),
+        schema,
+        render_plan,
+    )
+
+    assert provider.calls == []
+    assert provider.text_asset_calls == [
+        {
+            "field": "age",
+            "text": "Patient is 95 years old",
+            "seed": 99,
+            "schema_id": schema.schema_id,
+            "schema_version": schema.version,
+        }
+    ]
+    assert updated[0]["renderer_type"] == "handwriting_asset"
+    assert updated[0]["asset"]["source_text"] == "Patient is 95 years old"
 
 
 def test_runner_provider_uses_checkpoint_options_sidecar_and_commit(

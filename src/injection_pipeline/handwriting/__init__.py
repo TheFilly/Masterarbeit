@@ -20,6 +20,7 @@ from injection_pipeline.handwriting.provider import (
     HandwritingGeneratorOptions,
     HandwritingProviderError,
     HandwritingRuntimeConfig,
+    HandwritingTextAssetRequest,
     MissingHandwritingCheckpointError,
     MissingHandwritingRuntimeError,
 )
@@ -39,6 +40,7 @@ __all__ = [
     "HandwritingGenerationResult",
     "HandwritingProviderError",
     "HandwritingRuntimeConfig",
+    "HandwritingTextAssetRequest",
     "MissingHandwritingCheckpointError",
     "MissingHandwritingRuntimeError",
     "extract_required_alphabet",

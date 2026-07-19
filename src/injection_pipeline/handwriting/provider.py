@@ -177,6 +177,41 @@ class HandwritingCacheIdentity(BaseModel):
         return hashlib.sha256(encoded).hexdigest()
 
 
+class HandwritingTextAssetRequest(BaseModel):
+    """Public request for one arbitrary handwriting text asset."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    seed: int
+    field: str
+    text: str
+    schema_id: str = "arbitrary-text"
+    schema_version: str = "1.0.0"
+
+    @field_validator("field", "schema_id", "schema_version")
+    @classmethod
+    # Input: `value` mit Feld- oder Schema-Identifier fuer ein Text-Asset.
+    # Output: Getrimmter, nichtleerer Identifier.
+    # Die Funktion haelt Cache-Keys und Manifest-Mappings stabil, ohne den
+    # eigentlichen Rendertext zu veraendern.
+    def _validate_identifier(cls, value: str) -> str:
+        normalized = value.strip()
+        if normalized == "":
+            raise ValueError("handwriting text asset identifiers must not be empty.")
+        return normalized
+
+    @field_validator("text")
+    @classmethod
+    # Input: `value` mit vollstaendig zusammengesetztem sichtbarem Text.
+    # Output: Unveraenderter, nichtleerer Text.
+    # Die Funktion bewahrt fuehrende, folgende und interne Leerzeichen fuer
+    # Prefix/Value/Suffix-Laeufe und lehnt nur leere Strings ab.
+    def _validate_text(cls, value: str) -> str:
+        if value == "":
+            raise ValueError("handwriting text asset text must not be empty.")
+        return value
+
+
 class RequestedHandwritingAsset(BaseModel):
     """One requested visible field after schema and alphabet validation."""
 
@@ -481,7 +516,59 @@ class HandwritingAssetProvider:
             runtime=self._runtime,
             options=self._options,
         )
-        bundle_dir = _bundle_dir(self._runtime.asset_root, identity.seed)
+        return self._resolve_requested_assets(
+            requested_assets=requested_assets,
+            seed=identity.seed,
+            generator=generator,
+        )
+
+    # Input: Feldname, vollstaendig gerenderten Text, Seed und optionale Schema-ID.
+    # Output: Cache-Manifest mit genau einem Asset-Mapping fuer `field`.
+    # Die Funktion erzeugt beliebige Text-Assets ueber denselben validierten
+    # Generator- und Cache-Pfad wie schema-getriebene Handschrift-Laeufe.
+    def resolve_text_asset(
+        self,
+        *,
+        field: str,
+        text: str,
+        seed: int,
+        schema_id: str = "arbitrary-text",
+        schema_version: str = "1.0.0",
+        generator: HandwritingGenerator | None = None,
+    ) -> GeneratedHandwritingManifest:
+        request = HandwritingTextAssetRequest(
+            seed=seed,
+            field=field,
+            text=text,
+            schema_id=schema_id,
+            schema_version=schema_version,
+        )
+        _validate_checkpoint(
+            self._runtime.checkpoint_path, self._runtime.checkpoint_sha256
+        )
+        requested_asset = _build_text_requested_asset(
+            request=request,
+            runtime=self._runtime,
+            options=self._options,
+        )
+        return self._resolve_requested_assets(
+            requested_assets=[requested_asset],
+            seed=request.seed,
+            generator=generator,
+        )
+
+    # Input: Cacheadressierte Asset-Anfragen, Seed und optionaler Generator.
+    # Output: Cache-Manifest, Asset-Mapping und Hit/Miss-Listen.
+    # Die Funktion buendelt den gemeinsamen Persistenzpfad fuer schema-basierte
+    # und beliebige Text-Assets; bei Cache-Miss ruft sie die isolierte Runtime auf.
+    def _resolve_requested_assets(
+        self,
+        *,
+        requested_assets: list[RequestedHandwritingAsset],
+        seed: int,
+        generator: HandwritingGenerator | None,
+    ) -> GeneratedHandwritingManifest:
+        bundle_dir = _bundle_dir(self._runtime.asset_root, seed)
         manifest_path = bundle_dir / "manifest.json"
         existing_assets = _load_existing_assets(manifest_path)
         hits, missing = _split_hits(requested_assets, existing_assets)
@@ -500,7 +587,7 @@ class HandwritingAssetProvider:
             generated_ids = [asset.asset_id for asset in missing]
             _write_cache_manifest_atomic(
                 manifest_path=manifest_path,
-                seed=identity.seed,
+                seed=seed,
                 assets=list(existing_assets.values()),
             )
 
@@ -631,6 +718,38 @@ def _build_requested_assets(
             )
         )
     return requested_assets
+
+
+# Input: Beliebige Text-Asset-Anfrage, Runtime und Generatoroptionen.
+# Output: Eine cacheadressierte Asset-Anfrage fuer den vollstaendigen Text.
+# Die Funktion wendet die normale Alphabetvalidierung an, aber keine DICOM-
+# Personennamen-Normalisierung, damit Prefix/Value/Suffix exakt erhalten bleiben.
+def _build_text_requested_asset(
+    request: HandwritingTextAssetRequest,
+    runtime: HandwritingRuntimeConfig,
+    options: HandwritingGeneratorOptions,
+) -> RequestedHandwritingAsset:
+    _validate_alphabet(request.field, request.text, options.alphabet)
+    generator_options = {
+        **options.model_dump(mode="json"),
+        "renderer_version": HANDWRITING_RENDERER_VERSION,
+        "text_normalization": "none",
+    }
+    cache_identity = HandwritingCacheIdentity(
+        seed=request.seed,
+        schema_id=request.schema_id,
+        schema_version=request.schema_version,
+        field=request.field,
+        text=request.text,
+        checkpoint_sha256=runtime.checkpoint_sha256,
+        upstream_commit=runtime.upstream_commit,
+        generator_options=generator_options,
+    )
+    return RequestedHandwritingAsset(
+        asset_id=_asset_id(request.field, cache_identity.cache_key),
+        identity=cache_identity,
+        render_text=request.text,
+    )
 
 
 # Input: Feldname, Text und Generatoralphabet.
@@ -946,7 +1065,19 @@ def _relative_posix(root: Path, path: Path) -> str:
 # Die Funktion nutzt den vollen Cache-Key fuer Kollisionssicherheit in der
 # eingebetteten Identitaet und eine kurze lesbare Asset-ID fuer Dateinamen.
 def _asset_id(field: str, cache_key: str) -> str:
-    return f"{field}-{cache_key[:20]}"
+    return f"{_asset_id_prefix(field)}-{cache_key[:20]}"
+
+
+# Input: Feldname aus Schema oder beliebiger API-Kategorie.
+# Output: Dateisystemtaugliches Praefix fuer Asset-ID und Artefaktnamen.
+# Die Funktion bewahrt bestehende einfache Feldnamen und ersetzt nur Zeichen,
+# die in Pfaden oder Manifest-IDs problematisch werden koennen.
+def _asset_id_prefix(field: str) -> str:
+    prefix = "".join(
+        character if character.isalnum() or character in "._-" else "_"
+        for character in field
+    ).strip("._-")
+    return prefix or "field"
 
 
 # Input: Fehlende Assets.

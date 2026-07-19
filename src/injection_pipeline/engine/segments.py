@@ -38,8 +38,8 @@ def _normalize_text_segments(
 
 # Input: Textsegmente, Font, Textursprung und Zielmasken.
 # Output: Keine Rueckgabe.
-# Die Funktion rendert PII- und Label-Segmente in getrennte Masken bei identischer
-# Textreihenfolge und mutiert beide Masken als Nebeneffekt.
+# Die Funktion rendert PII-, Prefix- und Suffix-Segmente in getrennte Masken bei
+# identischer Textreihenfolge und mutiert alle Masken als Nebeneffekt.
 def _draw_segment_masks(
     *,
     text_segments: list[dict[str, str]],
@@ -47,11 +47,14 @@ def _draw_segment_masks(
     origin: tuple[float, float],
     stroke_width: int,
     pii_mask: Image.Image,
-    label_mask: Image.Image,
+    prefix_mask: Image.Image,
+    suffix_mask: Image.Image,
 ) -> None:
     cursor_x = origin[0]
     pii_draw = ImageDraw.Draw(pii_mask)
-    label_draw = ImageDraw.Draw(label_mask)
+    prefix_draw = ImageDraw.Draw(prefix_mask)
+    suffix_draw = ImageDraw.Draw(suffix_mask)
+    pii_seen = False
 
     for segment in text_segments:
         segment_text = segment["text"]
@@ -73,8 +76,10 @@ def _draw_segment_masks(
                 stroke_width=stroke_width,
                 stroke_fill=255,
             )
+            pii_seen = True
         else:
-            label_draw.text(
+            generic_draw = suffix_draw if pii_seen else prefix_draw
+            generic_draw.text(
                 (cursor_x, origin[1]),
                 segment_text,
                 font=font,
@@ -86,14 +91,15 @@ def _draw_segment_masks(
 
 
 # Input: `text_segments` mit geordneten generischen und PII-Anteilen.
-# Output: Generisches Praefix und zusammengefuegter PII-Text.
-# Die Funktion sammelt nur vorangestellte Nicht-PII-Segmente als Label und
-# verlangt mindestens ein nicht leeres PII-Segment.
-def _split_prefix_and_pii_text(
+# Output: Generisches Praefix, PII-Text und generisches Suffix.
+# Die Funktion trennt generische Segmente anhand ihrer Position relativ zum
+# ersten PII-Anteil und verlangt mindestens ein nicht leeres PII-Segment.
+def _split_segment_text(
     text_segments: list[dict[str, str]],
-) -> tuple[str, str]:
+) -> tuple[str, str, str]:
     prefix_text = ""
     pii_text = ""
+    suffix_text = ""
     for segment in text_segments:
         segment_kind = segment["kind"]
         segment_text = segment["text"]
@@ -101,8 +107,21 @@ def _split_prefix_and_pii_text(
             pii_text += segment_text
         elif not pii_text:
             prefix_text += segment_text
+        else:
+            suffix_text += segment_text
     if not pii_text:
         raise ValueError("At least one non-empty pii text segment is required.")
+    return prefix_text, pii_text, suffix_text
+
+
+# Input: `text_segments` mit geordneten generischen und PII-Anteilen.
+# Output: Generisches Praefix und zusammengefuegter PII-Text.
+# Die Funktion bewahrt den bestehenden Rueckgabevertrag und ignoriert ein
+# moegliches Suffix, damit alte Tests und interne Aufrufer stabil bleiben.
+def _split_prefix_and_pii_text(
+    text_segments: list[dict[str, str]],
+) -> tuple[str, str]:
+    prefix_text, pii_text, _ = _split_segment_text(text_segments)
     return prefix_text, pii_text
 
 

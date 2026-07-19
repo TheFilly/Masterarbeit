@@ -253,7 +253,8 @@ def _inject_visible_text_into_frame(
             "handwriting_assets": handwriting_assets,
             "geometry_notes": (
                 "Bounding boxes are derived from rotated glyph masks. "
-                "PII, generic prefix, and rendered-text masks are tracked separately."
+                "PII, generic prefix/suffix, and rendered-text masks are tracked "
+                "separately."
             ),
             "mask_alpha_threshold": _MASK_ALPHA_THRESHOLD,
             "visible_annotations": rendered_annotations,
@@ -331,8 +332,8 @@ def _render_frame_with_annotations(
 
 # Input: `rendered` mit Renderergebnis, `font_size_pct` mit effektiver Schriftgroesse.
 # Output: Validierte `BoxAnnotation` fuer Ground Truth und Preview.
-# Die Funktion reduziert die Render-Metadaten auf die Felder, die im
-# Run-Record als sichtbare Box-Annotation gespeichert werden.
+# Die Funktion reduziert die Render-Metadaten auf die Box-Felder und setzt
+# leere Prefix-/Suffix-Werte fuer Renderer, die keine Segmentgeometrie liefern.
 def _build_box_annotation(
     rendered: dict[str, Any],
     *,
@@ -340,11 +341,16 @@ def _build_box_annotation(
 ) -> BoxAnnotation:
     return BoxAnnotation(
         label=rendered["label"],
+        category=rendered.get("category", rendered["label"]),
         text=rendered["text"],
         rendered_text=rendered["rendered_text"],
+        prefix=rendered.get("prefix", ""),
+        suffix=rendered.get("suffix", ""),
         region=rendered["region"],
         corners=rendered["corners"],
         label_corners=rendered["label_corners"],
+        prefix_corners=rendered.get("prefix_corners"),
+        suffix_corners=rendered.get("suffix_corners"),
         rotation_degrees=rendered["rotation_degrees"],
         frame_index=0,
         font_size_pct=font_size_pct,

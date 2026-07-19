@@ -21,6 +21,7 @@ from injection_pipeline.handwriting import (
     HandwritingGeneratorOptions,
     HandwritingProviderError,
     HandwritingRuntimeConfig,
+    HandwritingTextAssetRequest,
     MissingHandwritingCheckpointError,
 )
 from injection_pipeline.models import Identity
@@ -175,6 +176,146 @@ def test_cache_miss_generates_and_cache_hit_skips_generator(tmp_path: Path) -> N
     assert set(second_result.cache_hit_asset_ids) == set(
         first_result.generated_asset_ids
     )
+
+
+def test_provider_resolves_one_arbitrary_text_asset(tmp_path: Path) -> None:
+    generator = FakeHandwritingGenerator()
+    provider = HandwritingAssetProvider(
+        runtime=_runtime(tmp_path),
+        options=_options(alphabet="Patient is 95 years old"),
+        generator=generator,
+    )
+
+    result = provider.resolve_text_asset(
+        field="age",
+        text="Patient is 95 years old",
+        seed=99,
+        schema_id="api-injection",
+        schema_version="1.0.0",
+    )
+
+    assert len(generator.calls) == 1
+    assert len(generator.calls[0].assets) == 1
+    requested = generator.calls[0].assets[0]
+    assert requested.field == "age"
+    assert requested.text == "Patient is 95 years old"
+    assert requested.source_text == "Patient is 95 years old"
+    assert result.asset_mappings == {"age": requested.asset_id}
+    assert result.generated_asset_ids == [requested.asset_id]
+    assert result.manifest_path == tmp_path / "assets" / "seed-99" / "manifest.json"
+
+    payload = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    cached_asset = payload["assets"][0]
+    assert cached_asset["identity_field"] == "age"
+    assert cached_asset["source_text"] == "Patient is 95 years old"
+    assert cached_asset["cache_identity"]["schema_id"] == "api-injection"
+    assert cached_asset["cache_identity"]["field"] == "age"
+    assert (
+        cached_asset["cache_identity"]["generator_options"]["text_normalization"]
+        == "none"
+    )
+
+
+def test_provider_caches_arbitrary_text_asset_by_category_and_text(
+    tmp_path: Path,
+) -> None:
+    options = _options(alphabet="Patient is 95 years old")
+    first_generator = FakeHandwritingGenerator()
+    provider = HandwritingAssetProvider(
+        runtime=_runtime(tmp_path),
+        options=options,
+        generator=first_generator,
+    )
+    first_result = provider.resolve_text_asset(
+        field="age",
+        text="Patient is 95 years old",
+        seed=99,
+    )
+
+    second_generator = FakeHandwritingGenerator()
+    second_provider = HandwritingAssetProvider(
+        runtime=_runtime(tmp_path),
+        options=options,
+        generator=second_generator,
+    )
+    second_result = second_provider.resolve_text_asset(
+        field="age",
+        text="Patient is 95 years old",
+        seed=99,
+    )
+
+    assert second_generator.calls == []
+    assert second_result.generated_asset_ids == []
+    assert second_result.cache_hit_asset_ids == first_result.generated_asset_ids
+
+
+def test_provider_preserves_arbitrary_text_whitespace(tmp_path: Path) -> None:
+    generator = FakeHandwritingGenerator()
+    provider = HandwritingAssetProvider(
+        runtime=_runtime(tmp_path),
+        options=_options(alphabet=" Patient is 95 years old "),
+        generator=generator,
+    )
+
+    provider.resolve_text_asset(
+        field="age",
+        text=" Patient is 95 years old ",
+        seed=99,
+    )
+
+    assert generator.calls[0].assets[0].text == " Patient is 95 years old "
+
+
+def test_provider_sanitizes_arbitrary_category_for_asset_id(tmp_path: Path) -> None:
+    generator = FakeHandwritingGenerator()
+    provider = HandwritingAssetProvider(
+        runtime=_runtime(tmp_path),
+        options=_options(alphabet="abc"),
+        generator=generator,
+    )
+
+    result = provider.resolve_text_asset(
+        field="custom/category:age",
+        text="abc",
+        seed=99,
+    )
+
+    asset_id = result.generated_asset_ids[0]
+    assert asset_id.startswith("custom_category_age-")
+    assert result.asset_mappings == {"custom/category:age": asset_id}
+
+
+def test_provider_rejects_arbitrary_text_outside_alphabet(tmp_path: Path) -> None:
+    generator = FakeHandwritingGenerator()
+    provider = HandwritingAssetProvider(
+        runtime=_runtime(tmp_path),
+        options=_options(alphabet="Patient is years old"),
+        generator=generator,
+    )
+
+    with pytest.raises(HandwritingAlphabetError, match="outside"):
+        provider.resolve_text_asset(
+            field="age",
+            text="Patient is 95 years old",
+            seed=99,
+        )
+
+    assert generator.calls == []
+
+
+def test_text_asset_request_preserves_text_but_trims_identifiers() -> None:
+    request = HandwritingTextAssetRequest(
+        seed=1,
+        field=" age ",
+        text=" Patient is 95 years old ",
+        schema_id=" api ",
+        schema_version=" 1 ",
+    )
+
+    assert request.field == "age"
+    assert request.text == " Patient is 95 years old "
+    assert request.schema_id == "api"
+    assert request.schema_version == "1"
 
 
 def test_provider_rejects_incompatible_alphabet_without_generator_call(
@@ -368,9 +509,11 @@ def _options_sha() -> str:
     return hashlib.sha256(b"options").hexdigest()
 
 
-def _options() -> HandwritingGeneratorOptions:
+def _options(
+    alphabet: str = "Doe^JaneSYNTH-123456ACC-7654321",
+) -> HandwritingGeneratorOptions:
     return HandwritingGeneratorOptions(
-        alphabet="Doe^JaneSYNTH-123456ACC-7654321",
+        alphabet=alphabet,
         options_sha256=_options_sha(),
         extra={"options_sidecar_name": "test_opt.txt"},
     )

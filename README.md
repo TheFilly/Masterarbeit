@@ -66,8 +66,8 @@ InjectionPipeline/
 |-- .github/
 |-- pyproject.toml
 |-- uv.lock
-|-- AGENTS.md
-`-- PLAN.md
+|-- README.md
+`-- AGENTS.md
 ```
 
 ## Setup
@@ -104,6 +104,69 @@ uv run injection-pipeline --seed 42 --rotation-angle 20
 uv run injection-pipeline --seed 42 --font-family handwriting
 uv run injection-pipeline generate-handwriting --seed 42
 ```
+
+Use the public Python API for one controlled DICOM/JPG injection:
+
+```python
+from injection_pipeline import inject_function
+
+injected_path, ground_truth_path = inject_function(
+    category="Age",
+    value="95",
+    prefix="Patient is ",
+    suffix=" years old",
+    handwritten=False,
+    documentType="jpg",
+    output_dir="api-export",
+)
+```
+
+Die Funktion hat diese Signatur:
+
+```python
+from os import PathLike
+from pathlib import Path
+
+def inject_function(
+    category: str,
+    value: str,
+    prefix: str,
+    suffix: str,
+    handwritten: bool,
+    documentType: str,
+    output_dir: str | PathLike[str] | None = None,
+) -> tuple[Path, Path]:
+    ...
+```
+
+`category` ist ein freier String fuer die PII-Kategorie, die in
+`ground_truth.json` erscheint. Native DICOM-Tags werden nur verwendet, wenn
+`category` case-insensitive eindeutig zu einem Schema-Feldnamen wie
+`patient_id` oder einem DICOM-Keyword wie `PatientID` passt; freie Labels wie
+`identifier` bleiben sichtbar/pixelbasiert. `value` ist der zu injizierende
+PII-Wert als String.
+`prefix` und `suffix` sind nicht-PII-Text vor und nach dem Wert. Leerzeichen
+werden nicht automatisch ergaenzt; der sichtbare Text entsteht aus
+`prefix + value + suffix`. `handwritten=True` nutzt die bestehende
+Handwriting-Pipeline fuer den gesamten sichtbaren Text und benoetigt dieselben
+lokalen ScrabbleGAN-Voraussetzungen wie `--font-family handwriting`.
+`documentType` akzeptiert `dcm` und `jpg`, unabhaengig von Gross- und
+Kleinschreibung. `dcm` waehlt eine `.dcm`-Datei aus
+`DycomData/Dicom-Files`; `jpg` waehlt eine `.jpg`- oder `.jpeg`-Datei aus
+`DycomData/images`. Die Quelldatei wird passend zum Typ zufaellig aus den
+lokalen Standardkandidaten gewaehlt. Position und Rotation werden zufaellig
+bestimmt; Schriftgroesse, Farbe und die uebrigen Renderoptionen verwenden die
+Pipeline-Defaults, inklusive `placement_mode="corners"`.
+
+Jeder API-Aufruf erzeugt weiterhin einen vollstaendigen Run unter
+`output/<run-id>/` mit injiziertem Dokument, `ground_truth.json`,
+`preview.png`, `preview_annotated.png` und `run_manifest.json`. Wenn
+`output_dir` gesetzt ist, werden zusaetzlich nur das injizierte Dokument und
+`ground_truth.json` in dieses Exportverzeichnis kopiert; vorhandene andere
+Dateien in diesem Ordner werden nicht bereinigt. Die Rueckgabe ist ein Tupel
+`(injected_path, ground_truth_path)` mit den Pfaden zu diesen beiden Dateien.
+Ungueltige Parameter oder fehlende lokale Standard-Eingabedateien fuehren zu
+`ValueError`.
 
 Für die Handschrift-Integration muss das ScrabbleGAN-Docker-Image einmalig
 aus dem Projektstamm gebaut werden:
@@ -200,6 +263,13 @@ The migrated DICOM/JPG path writes `ground_truth.json` with schema
 creates new `pdf_injected.pdf`, `pdf_injected_annotated.pdf`, and
 `pdf_annotations.json` artifacts; it never modifies the source PDF, DICOM, or
 JSON annotation.
+
+Visible `box_annotations` keep the compatible `label`/`label_corners` fields
+and additionally include `category`, `prefix`, `suffix`, `prefix_corners`, and
+`suffix_corners`. The PII `text` is only the injected value, while
+`rendered_text` is the exact visible string `prefix + value + suffix`.
+Native `dicom_tag_annotations` may also include `category` when the value was
+planned from an identifier-schema field.
 
 ## Current validation snapshot
 

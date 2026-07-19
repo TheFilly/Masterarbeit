@@ -44,7 +44,6 @@ InjectionPipeline/
 |-- .github/
 |-- pyproject.toml
 |-- uv.lock
-|-- PLAN.md
 |-- AGENTS.md
 `-- README.md
 ```
@@ -149,7 +148,8 @@ default from `DycomData/Dicom-Files` and `DycomData/images`.
 
 ## Documentation Rules
 
-- `PLAN.md` is the roadmap and prioritization layer.
+- Use the current architecture, decision, and operational documents in `docs/`
+  as the source of truth for project planning.
 - `docs/` is the source for architecture notes, operational documentation,
   decisions, and audit/status material.
 - `docs/archive/` contains superseded material. Do not use it as source of

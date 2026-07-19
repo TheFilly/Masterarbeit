@@ -47,6 +47,88 @@ isolated ScrabbleGAN tooling, and then injects the assets. The standalone
 persistence without requiring an input document. Exact option names and the
 cache identity are defined in `docs/scrabblegan-implementation-plan.md`.
 
+## Public Python API
+
+The DICOM/JPG pipeline also exposes a narrow Python API for callers that want
+to perform exactly one controlled injection while letting the pipeline choose
+the source file and layout details:
+
+```python
+from injection_pipeline import inject_function
+
+injected_path, ground_truth_path = inject_function(
+    category="Age",
+    value="95",
+    prefix="Patient is ",
+    suffix=" years old",
+    handwritten=False,
+    documentType="jpg",
+    output_dir="api-export",
+)
+```
+
+Exact signature:
+
+```python
+from os import PathLike
+from pathlib import Path
+
+def inject_function(
+    category: str,
+    value: str,
+    prefix: str,
+    suffix: str,
+    handwritten: bool,
+    documentType: str,
+    output_dir: str | PathLike[str] | None = None,
+) -> tuple[Path, Path]:
+    ...
+```
+
+Parameters:
+
+| Parameter | Description |
+|---|---|
+| `category` | Freier Kategoriename als String. Der Wert erscheint in `ground_truth.json`. Native DICOM-Routen werden nur verwendet, wenn der Name case-insensitive eindeutig zu einem Identifier-Schema-Feldnamen oder einem DICOM-Keyword passt, zum Beispiel `patient_id` oder `PatientID`. Ambigue Kategorie-Labels wie `identifier` bleiben sichtbar/pixelbasiert. JPG schreibt nie DICOM-Tags. |
+| `value` | PII-Wert als String, zum Beispiel `"95"`. |
+| `prefix` | Nicht-PII-Text vor dem Wert. Leerzeichen muessen explizit im String stehen. |
+| `suffix` | Nicht-PII-Text nach dem Wert. Leerzeichen muessen explizit im String stehen. |
+| `handwritten` | `True` nutzt die Handwriting-Pipeline fuer den kompletten sichtbaren Text `prefix + value + suffix`; `False` nutzt den normalen Renderer. |
+| `documentType` | Dokumenttyp, case-insensitive. Erlaubt sind `dcm` und `jpg`; `dcm` waehlt aus `DycomData/Dicom-Files`, `jpg` aus `DycomData/images` mit `.jpg` oder `.jpeg`. |
+| `output_dir` | Optionales Exportverzeichnis. Wenn gesetzt, werden das injizierte Dokument und `ground_truth.json` dorthin kopiert. Andere vorhandene Dateien in diesem Ordner werden nicht bereinigt. |
+
+The visible text is rendered as `prefix + value + suffix`; the API does not add
+spaces or separators. The call creates only this one injection. The source
+document is selected randomly from the local default candidates for the chosen
+document type. Rotation is random, and position is selected by the standard
+`placement_mode="corners"` default. Font size, color, background, placement
+mode, and the remaining rendering options use the standard pipeline defaults.
+Invalid parameters, unsupported document types, missing default input folders,
+or missing candidate files raise `ValueError`.
+
+`handwritten=True` requires the same runtime setup as the CLI handwriting mode:
+the ScrabbleGAN source checkout/copy, generator checkpoint, options sidecar,
+and Docker image or compatible runtime override must be available. Missing
+handwriting prerequisites fail the run instead of falling back to a normal
+font.
+
+Every API call still writes the full run directory below `output/<run-id>/`:
+
+```text
+output/<run-id>/
+|-- <source-stem>_injected.dcm  # or *_injected.jpg
+|-- ground_truth.json
+|-- preview.png
+|-- preview_annotated.png
+`-- run_manifest.json
+```
+
+When `output_dir` is provided, the function additionally exports only the
+injected document and `ground_truth.json` to that directory. This is copy-only
+semantics: existing unrelated files in `output_dir` are left in place. The
+return value is the tuple `(injected_path, ground_truth_path)`, so callers can
+load the artifacts without scanning either directory.
+
 ## Parameters
 
 | Parameter | Default | Description |
@@ -174,15 +256,20 @@ For JPG runs:
 - `dicom_tag_annotations = []`
 - DICOM context fields are absent from `run_metadata`
 
-Visible annotations include final rotated `corners`. For generic prefixes such
-as `SYNTH-` and `ACC-`, `label_corners` stores the prefix box; fields without
-prefixes use `null`.
+Visible annotations include final rotated `corners`. `text` is the injected
+PII value, while `rendered_text` is the complete visible string. The JSON keeps
+the compatible `label` and `label_corners` fields and adds `category`,
+`prefix`, `suffix`, `prefix_corners`, and `suffix_corners`. For generic
+prefixes such as `SYNTH-` and `ACC-`, `label_corners` and `prefix_corners`
+store the prefix box; fields without prefixes use `null`. DICOM tag
+annotations include `category` when the tag comes from a schema field.
 
 `render_metadata` records:
 
 - `geometry_source = "mask_bbox_after_final_rotation"`
 - `mask_alpha_threshold`
 - text, PII, label, and rendered-text mask bounds
+- prefix and suffix mask bounds when those segments exist
 - for handwriting assets: `renderer_type = "handwriting_asset"`, `asset_id`,
   `asset_path`, `mask_path`, `ink_color`, `background_mode`, and
   `geometry_source = "transformed_ink_mask"`
@@ -216,9 +303,11 @@ Each asset needs:
 - checkpoint SHA-256, ScrabbleGAN commit, generator manifest hash, and
   `generator_options_sha256`/`options_sha256` metadata for cache identity
 
-When `renderer_type = "handwriting_asset"`, the pipeline creates one box for
-the full visible PII value. It does not create character, word-part, or prefix
-boxes in v1.
+When `renderer_type = "handwriting_asset"`, the pipeline records the full
+visible handwritten text as `rendered_text` and keeps the PII value, prefix,
+and suffix as separate annotation fields. Segment boxes are derived from the
+asset ink mask so the full handwritten sentence is not silently labelled as
+PII.
 
 The ScrabbleGAN tooling has the host-side provider/cache path, automatic Docker
 runtime wiring, fake renderer validation, option-sidecar hashing, and hard

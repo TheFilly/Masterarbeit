@@ -51,6 +51,7 @@ def build_tag_annotations(
         annotations.append(
             DicomTagAnnotation(
                 label=dicom_tag.keyword,
+                category=field.category,
                 tag_address=dicom_tag.address,
                 tag_keyword=dicom_tag.keyword,
                 dicom_vr=dicom_tag.vr,
@@ -67,7 +68,7 @@ def build_tag_annotations(
 # Input: `identity`, `schema`, Rotation und Platzierungsmodus.
 # Output: Renderplan fuer sichtbare Pixel-Injektionen.
 # Die Funktion waehlt sichtbare Felder aus dem Schema und bereitet Textsegmente
-# fuer PII- und generische Anteile vor.
+# fuer PII-, Prefix- und Suffix-Anteile vor.
 def build_visible_render_plan(
     *,
     identity: Identity,
@@ -83,10 +84,12 @@ def build_visible_render_plan(
         render_text, text_segments = build_text_segments(
             identity.fields[field.name],
             field.generic_prefix,
+            getattr(field, "generic_suffix", None),
         )
         render_plan.append(
             {
                 "label": field_label(field),
+                "category": field.category,
                 "text": render_text,
                 "text_segments": text_segments,
                 "identity_field": field.name,
@@ -98,17 +101,30 @@ def build_visible_render_plan(
     return render_plan
 
 
-# Input: `value` mit sichtbarem Text und optionalem generischem Praefix.
+# Input: `value` mit sichtbarem Text und optionalem generischem Praefix/Suffix.
 # Output: Rendertext und segmentierte Textanteile.
-# Die Funktion trennt schema-definierte Praefixe von PII-Anteilen und faellt auf
-# ein einzelnes PII-Segment zurueck, wenn kein Praefix passt.
+# Die Funktion trennt schema-definierte generische Anteile nur, wenn sie im Wert
+# exakt vorhanden sind; Leerzeichen bleiben Teil der uebergebenen Strings.
 def build_text_segments(
     value: str,
     generic_prefix: str | None,
+    generic_suffix: str | None = None,
 ) -> tuple[str, list[dict[str, str]]]:
+    pii_text = value
+    prefix_text = ""
+    suffix_text = ""
+
     if generic_prefix is not None and value.startswith(generic_prefix):
-        return value, [
-            {"kind": "generic", "text": generic_prefix},
-            {"kind": "pii", "text": value.removeprefix(generic_prefix)},
-        ]
-    return value, [{"kind": "pii", "text": value}]
+        prefix_text = generic_prefix
+        pii_text = value.removeprefix(generic_prefix)
+    if generic_suffix is not None and pii_text.endswith(generic_suffix):
+        suffix_text = generic_suffix
+        pii_text = pii_text.removesuffix(generic_suffix)
+
+    text_segments: list[dict[str, str]] = []
+    if prefix_text:
+        text_segments.append({"kind": "generic", "text": prefix_text})
+    text_segments.append({"kind": "pii", "text": pii_text})
+    if suffix_text:
+        text_segments.append({"kind": "generic", "text": suffix_text})
+    return value, text_segments

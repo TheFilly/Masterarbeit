@@ -22,7 +22,11 @@ from injection_pipeline.engine.overlay import (
     _render_single_annotation,
 )
 from injection_pipeline.engine.pixel_injection import _write_pixel_array
-from injection_pipeline.engine.segments import _split_prefix_and_pii_text
+from injection_pipeline.engine.segments import (
+    _split_prefix_and_pii_text,
+    _split_segment_text,
+)
+from injection_pipeline.runtime.planning import build_text_segments
 
 
 def _corners_to_tuples(corners: list[dict[str, float]]) -> list[tuple[float, float]]:
@@ -94,6 +98,35 @@ def test_split_prefix_and_pii_text_for_prefixed_identifier() -> None:
     )
     assert prefix_text == "ACC-"
     assert pii_text == "0013389"
+
+
+def test_split_segment_text_keeps_suffix_after_pii() -> None:
+    prefix_text, pii_text, suffix_text = _split_segment_text(
+        [
+            {"kind": "generic", "text": "Patient is "},
+            {"kind": "pii", "text": "95"},
+            {"kind": "generic", "text": " years old"},
+        ]
+    )
+
+    assert prefix_text == "Patient is "
+    assert pii_text == "95"
+    assert suffix_text == " years old"
+
+
+def test_build_text_segments_supports_explicit_suffix_without_auto_spaces() -> None:
+    render_text, text_segments = build_text_segments(
+        "Patient is 95 years old",
+        "Patient is ",
+        " years old",
+    )
+
+    assert render_text == "Patient is 95 years old"
+    assert text_segments == [
+        {"kind": "generic", "text": "Patient is "},
+        {"kind": "pii", "text": "95"},
+        {"kind": "generic", "text": " years old"},
+    ]
 
 
 def test_load_default_font_uses_first_existing_candidate(
@@ -182,6 +215,38 @@ def test_prepare_annotation_overlay_tracks_mask_bounds_separately() -> None:
     )
 
 
+def test_prepare_annotation_overlay_tracks_suffix_bounds_after_pii() -> None:
+    font = ImageFont.load_default()
+    overlay = _prepare_annotation_overlay(
+        {
+            "label": "Age",
+            "text": "Patient is 95 years old",
+            "text_segments": [
+                {"kind": "generic", "text": "Patient is "},
+                {"kind": "pii", "text": "95"},
+                {"kind": "generic", "text": " years old"},
+            ],
+            "rotation_degrees": 0,
+            "padding": 4,
+            "stroke_width": 0,
+        },
+        font,
+        font_family="unit_test",
+        text_background="white",
+    )
+
+    prefix_bounds = overlay["label_rotated_bounds"]
+    pii_bounds = overlay["pii_rotated_bounds"]
+    suffix_bounds = overlay["suffix_rotated_bounds"]
+
+    assert prefix_bounds is not None
+    assert suffix_bounds is not None
+    assert prefix_bounds[2] <= pii_bounds[0] + 1
+    assert suffix_bounds[0] >= pii_bounds[2] - 1
+    assert overlay["render_metadata"]["prefix_mask_bounds"] is not None
+    assert overlay["render_metadata"]["suffix_mask_bounds"] is not None
+
+
 def test_prepare_annotation_overlay_serializes_path_font_name() -> None:
     font = ImageFont.load_default()
     font.path = Path("fixtures") / "unit-font.ttf"
@@ -240,6 +305,42 @@ def test_render_single_annotation_background_does_not_expand_pii_box() -> None:
         pii_width, abs=1.0
     )
     assert rendered_width > pii_width
+
+
+def test_render_single_annotation_emits_prefix_and_suffix_corners() -> None:
+    image = Image.new("RGB", (280, 80), (0, 0, 0))
+    font = ImageFont.load_default()
+    _, record = _render_single_annotation(
+        image,
+        {
+            "label": "Age",
+            "category": "age",
+            "text": "Patient is 95 years old",
+            "text_segments": [
+                {"kind": "generic", "text": "Patient is "},
+                {"kind": "pii", "text": "95"},
+                {"kind": "generic", "text": " years old"},
+            ],
+            "rotation_degrees": 0,
+            "padding": 4,
+            "stroke_width": 0,
+            "position": (20, 10),
+        },
+        font,
+        font_family="unit_test",
+        text_background="white",
+    )
+
+    assert record["category"] == "age"
+    assert record["prefix"] == "Patient is "
+    assert record["text"] == "95"
+    assert record["suffix"] == " years old"
+    assert record["rendered_text"] == "Patient is 95 years old"
+    assert record["prefix_corners"] == record["label_corners"]
+    assert record["prefix_corners"] is not None
+    assert record["suffix_corners"] is not None
+    assert record["prefix_corners"][1]["x"] <= record["corners"][0]["x"] + 1
+    assert record["suffix_corners"][0]["x"] >= record["corners"][1]["x"] - 1
 
 
 def test_render_single_annotation_rotated_box_uses_polygon_corners() -> None:

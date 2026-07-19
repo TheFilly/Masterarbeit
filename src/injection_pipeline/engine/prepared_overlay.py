@@ -15,6 +15,8 @@ class PreparedOverlay(TypedDict):
     text: str
     generic_text: str
     pii_text: str
+    prefix_text: str
+    suffix_text: str
     region: str
     rotation_degrees: int
     rotated_layer: Image.Image
@@ -23,9 +25,11 @@ class PreparedOverlay(TypedDict):
     text_source_bounds: MaskBounds
     pii_source_bounds: MaskBounds
     label_source_bounds: MaskBounds | None
+    suffix_source_bounds: MaskBounds | None
     text_rotated_bounds: MaskBounds
     pii_rotated_bounds: MaskBounds
     label_rotated_bounds: MaskBounds | None
+    suffix_rotated_bounds: MaskBounds | None
     render_metadata: dict[str, Any]
 
 

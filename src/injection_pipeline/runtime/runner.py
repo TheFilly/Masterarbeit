@@ -5,11 +5,12 @@ import shlex
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from injection_pipeline.artifacts.ground_truth import build_record, write_run_artifacts
 from injection_pipeline.config.identifier_schema import (
     DEFAULT_IDENTIFIER_SCHEMA_PATH,
+    IdentifierSchema,
     load_identifier_schema,
 )
 from injection_pipeline.engine.facade import run_document_pixel_injection
@@ -32,6 +33,7 @@ from injection_pipeline.handwriting import (
 from injection_pipeline.identity.generator import generate_identity
 from injection_pipeline.loaders.registry import resolve
 from injection_pipeline.models import InjectedDocument
+from injection_pipeline.models.identity import Identity
 from injection_pipeline.runtime.inputs import (
     derive_example_type,
     resolve_input_path,
@@ -165,6 +167,66 @@ def _handwriting_runtime_command(args: Any) -> tuple[str, ...] | None:
     return tuple(shlex.split(raw_command))
 
 
+# Input: `args` mit optionalem internem Schema-Override.
+# Output: Aktives `IdentifierSchema` fuer den Lauf.
+# Die Funktion erlaubt API-Aufrufen ein im Speicher gebautes Ein-Feld-Schema,
+# waehrend CLI-Laeufe weiterhin vom Schema-Pfad lesen.
+def _resolve_identifier_schema(args: Any) -> IdentifierSchema:
+    schema_override = getattr(args, "identifier_schema_override", None)
+    if schema_override is not None:
+        return cast(IdentifierSchema, schema_override)
+    return load_identifier_schema(Path(args.identifier_schema))
+
+
+# Input: `args`, `seed` und aktives Identifier-Schema.
+# Output: Aktive `Identity` fuer sichtbare Injektionen und Run-Metadaten.
+# Die Funktion bewahrt Faker-Erzeugung als Default und erlaubt API-Aufrufen,
+# feste Werte ohne neue Generator-Recipe zu injizieren.
+def _resolve_identity(
+    args: Any,
+    seed: int,
+    identifier_schema: IdentifierSchema,
+) -> Identity:
+    identity_override = getattr(args, "identity_override", None)
+    if identity_override is not None:
+        return cast(Identity, identity_override)
+    return generate_identity(seed, identifier_schema)
+
+
+# Input: `args` und aktive sichtbare `identity`.
+# Output: Identity fuer DICOM-Tag-Injektionen.
+# Die Funktion entkoppelt API-Sichttext von nativen Tag-Werten; CLI-Laeufe
+# nutzen weiterhin dieselbe Identity fuer Pixel und DICOM-Tags.
+def _resolve_tag_identity(args: Any, identity: Identity) -> Identity:
+    tag_identity_override = getattr(args, "tag_identity_override", None)
+    if tag_identity_override is not None:
+        return cast(Identity, tag_identity_override)
+    return identity
+
+
+# Input: `args`, Identitaet, Schema sowie Rotation und Platzierungsmodus.
+# Output: Sichtbarer Renderplan fuer den Pixelrenderer.
+# Die Funktion laesst API-Aufrufe voll segmentierte Texte uebergeben und nutzt
+# sonst die schema-getriebene Standardplanung.
+def _resolve_visible_render_plan(
+    args: Any,
+    *,
+    identity: Identity,
+    identifier_schema: IdentifierSchema,
+    rotation_degrees: int,
+    placement_mode: str,
+) -> list[dict[str, Any]]:
+    visible_render_plan_override = getattr(args, "visible_render_plan_override", None)
+    if visible_render_plan_override is not None:
+        return cast(list[dict[str, Any]], list(visible_render_plan_override))
+    return build_visible_render_plan(
+        identity=identity,
+        schema=identifier_schema,
+        rotation_degrees=rotation_degrees,
+        placement_mode=placement_mode,
+    )
+
+
 # Input: `args` mit Handschrift-Runtime- und Generatoroptionen.
 # Output: Konfigurierter Provider mit Command-Generator.
 # Die Funktion startet noch keine externe Runtime; der Generator wird erst bei
@@ -206,6 +268,33 @@ def _apply_generated_handwriting_assets(
         load_handwriting_manifest(generated.manifest_path),
         generated.asset_mappings,
     )
+
+
+# Input: `args` mit API-Text-Override, Schema und sichtbarer Renderplan.
+# Output: Renderplan mit genau einem beliebigen Handschrift-Text-Asset.
+# Die Funktion ist der interne API-Vertrag fuer `inject_function` und ruft
+# `resolve_text_asset` mit dem bereits zusammengesetzten Rendertext auf.
+def _resolve_api_handwriting_text_asset(
+    args: Any,
+    identifier_schema: IdentifierSchema,
+    visible_render_plan: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    override = getattr(args, "handwriting_text_asset_override", None)
+    if not isinstance(override, dict):
+        raise ValueError("handwriting_text_asset_override must be a mapping.")
+    field = override.get("field")
+    text = override.get("text")
+    if not isinstance(field, str) or not isinstance(text, str):
+        raise ValueError("handwriting_text_asset_override requires field and text.")
+
+    generated = _build_handwriting_provider(args).resolve_text_asset(
+        field=field,
+        text=text,
+        seed=args.seed,
+        schema_id=identifier_schema.schema_id,
+        schema_version=identifier_schema.version,
+    )
+    return _apply_generated_handwriting_assets(visible_render_plan, generated)
 
 
 # Input: Renderplan nach optionaler Manifest-/Provider-Anreicherung.
@@ -258,10 +347,16 @@ def generate_handwriting_assets(args: Any) -> GeneratedHandwritingManifest:
 def _resolve_handwriting_render_plan(
     args: Any,
     identity: Any,
-    identifier_schema: Any,
+    identifier_schema: IdentifierSchema,
     visible_render_plan: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    if args.handwriting_manifest is not None:
+    if getattr(args, "handwriting_text_asset_override", None) is not None:
+        visible_render_plan = _resolve_api_handwriting_text_asset(
+            args,
+            identifier_schema,
+            visible_render_plan,
+        )
+    elif args.handwriting_manifest is not None:
         visible_render_plan = apply_handwriting_assets(
             visible_render_plan,
             load_handwriting_manifest(Path(args.handwriting_manifest)),
@@ -271,7 +366,7 @@ def _resolve_handwriting_render_plan(
         visible_render_plan = _apply_generated_handwriting_assets(
             visible_render_plan,
             _build_handwriting_provider(args).resolve_assets(
-                identity,
+                getattr(args, "handwriting_identity_override", identity),
                 identifier_schema,
             ),
         )
@@ -282,19 +377,16 @@ def _resolve_handwriting_render_plan(
 
 
 # Input: `args` with validated CLI or interactive run parameters, optional `now`.
-# Output: Keine Rueckgabe; schreibt Run-Artefakte auf das Dateisystem.
+# Output: Pfad-Mapping der geschriebenen Run-Artefakte.
 # Die Funktion orchestriert die Stufen ueber registrierte Formatadapter; `now`
-# fixiert den Run-ID-Zeitstempel.
-def run(args: Any, now: datetime | None = None) -> None:
+# fixiert den Run-ID-Zeitstempel. CLI-Aufrufer ignorieren die Rueckgabe.
+def run(args: Any, now: datetime | None = None) -> dict[str, Path]:
     run_timestamp = datetime.now() if now is None else now
     input_path, was_auto_selected = resolve_input_path(args.input, args.seed)
     if was_auto_selected:
         print(f"Auto-selected input: {input_path}")
 
-    identifier_schema_path = Path(
-        getattr(args, "identifier_schema", DEFAULT_IDENTIFIER_SCHEMA_PATH)
-    )
-    identifier_schema = load_identifier_schema(identifier_schema_path)
+    identifier_schema = _resolve_identifier_schema(args)
     loader, writer = resolve(input_path)
     document_type = loader.format_id
     example_type = derive_example_type(input_path)
@@ -315,10 +407,12 @@ def run(args: Any, now: datetime | None = None) -> None:
         writer.output_suffix,
     )
 
-    identity_a = generate_identity(args.seed, identifier_schema)
-    visible_render_plan = build_visible_render_plan(
+    identity_a = _resolve_identity(args, args.seed, identifier_schema)
+    tag_identity = _resolve_tag_identity(args, identity_a)
+    visible_render_plan = _resolve_visible_render_plan(
+        args,
         identity=identity_a,
-        schema=identifier_schema,
+        identifier_schema=identifier_schema,
         rotation_degrees=args.rotation_angle,
         placement_mode=args.placement_mode,
     )
@@ -334,7 +428,7 @@ def run(args: Any, now: datetime | None = None) -> None:
     tag_plan = {
         annotation.tag_keyword: annotation
         for annotation in build_tag_annotations(
-            identity=identity_a,
+            identity=tag_identity,
             schema=identifier_schema,
             input_path=input_path,
             output_path=output_paths["output_file"],
@@ -405,3 +499,4 @@ def run(args: Any, now: datetime | None = None) -> None:
         f"Annotated preview:  {output_paths['annotated_preview_file']}"
     )
     print(f"Pixel injection status: {pixel_result['status']}")
+    return output_paths

@@ -24,12 +24,35 @@ from injection_pipeline.engine.prepared_overlay import (
 from injection_pipeline.engine.segments import (
     _draw_segment_masks,
     _normalize_text_segments,
-    _split_prefix_and_pii_text,
+    _split_segment_text,
 )
 
 _TEXT_BACKGROUND_COLORS: dict[str, tuple[int, int, int]] = {
     "white": (255, 255, 255),
 }
+
+
+# Input: Position, Overlay-Groessen, Rotation und optionale lokale Bounds.
+# Output: Absolute Polygon-Ecken oder None.
+# Die Funktion kapselt optionale Segmentgeometrie, damit fehlende Prefix- oder
+# Suffix-Masken nicht als Volltextbox serialisiert werden.
+def _rotated_optional_corners(
+    *,
+    position: tuple[int, int],
+    text_box_size: tuple[int, int],
+    rotated_size: tuple[int, int],
+    rotation_degrees: int,
+    bounds: tuple[float, float, float, float] | None,
+) -> list[dict[str, float]] | None:
+    if bounds is None:
+        return None
+    return _rotated_corners(
+        position,
+        text_box_size,
+        rotated_size,
+        rotation_degrees,
+        bounds=bounds,
+    )
 
 
 # Input: `font_path` from Pillow metadata or `None` for the default font.
@@ -77,7 +100,7 @@ def render_visible_annotations(
 # `font` mit Schrift und optionales `prepared_overlay`.
 # Output: Gerendertes Bild und Annotation mit absoluter Box-Geometrie.
 # Die Funktion komponiert genau ein Font-Overlay auf das Bild und leitet PII-,
-# Label- und Volltext-Bounds aus dem vorbereiteten Overlay ab.
+# Prefix-, Suffix- und Volltext-Bounds aus dem vorbereiteten Overlay ab.
 def _render_single_annotation(
     base_image: Image.Image,
     annotation: dict[str, Any],
@@ -108,24 +131,38 @@ def _render_single_annotation(
         overlay["rotation_degrees"],
         bounds=overlay["pii_source_bounds"],
     )
-    label_corners = _rotated_corners(
-        position,
-        overlay["text_box_size"],
-        overlay["rotated_size"],
-        overlay["rotation_degrees"],
+    label_corners = _rotated_optional_corners(
+        position=position,
+        text_box_size=overlay["text_box_size"],
+        rotated_size=overlay["rotated_size"],
+        rotation_degrees=overlay["rotation_degrees"],
         bounds=overlay["label_source_bounds"],
+    )
+    overlay_extra = cast(dict[str, Any], overlay)
+    prefix_corners = label_corners
+    suffix_corners = _rotated_optional_corners(
+        position=position,
+        text_box_size=overlay["text_box_size"],
+        rotated_size=overlay["rotated_size"],
+        rotation_degrees=overlay["rotation_degrees"],
+        bounds=overlay_extra["suffix_source_bounds"],
     )
 
     record = {
         "label": overlay["label"],
+        "category": annotation.get("category", overlay["label"]),
         "text": overlay["pii_text"],
         "rendered_text": overlay["text"],
         "generic_text": overlay["generic_text"],
         "pii_text": overlay["pii_text"],
+        "prefix": overlay_extra["prefix_text"],
+        "suffix": overlay_extra["suffix_text"],
         "region": annotation.get("region", overlay["region"]),
         "rotation_degrees": overlay["rotation_degrees"],
         "corners": corners,
         "label_corners": label_corners,
+        "prefix_corners": prefix_corners,
+        "suffix_corners": suffix_corners,
         "render_metadata": {
             "position": {"x": position[0], "y": position[1]},
             **overlay["render_metadata"],
@@ -143,9 +180,9 @@ def _render_single_annotation(
 
 # Input: `annotation` mit Textsegmenten und Stiloptionen, `font` fuer das Rendern.
 # Output: Gerenderte Overlay-Layer samt maskenbasierter Geometrie.
-# Die Funktion erzeugt getrennte Masken fuer Volltext, PII-Teil und optionales
-# Praefix und liest die finalen Bounds erst nach der Rotation aus den Masken aus.
-# Font-Metadaten werden dabei JSON-sicher normalisiert.
+# Die Funktion erzeugt getrennte Masken fuer Volltext, PII, Prefix und Suffix.
+# Font-Metadaten werden JSON-sicher normalisiert; Bounds bleiben bis zur
+# Recordbildung intern im Overlay-Payload.
 def _prepare_annotation_overlay(
     annotation: dict[str, Any],
     font: ImageFont.ImageFont | ImageFont.FreeTypeFont,
@@ -207,19 +244,22 @@ def _prepare_annotation_overlay(
     )
 
     pii_mask = Image.new("L", (base_width, base_height), 0)
-    label_mask = Image.new("L", (base_width, base_height), 0)
+    prefix_mask = Image.new("L", (base_width, base_height), 0)
+    suffix_mask = Image.new("L", (base_width, base_height), 0)
     _draw_segment_masks(
         text_segments=text_segments,
         font=font,
         origin=text_origin,
         stroke_width=stroke_width,
         pii_mask=pii_mask,
-        label_mask=label_mask,
+        prefix_mask=prefix_mask,
+        suffix_mask=suffix_mask,
     )
 
     text_source_bounds = _require_mask_bounds(text_mask, "rendered text mask")
     pii_source_bounds = _require_mask_bounds(pii_mask, "pii text mask")
-    label_source_bounds = _thresholded_mask_bounds(label_mask)
+    prefix_source_bounds = _thresholded_mask_bounds(prefix_mask)
+    suffix_source_bounds = _thresholded_mask_bounds(suffix_mask)
 
     rotated_layer = text_layer.rotate(
         rotation, expand=True, resample=Image.Resampling.BICUBIC
@@ -230,16 +270,21 @@ def _prepare_annotation_overlay(
     pii_mask_rotated = pii_mask.rotate(
         rotation, expand=True, resample=Image.Resampling.BICUBIC
     )
-    label_mask_rotated = label_mask.rotate(
+    prefix_mask_rotated = prefix_mask.rotate(
         rotation, expand=True, resample=Image.Resampling.BICUBIC
     )
-    prefix_text, pii_text = _split_prefix_and_pii_text(text_segments)
+    suffix_mask_rotated = suffix_mask.rotate(
+        rotation, expand=True, resample=Image.Resampling.BICUBIC
+    )
+    prefix_text, pii_text, suffix_text = _split_segment_text(text_segments)
 
-    return {
+    overlay_payload: dict[str, Any] = {
         "label": annotation.get("label", "visible_text"),
         "text": text,
         "generic_text": prefix_text,
         "pii_text": pii_text,
+        "prefix_text": prefix_text,
+        "suffix_text": suffix_text,
         "region": annotation.get("region", "top_left_overlay"),
         "rotation_degrees": rotation,
         "rotated_layer": rotated_layer,
@@ -247,12 +292,14 @@ def _prepare_annotation_overlay(
         "text_box_size": (base_width, base_height),
         "text_source_bounds": text_source_bounds,
         "pii_source_bounds": pii_source_bounds,
-        "label_source_bounds": label_source_bounds,
+        "label_source_bounds": prefix_source_bounds,
+        "suffix_source_bounds": suffix_source_bounds,
         "text_rotated_bounds": _require_mask_bounds(
             text_mask_rotated, "rendered text mask"
         ),
         "pii_rotated_bounds": _require_mask_bounds(pii_mask_rotated, "pii text mask"),
-        "label_rotated_bounds": _thresholded_mask_bounds(label_mask_rotated),
+        "label_rotated_bounds": _thresholded_mask_bounds(prefix_mask_rotated),
+        "suffix_rotated_bounds": _thresholded_mask_bounds(suffix_mask_rotated),
         "render_metadata": {
             "font_family": font_family,
             "font_name": _normalize_font_name(getattr(font, "path", None)),
@@ -274,7 +321,13 @@ def _prepare_annotation_overlay(
                 _thresholded_mask_bounds(pii_mask_rotated)
             ),
             "label_mask_bounds": _serialize_mask_bounds(
-                _thresholded_mask_bounds(label_mask_rotated)
+                _thresholded_mask_bounds(prefix_mask_rotated)
+            ),
+            "prefix_mask_bounds": _serialize_mask_bounds(
+                _thresholded_mask_bounds(prefix_mask_rotated)
+            ),
+            "suffix_mask_bounds": _serialize_mask_bounds(
+                _thresholded_mask_bounds(suffix_mask_rotated)
             ),
             "text_box_size": {"width": base_width, "height": base_height},
             "rotated_box_size": {
@@ -283,3 +336,4 @@ def _prepare_annotation_overlay(
             },
         },
     }
+    return cast(PreparedOverlay, overlay_payload)

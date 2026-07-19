@@ -54,6 +54,7 @@ class RenderPlanItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     label: str
+    category: str | None = None
     text: str
     text_segments: list[TextSegment]
     identity_field: str
@@ -71,8 +72,11 @@ class RenderPlanItem(BaseModel):
     @model_validator(mode="after")
     # Input: `self` mit Volltext und geordneten Rendersegmenten.
     # Output: Das validierte Renderplan-Element.
-    # Die Funktion erzwingt Rekonstruktion des Volltexts und einen PII-Anteil.
+    # Die Funktion ergaenzt alte Plaene um eine Kategorie und erzwingt
+    # Rekonstruktion des Volltexts sowie einen PII-Anteil.
     def _validate_segments(self) -> "RenderPlanItem":
+        if self.category is None:
+            self.category = self.label
         if "".join(segment.text for segment in self.text_segments) != self.text:
             raise ValueError("Text segments must reconstruct the render text.")
         if not any(
@@ -109,11 +113,14 @@ class AnnotationRenderDetail(BaseModel):
     ink_color: str | None = None
     background_mode: str | None = None
     geometry_source: str
+    segment_geometry_source: str | None = None
     mask_coordinate_space: str
     mask_alpha_threshold: int
     text_mask_bounds: MaskBounds | None
     pii_mask_bounds: MaskBounds | None
     label_mask_bounds: MaskBounds | None
+    prefix_mask_bounds: MaskBounds | None = None
+    suffix_mask_bounds: MaskBounds | None = None
     text_box_size: PixelSize
     rotated_box_size: PixelSize
     rendered_text_corners: Quad
@@ -154,7 +161,6 @@ class AnnotationRenderDetail(BaseModel):
                 "stroke_width",
                 "background_enabled",
                 "background_color",
-                "text_segments",
             ):
                 data.pop(field_name, None)
         else:
@@ -176,15 +182,36 @@ class RenderedAnnotation(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     label: str
+    category: str | None = None
     text: str
     rendered_text: str
     generic_text: str
     pii_text: str
+    prefix: str = ""
+    suffix: str = ""
     region: str
     rotation_degrees: int
     corners: Quad
     label_corners: Quad | None
+    prefix_corners: Quad | None = None
+    suffix_corners: Quad | None = None
     render_metadata: AnnotationRenderDetail
+
+    @model_validator(mode="after")
+    # Input: `self` mit neuer oder alter Renderer-Annotation.
+    # Output: Normalisierte Renderer-Annotation.
+    # Die Funktion haelt alte `label_corners`-Records kompatibel und fuellt
+    # Kategorie sowie Prefix-/Suffix-Text aus dem gerenderten Text nach.
+    def _normalize_segment_fields(self) -> "RenderedAnnotation":
+        if self.category is None:
+            self.category = self.label
+        if self.prefix_corners is None:
+            self.prefix_corners = self.label_corners
+        if not self.prefix and not self.suffix and self.text in self.rendered_text:
+            prefix_text, _, suffix_text = self.rendered_text.partition(self.text)
+            self.prefix = prefix_text
+            self.suffix = suffix_text
+        return self
 
 
 class HandwritingRenderAsset(BaseModel):

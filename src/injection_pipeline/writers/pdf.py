@@ -131,16 +131,12 @@ def _resolve_preview_path(annotation_path: Path, preview_path: Path) -> Path:
 # Output: Keine Rueckgabe; wirft bei ungueltigen Bounds einen ValueError.
 # Die Pruefung verhindert, dass PDF-Ground-Truth ausserhalb des eingebetteten
 # DICOM-Bildes liegt.
-def _validate_image_corners(
-    corners: list[ImagePoint], width: int, height: int
-) -> None:
+def _validate_image_corners(corners: list[ImagePoint], width: int, height: int) -> None:
     if any(
         point.x < 0 or point.x > width or point.y < 0 or point.y > height
         for point in corners
     ):
-        raise ValueError(
-            "DICOM annotation corners must lie inside the preview image."
-        )
+        raise ValueError("DICOM annotation corners must lie inside the preview image.")
 
 
 # Input: Template, Bild, Platzierung, Zielpfad und optionale PDF-Annotationen.
