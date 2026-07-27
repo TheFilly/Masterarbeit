@@ -16,7 +16,9 @@ schema-driven DICOM tag injection, visible pixel injection, and
 - PDF path: a PDF template plus an already injected DICOM and its JSON
   annotation are loaded by the PDF adapter; a new PDF and PDF annotation
   sidecar are written. The input files remain unchanged.
-- Not in scope: PDF-native free-text/table injection or de-identification.
+- Existing CLI scope: PDF-native free-text/table injection remains out of
+  scope for `inject-pdf`; the `make_pdf` API below covers PDF-native text
+  composition. De-identification remains out of scope.
 
 ## Run
 
@@ -73,6 +75,7 @@ Exact signature:
 from os import PathLike
 from pathlib import Path
 
+
 def inject_function(
     category: str,
     value: str,
@@ -81,8 +84,7 @@ def inject_function(
     handwritten: bool,
     documentType: str,
     output_dir: str | PathLike[str] | None = None,
-) -> tuple[Path, Path]:
-    ...
+) -> tuple[Path, Path]: ...
 ```
 
 Parameters:
@@ -128,6 +130,101 @@ injected document and `ground_truth.json` to that directory. This is copy-only
 semantics: existing unrelated files in `output_dir` are left in place. The
 return value is the tuple `(injected_path, ground_truth_path)`, so callers can
 load the artifacts without scanning either directory.
+
+### `make_pdf` API
+
+`make_pdf` is the public Python API for composing several already injected
+images and several PDF text injections into one PDF. It is separate from
+`inject_function`: `inject_function` creates one DICOM/JPG injection, while
+`make_pdf` receives already injected image artifacts and PDF text specs and
+writes a composed PDF plus annotations.
+
+```python
+from injection_pipeline import (
+    PdfMakeArtifacts,
+    PdfMakeImageAnnotationInput,
+    PdfMakeImageInput,
+    PdfMakeTextInput,
+    make_pdf,
+)
+
+artifacts = make_pdf(
+    images=[
+        PdfMakeImageInput(
+            path="patient-card.png",
+            annotations=[
+                PdfMakeImageAnnotationInput(
+                    category="patient_name",
+                    value="Jane Doe",
+                    prefix="Name: ",
+                    suffix="",
+                    rendered_text="Name: Jane Doe",
+                    image_corners=[
+                        {"x": 20, "y": 30},
+                        {"x": 180, "y": 30},
+                        {"x": 180, "y": 55},
+                        {"x": 20, "y": 55},
+                    ],
+                )
+            ],
+        )
+    ],
+    texts=[
+        PdfMakeTextInput(
+            category="patient_id",
+            value="PID-123",
+            prefix="ID: ",
+            suffix="",
+            handwritten=False,
+        )
+    ],
+    pdf="template.pdf",
+    output_dir="api-pdf-export",
+    seed=42,
+)
+```
+
+The exported signature is:
+
+```python
+def make_pdf(
+    images: Sequence[PdfMakeImageInput | Mapping[str, object]],
+    texts: Sequence[PdfMakeTextInput | Mapping[str, object]],
+    pdf: str | PathLike[str],
+    output_dir: str | PathLike[str],
+    *,
+    seed: int | None = None,
+) -> PdfMakeArtifacts: ...
+```
+
+Parameters:
+
+| Parameter | Description |
+|---|---|
+| `images` | Required list of already injected images plus their image-space annotations. The composer embeds the images and maps each annotation to final PDF page coordinates. `BoxAnnotation`-style dictionaries are accepted: `label` -> `category`, `text` -> `value`, and `corners` -> `image_corners`; legacy prefix and suffix corners are preserved when available. |
+| `texts` | Required list of PDF text injections. Each entry uses the same meaning as `inject_function`'s `category`, `value`, `prefix`, `suffix`, and `handwritten`, but has no output path. |
+| `pdf` | Required input PDF template. Source pages are preserved and additional pages may be appended when needed. |
+| `output_dir` | Required directory for the generated PDF, annotated PDF, and annotation sidecar. |
+| `seed` | Optional reproducibility seed for automatic placement, page breaks, and image rotation. It does not generate or change text contents. |
+
+Normal text entries are rendered as PDF-native text. `handwritten=True` for
+direct PDF text aborts with a clear error because the API has no safe
+handwriting asset or manifest source for that case. Already rendered
+handwriting is passed as an image plus annotation. The layout engine avoids
+overlap between image and text placements, mixes beside-each-other and stacked
+arrangements, and rotates images by a seedable small angle where selected by
+the layout. If the current page cannot fit the remaining items, the composer
+appends another page. Invalid inputs, malformed annotations, impossible
+placements, or unsupported handwriting requests abort with a clear error.
+
+The return object is `PdfMakeArtifacts`. It exposes the generated clean PDF,
+the visibly annotated PDF, the JSON sidecar, and the final placement metadata.
+The files are written as `pdf_make.pdf`, `pdf_make_annotated.pdf`, and
+`pdf_make_annotations.json` under `output_dir`. The sidecar records source
+image annotations after transformation into PDF coordinates, PDF-native text
+annotations, page indices, rotations, and the seed/layout metadata needed for
+reproduction. Image annotations include main quads and optional prefix/suffix
+quads when the source annotation provides them.
 
 ## Parameters
 
@@ -228,6 +325,11 @@ The sidecar uses schema `0.3.0-pdf-prototype` in the ADR-0008 lineage. PDF
 points use a bottom-left origin and image points use a top-left pixel origin;
 aspect-fit mapping uses the actual placement rectangle. Source PDF, DICOM, and
 JSON files are never overwritten.
+
+This existing CLI remains the DICOM-to-PDF adapter. The public `make_pdf` API
+extends the PDF composition use case to multiple already injected images plus
+direct PDF-native text entries in a single output PDF. Already rendered
+handwriting is included through image inputs and their annotations.
 
 ## Ground Truth
 

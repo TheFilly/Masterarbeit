@@ -4,9 +4,13 @@ import random
 import re
 import shutil
 from argparse import Namespace
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from os import PathLike
 from pathlib import Path
+from typing import Protocol
+
+from pydantic import ValidationError
 
 from injection_pipeline.config.identifier_schema import (
     DEFAULT_IDENTIFIER_SCHEMA_PATH,
@@ -19,7 +23,14 @@ from injection_pipeline.config.identifier_schema import (
     load_identifier_schema,
 )
 from injection_pipeline.engine.pixel_injection import ALLOWED_ROTATIONS_DEGREES
+from injection_pipeline.loaders.pdf import PdfLoader
 from injection_pipeline.models.identity import Identity
+from injection_pipeline.pdf.models import (
+    PdfMakeArtifacts,
+    PdfMakeImageInput,
+    PdfMakeTextInput,
+    PdfTemplate,
+)
 from injection_pipeline.runtime.inputs import DEFAULT_DICOM_DIR, DEFAULT_IMAGE_DIR
 from injection_pipeline.runtime.options import (
     DEFAULT_HANDWRITING_ASSET_ROOT,
@@ -39,6 +50,24 @@ _DOCUMENT_TYPE_INPUT_DIRS: dict[str, Path] = {
     "dcm": DEFAULT_DICOM_DIR,
     "jpg": DEFAULT_IMAGE_DIR,
 }
+_NONDETERMINISTIC_SEED_UPPER_BOUND = 2**63
+
+PdfMakeImageInputLike = PdfMakeImageInput | Mapping[str, object]
+PdfMakeTextInputLike = PdfMakeTextInput | Mapping[str, object]
+
+
+class _MakePdfComposition(Protocol):
+    """Callable contract for the PDF make writer integration point."""
+
+    def __call__(
+        self,
+        *,
+        images: list[PdfMakeImageInput],
+        texts: list[PdfMakeTextInput],
+        template: PdfTemplate,
+        output_dir: Path,
+        seed: int,
+    ) -> PdfMakeArtifacts: ...
 
 
 # Input: `category`, `value`, `prefix`, `suffix`, `handwritten` und `documentType`.
@@ -281,6 +310,193 @@ def _export_api_outputs(
     if ground_truth_path.resolve() != exported_ground_truth_path.resolve():
         shutil.copy2(ground_truth_path, exported_ground_truth_path)
     return exported_injected_path, exported_ground_truth_path
+
+
+# Input: Textbestandteile eines make_pdf-Eintrags und sein API-Feldpfad.
+# Output: Keine Rueckgabe; ungueltige Werte fuehren zu ValueError.
+# Die Funktion spiegelt den Text-Validierungsrand von `inject_function` fuer
+# direkte PDF-Texte und uebernommene Bildannotationen.
+def _validate_make_pdf_text_parts(
+    *,
+    category: str,
+    value: str,
+    prefix: str,
+    suffix: str,
+    field_path: str,
+) -> None:
+    if not isinstance(category, str) or category.strip() == "":
+        raise ValueError(f"{field_path}.category must be a non-empty string.")
+    if not isinstance(value, str) or value == "":
+        raise ValueError(f"{field_path}.value must be a non-empty string.")
+    if not isinstance(prefix, str):
+        raise ValueError(f"{field_path}.prefix must be a string.")
+    if not isinstance(suffix, str):
+        raise ValueError(f"{field_path}.suffix must be a string.")
+
+
+# Input: `values` mit Text-API-Modellen oder Mapping-Daten.
+# Output: Liste streng validierter `PdfMakeTextInput`-Modelle.
+# Die Funktion bildet den Validierungsrand fuer direkte PDF-Texte und bricht
+# leere oder strukturell ungueltige Listen vor jedem Schreibzugriff ab.
+def _validate_make_pdf_texts(
+    values: Sequence[PdfMakeTextInputLike],
+) -> list[PdfMakeTextInput]:
+    if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
+        raise ValueError("texts must be a non-empty sequence of text inputs.")
+
+    texts: list[PdfMakeTextInput] = []
+    for index, value in enumerate(values):
+        if isinstance(value, PdfMakeTextInput):
+            text = value
+        elif isinstance(value, Mapping):
+            try:
+                text = PdfMakeTextInput.model_validate(value)
+            except ValidationError as exc:
+                raise ValueError(f"texts[{index}] is invalid: {exc}") from exc
+        else:
+            raise ValueError(
+                f"texts[{index}] must be a PdfMakeTextInput or mapping data."
+            )
+        _validate_make_pdf_text_parts(
+            category=text.category,
+            value=text.value,
+            prefix=text.prefix,
+            suffix=text.suffix,
+            field_path=f"texts[{index}]",
+        )
+        texts.append(text)
+
+    if not texts:
+        raise ValueError("texts must contain at least one item.")
+    return texts
+
+
+# Input: `values` mit Bild-API-Modellen oder Mapping-Daten.
+# Output: Liste streng validierter `PdfMakeImageInput`-Modelle.
+# Die Funktion prueft Bildpfade und Annotationen vor dem Writer-Aufruf, damit
+# fehlende Dateien oder leere Annotationen nicht erst beim PDF-Schreiben auffallen.
+def _validate_make_pdf_images(
+    values: Sequence[PdfMakeImageInputLike],
+) -> list[PdfMakeImageInput]:
+    if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
+        raise ValueError("images must be a non-empty sequence of image inputs.")
+
+    images: list[PdfMakeImageInput] = []
+    for index, value in enumerate(values):
+        if isinstance(value, PdfMakeImageInput):
+            image = value
+        elif isinstance(value, Mapping):
+            try:
+                image = PdfMakeImageInput.model_validate(value)
+            except ValidationError as exc:
+                raise ValueError(f"images[{index}] is invalid: {exc}") from exc
+        else:
+            raise ValueError(
+                f"images[{index}] must be a PdfMakeImageInput or mapping data."
+            )
+
+        if not image.annotations:
+            raise ValueError(
+                f"images[{index}].annotations must contain at least one item."
+            )
+        for annotation_index, annotation in enumerate(image.annotations):
+            field_path = f"images[{index}].annotations[{annotation_index}]"
+            _validate_make_pdf_text_parts(
+                category=annotation.category,
+                value=annotation.value,
+                prefix=annotation.prefix,
+                suffix=annotation.suffix,
+                field_path=field_path,
+            )
+            if annotation.rendered_text == "":
+                raise ValueError(f"{field_path}.rendered_text must be non-empty.")
+        if not image.path.exists():
+            raise FileNotFoundError(
+                f"images[{index}].path does not exist: {image.path}"
+            )
+        if not image.path.is_file():
+            raise ValueError(f"images[{index}].path must be a file: {image.path}")
+        images.append(image)
+
+    if not images:
+        raise ValueError("images must contain at least one item.")
+    return images
+
+
+# Input: `pdf` und `output_dir` aus der Public API.
+# Output: Normalisierte PDF- und Ausgabe-Pfade.
+# Die Funktion prueft die PDF vor jedem Schreibzugriff und stellt sicher, dass
+# `output_dir` nicht auf eine bestehende Datei zeigt.
+def _validate_make_pdf_paths(
+    pdf: str | PathLike[str],
+    output_dir: str | PathLike[str],
+) -> tuple[Path, Path]:
+    try:
+        pdf_path = Path(pdf)
+    except TypeError as exc:
+        raise ValueError("pdf must be a str or path-like value.") from exc
+    try:
+        output_dir_path = Path(output_dir)
+    except TypeError as exc:
+        raise ValueError("output_dir must be a str or path-like value.") from exc
+
+    if not pdf_path.exists():
+        raise FileNotFoundError(f"pdf does not exist: {pdf_path}")
+    if not pdf_path.is_file():
+        raise ValueError(f"pdf must be a file: {pdf_path}")
+    if output_dir_path.exists() and not output_dir_path.is_dir():
+        raise ValueError(f"output_dir must be a directory path: {output_dir_path}")
+    return pdf_path, output_dir_path
+
+
+# Input: Optionaler API-Seed.
+# Output: Expliziter Integer-Seed fuer Layout, Rotation und Seitenumbrueche.
+# Die Funktion erzeugt bei `None` einen nichtdeterministischen Seed, der an den
+# Writer weitergereicht und dadurch im Sidecar dokumentiert wird.
+def _resolve_make_pdf_seed(seed: int | None) -> int:
+    if seed is None:
+        return random.SystemRandom().randrange(0, _NONDETERMINISTIC_SEED_UPPER_BOUND)
+    if not isinstance(seed, int) or isinstance(seed, bool):
+        raise ValueError("seed must be an integer or None.")
+    return seed
+
+
+# Input: Kein fachlicher Parameter; der Writer wird ueber seinen Modulpfad geladen.
+# Output: Callable `make_pdf_composition` fuer die PDF-Komposition.
+# Der lokale Import haelt den API-Import leichtgewichtig und bleibt fuer Mypy
+# pruefbar, damit Keyword-Vertragsbrueche nicht durch Casts verdeckt werden.
+def _load_make_pdf_composition() -> _MakePdfComposition:
+    from injection_pipeline.writers.pdf_make import make_pdf_composition
+
+    return make_pdf_composition
+
+
+# Input: Sequenzen aus Bild- und Textdaten, Quell-PDF, Ausgabeordner und Seed.
+# Output: `PdfMakeArtifacts` mit PDF-Pfaden und Annotation-Sidecar.
+# Die Funktion validiert die Public-API-Daten vorab, laedt das PDF-Template per
+# Adapter und delegiert Layout, Rotation, Seitenumbrueche und Schreiben an den Writer.
+def make_pdf(
+    images: Sequence[PdfMakeImageInputLike],
+    texts: Sequence[PdfMakeTextInputLike],
+    pdf: str | PathLike[str],
+    output_dir: str | PathLike[str],
+    *,
+    seed: int | None = None,
+) -> PdfMakeArtifacts:
+    validated_images = _validate_make_pdf_images(images)
+    validated_texts = _validate_make_pdf_texts(texts)
+    pdf_path, output_dir_path = _validate_make_pdf_paths(pdf, output_dir)
+    resolved_seed = _resolve_make_pdf_seed(seed)
+    template = PdfLoader().load(pdf_path)
+    make_pdf_composition = _load_make_pdf_composition()
+
+    return make_pdf_composition(
+        images=validated_images,
+        texts=validated_texts,
+        template=template,
+        output_dir=output_dir_path,
+        seed=resolved_seed,
+    )
 
 
 # Input: API-Parameter fuer Kategorie, Wert, Kontexttexte, Handschriftmodus und Format.

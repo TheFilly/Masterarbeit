@@ -3,6 +3,10 @@
 from injection_pipeline.pdf.models import (
     PdfAnnotationRecord,
     PdfCompositionArtifacts,
+    PdfMakeArtifacts,
+    PdfMakeImageAnnotationInput,
+    PdfMakeImageInput,
+    PdfMakeTextInput,
     PdfPlacement,
     PdfTemplate,
 )
@@ -10,6 +14,10 @@ from injection_pipeline.pdf.models import (
 __all__ = [
     "PdfAnnotationRecord",
     "PdfCompositionArtifacts",
+    "PdfMakeArtifacts",
+    "PdfMakeImageAnnotationInput",
+    "PdfMakeImageInput",
+    "PdfMakeTextInput",
     "PdfPlacement",
     "PdfTemplate",
 ]

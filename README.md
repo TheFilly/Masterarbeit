@@ -127,6 +127,7 @@ Die Funktion hat diese Signatur:
 from os import PathLike
 from pathlib import Path
 
+
 def inject_function(
     category: str,
     value: str,
@@ -135,8 +136,7 @@ def inject_function(
     handwritten: bool,
     documentType: str,
     output_dir: str | PathLike[str] | None = None,
-) -> tuple[Path, Path]:
-    ...
+) -> tuple[Path, Path]: ...
 ```
 
 `category` ist ein freier String fuer die PII-Kategorie, die in
@@ -167,6 +167,96 @@ Dateien in diesem Ordner werden nicht bereinigt. Die Rueckgabe ist ein Tupel
 `(injected_path, ground_truth_path)` mit den Pfaden zu diesen beiden Dateien.
 Ungueltige Parameter oder fehlende lokale Standard-Eingabedateien fuehren zu
 `ValueError`.
+
+The public PDF composition API composes several already injected image
+artifacts and several PDF text injections into one PDF:
+
+```python
+from injection_pipeline import (
+    PdfMakeArtifacts,
+    PdfMakeImageAnnotationInput,
+    PdfMakeImageInput,
+    PdfMakeTextInput,
+    make_pdf,
+)
+
+artifacts = make_pdf(
+    images=[
+        PdfMakeImageInput(
+            path="patient-card.png",
+            annotations=[
+                PdfMakeImageAnnotationInput(
+                    category="patient_name",
+                    value="Jane Doe",
+                    prefix="Name: ",
+                    suffix="",
+                    rendered_text="Name: Jane Doe",
+                    image_corners=[
+                        {"x": 20, "y": 30},
+                        {"x": 180, "y": 30},
+                        {"x": 180, "y": 55},
+                        {"x": 20, "y": 55},
+                    ],
+                )
+            ],
+        )
+    ],
+    texts=[
+        PdfMakeTextInput(
+            category="patient_id",
+            value="PID-123",
+            prefix="ID: ",
+            suffix="",
+            handwritten=False,
+        )
+    ],
+    pdf="template.pdf",
+    output_dir="api-pdf-export",
+    seed=42,
+)
+```
+
+The exported signature is:
+
+```python
+def make_pdf(
+    images: Sequence[PdfMakeImageInput | Mapping[str, object]],
+    texts: Sequence[PdfMakeTextInput | Mapping[str, object]],
+    pdf: str | PathLike[str],
+    output_dir: str | PathLike[str],
+    *,
+    seed: int | None = None,
+) -> PdfMakeArtifacts: ...
+```
+
+`images` contains already injected image files plus their existing image-space
+annotations; the API embeds those images and transforms their annotations into
+PDF coordinates. Existing `BoxAnnotation`-style dictionaries are accepted:
+`label` maps to `category`, `text` maps to `value`, and `corners` maps to
+`image_corners`. Prefix and suffix corner fields from legacy annotations are
+preserved when present.
+
+`texts` contains one or more direct PDF text specs with the same meaning as
+`inject_function`'s `category`, `value`, `prefix`, `suffix`, and `handwritten`
+parameters, but without an output path. Normal text is written as PDF-native
+text. `handwritten=True` for direct PDF text aborts with a clear error because
+the public API has no safe handwriting asset or manifest source for that case.
+Already rendered handwriting is passed as an image plus annotation.
+
+`pdf` is the input template, and `output_dir` is required. `seed` controls only
+layout choices, item arrangement, page breaks, and random image rotations; text
+contents always come from the passed parameters. The layout places all images
+and text boxes without overlap, mixes beside-each-other and stacked
+arrangements, rotates images by a seedable small angle, and appends pages when
+the current page has insufficient remaining space. Invalid inputs, malformed
+annotations, impossible placements, or unsupported handwriting requests abort
+with a clear error.
+
+Each call writes `pdf_make.pdf`, `pdf_make_annotated.pdf`, and
+`pdf_make_annotations.json` under `output_dir`. The `PdfMakeArtifacts` return
+object exposes these paths plus the parsed sidecar record, including layout
+metadata and main, prefix, and suffix quads where the source annotations
+provide them.
 
 Für die Handschrift-Integration muss das ScrabbleGAN-Docker-Image einmalig
 aus dem Projektstamm gebaut werden:

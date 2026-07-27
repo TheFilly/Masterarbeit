@@ -4,6 +4,11 @@ Status: **implemented** (2026-07-14). PDF is a first-class injection modality.
 It has its own loader and writer, like DICOM and JPG; it is not a post-run
 composer.
 
+The implemented slices are the `inject-pdf`/`compose-pdf` CLI workflow and the
+public Python `make_pdf` composition API. `make_pdf` extends composition to
+multiple already injected images plus multiple PDF text entries in one output
+PDF.
+
 ## Purpose and input contract
 
 The PDF path combines three inputs:
@@ -18,13 +23,19 @@ corresponding `RunRecord`. The PDF writer places the preview associated with
 the injected DICOM on
 the selected template page, transforms image-space annotations to PDF-space,
 and writes a new PDF plus a PDF annotation sidecar. Neither source file is
-modified. PDF-native text/table injection is out of scope for this first
-modality slice.
+modified. PDF-native free-text/table injection remains out of scope for the
+`inject-pdf` CLI adapter.
 
-Handwriting generation is not a PDF concern. If the source DICOM was created
-with the planned integrated ScrabbleGAN mode, the source run has already
-resolved/generated and recorded the handwriting assets; this adapter consumes
-the resulting preview and annotations like any other DICOM run.
+For `make_pdf`, PDF-native text injection is in scope for that public
+composition path only. The API receives all text values explicitly; the seed
+controls layout, arrangement, page breaks, and image rotation, not text
+content. Normal text is written as PDF-native text.
+
+Handwriting generation is not a PDF concern. `handwritten=True` for direct
+PDF text aborts with a clear error because this API has no safe asset or
+manifest source for direct handwritten text. Already rendered handwriting is
+passed as an injected image plus annotation; the composer consumes it like any
+other image annotation.
 
 The adapter boundary remains explicit: PDF-specific models describe template
 pages, placement, and output artifacts; shared `ImagePoint`, `PdfPoint`, and
@@ -36,6 +47,9 @@ pair and does not add PDF business rules to the DICOM/JPG runner.
 - PDF uses a dedicated loader/writer pair for the `inject-pdf` workflow. It is
   intentionally not registered in the DICOM/JPG single-input registry because
   PDF injection requires a PDF, an injected DICOM, and a ground-truth file.
+- `make_pdf` reuses the PDF-specific loader/writer boundary and shared
+  geometry models where practical, while owning separate composition models
+  because it accepts multiple images and text specs instead of one DICOM run.
 - `reportlab` creates the injected layer and `pypdf` merges it with the input
   template. Both are approved runtime dependencies.
 - The default placement is `top_left`; `top_right` and an explicit supported
@@ -53,9 +67,107 @@ pair and does not add PDF business rules to the DICOM/JPG runner.
 - ADR-0008 is accepted. The PDF sidecar uses the shared schema lineage and
   version `0.3.0-pdf-prototype`.
 
-## Output artifacts
+## Public `make_pdf` API
 
-Each invocation writes:
+The public import mirrors `inject_function` and exports the input and artifact
+models:
+
+```python
+from injection_pipeline import (
+    PdfMakeArtifacts,
+    PdfMakeImageAnnotationInput,
+    PdfMakeImageInput,
+    PdfMakeTextInput,
+    make_pdf,
+)
+```
+
+The public signature is:
+
+```python
+def make_pdf(
+    images: Sequence[PdfMakeImageInput | Mapping[str, object]],
+    texts: Sequence[PdfMakeTextInput | Mapping[str, object]],
+    pdf: str | PathLike[str],
+    output_dir: str | PathLike[str],
+    *,
+    seed: int | None = None,
+) -> PdfMakeArtifacts: ...
+```
+
+Example:
+
+```python
+artifacts = make_pdf(
+    images=[
+        PdfMakeImageInput(
+            path="patient-card.png",
+            annotations=[
+                PdfMakeImageAnnotationInput(
+                    category="patient_name",
+                    value="Jane Doe",
+                    prefix="Name: ",
+                    suffix="",
+                    rendered_text="Name: Jane Doe",
+                    image_corners=[
+                        {"x": 20, "y": 30},
+                        {"x": 180, "y": 30},
+                        {"x": 180, "y": 55},
+                        {"x": 20, "y": 55},
+                    ],
+                )
+            ],
+        )
+    ],
+    texts=[
+        PdfMakeTextInput(
+            category="patient_id",
+            value="PID-123",
+            prefix="ID: ",
+            suffix="",
+            handwritten=False,
+        )
+    ],
+    pdf="template.pdf",
+    output_dir="api-pdf-export",
+    seed=42,
+)
+```
+
+All main inputs are required. `images` is a list of already injected image
+files plus their annotations. Existing `BoxAnnotation`-style dictionaries are
+accepted for compatibility: `label` maps to `category`, `text` maps to
+`value`, and `corners` maps to `image_corners`; legacy prefix and suffix
+corners are preserved when available. `texts` is a list of direct PDF text
+entries with the same meaning as `inject_function`'s `category`, `value`,
+`prefix`, `suffix`, and `handwritten`, excluding an output path. `pdf` is the
+template PDF, and `output_dir` receives the generated artifacts.
+
+The composer places all images and texts without overlap. It varies layout by
+seed, including beside-each-other and stacked arrangements, seedable small
+image rotations, and added pages when the current page cannot fit the
+remaining items. It aborts on malformed input, invalid annotations, impossible
+placements, unsupported PDF operations, or `handwritten=True` for direct PDF
+text. Already rendered handwriting belongs in `images`.
+
+The return value is a `PdfMakeArtifacts` object exposing the generated PDF, the
+visibly annotated PDF, the JSON sidecar, and final placement metadata. The
+sidecar records transformed image annotations, PDF-native text annotations,
+page indices, rotations, and the seed/layout metadata needed to reproduce the
+layout. Image annotations include main quads and optional prefix/suffix quads
+when the source annotation provides them.
+
+`make_pdf` writes these files directly under `output_dir`:
+
+```text
+pdf_make.pdf
+pdf_make_annotated.pdf
+pdf_make_annotations.json
+```
+
+## `inject-pdf` output artifacts
+
+Each `inject-pdf`/`compose-pdf` invocation writes:
 
 ```text
 output/pdf/<run_id>/<template-stem>-<slot>/

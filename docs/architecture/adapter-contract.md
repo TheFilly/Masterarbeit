@@ -9,11 +9,14 @@ Status: implemented for DICOM/JPG and the dedicated PDF workflow, updated
 class DocumentLoader(Protocol):
     format_id: ClassVar[str]
     extensions: ClassVar[tuple[str, ...]]
+
     def load(self, path: Path) -> SourceDocument: ...
+
 
 class DocumentWriter(Protocol):
     format_id: ClassVar[str]
     output_suffix: ClassVar[str]
+
     def write(self, document: InjectedDocument, output_path: Path) -> None: ...
 ```
 
@@ -52,6 +55,13 @@ slot, page_index)`. The writer returns typed PDF output artifacts.
 The PDF source files are never modified. Output is written under
 `output/pdf/<run_id>/<template-stem>-<slot>/` so the source DICOM run remains
 byte-identical for the DICOM/JPG reproducibility harness.
+
+The public `make_pdf` API keeps the same adapter boundary but composes
+multiple already injected images plus multiple text specs into one PDF. It
+reuses PDF loaders/writers and shared geometry where practical, while owning
+separate composition models for multi-item placement, seedable image rotation,
+page appending, and a `PdfMakeArtifacts` return object with generated PDF,
+annotated PDF, sidecar, and layout metadata.
 
 ## PDF implementation handoff
 
