@@ -140,9 +140,9 @@ unchanged. Print generated PDF and sidecar paths. The adapter entry points are
 ### WP-PDF-6 — tests, fixture, and local validation
 
 Use synthetic committed fixtures for unit/integration tests. Additionally run
-one local smoke test with a DICOM from `DycomData/Dicom-Files`, write its
-injected result and annotation under `DycomData/InjectedDicom`, and use the
-existing PDF under `DycomData/pdf`. Local generated data is ignored and is not
+one local smoke test with a DICOM from `DicomData/Dicom-Files`, write its
+injected result and annotation under `DicomData/InjectedDicom`, and use the
+existing PDF under `DicomData/pdf`. Local generated data is ignored and is not
 committed.
 
 ### WP-PDF-7 — documentation and provenance

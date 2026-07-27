@@ -6,12 +6,12 @@ phase: 1
 topic: artifact-classification
 confidence: high
 sources:
-  - DycomData/Anonymization/
-  - DycomData/MIMIC-IV/
-  - DycomData/MIMIC-IV-ECG-subset/
-  - DycomData/MIMIC-IV-ED/
-  - DycomData/MIMIC-IV-Note/
-  - DycomData/MIMIC-IV-Waveform-subset/
+  - DicomData/Anonymization/
+  - DicomData/MIMIC-IV/
+  - DicomData/MIMIC-IV-ECG-subset/
+  - DicomData/MIMIC-IV-ED/
+  - DicomData/MIMIC-IV-Note/
+  - DicomData/MIMIC-IV-Waveform-subset/
 related_decisions: []
 related_risks:
   - folder-name-based-misclassification
@@ -19,7 +19,7 @@ related_risks:
 
 ## Observation
 
-Artifacts under `DycomData/` fall into three distinct operational classes: true pipeline inputs, derived or annotated reference artifacts, and auxiliary comparison files.
+Artifacts under `DicomData/` fall into three distinct operational classes: true pipeline inputs, derived or annotated reference artifacts, and auxiliary comparison files.
 
 ## Evidence
 

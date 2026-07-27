@@ -6,12 +6,12 @@ phase: 1
 topic: true-input-scope-by-family
 confidence: high
 sources:
-  - DycomData/Anonymization/
-  - DycomData/MIMIC-IV/
-  - DycomData/MIMIC-IV-ECG-subset/
-  - DycomData/MIMIC-IV-ED/
-  - DycomData/MIMIC-IV-Note/
-  - DycomData/MIMIC-IV-Waveform-subset/
+  - DicomData/Anonymization/
+  - DicomData/MIMIC-IV/
+  - DicomData/MIMIC-IV-ECG-subset/
+  - DicomData/MIMIC-IV-ED/
+  - DicomData/MIMIC-IV-Note/
+  - DicomData/MIMIC-IV-Waveform-subset/
   - docs/research/phase-1/summary.md
   - docs/research/phase-1/findings/FND-2026-04-15-002-artifact-classification.md
   - docs/research/phase-1/findings/FND-2026-04-15-004-canonical-storage-risk.md
@@ -25,7 +25,7 @@ related_risks:
 
 ## Observation
 
-For each dataset family under `DycomData/`, the set of true pipeline inputs can be defined with stable family-level rules plus a small number of explicit exceptions.
+For each dataset family under `DicomData/`, the set of true pipeline inputs can be defined with stable family-level rules plus a small number of explicit exceptions.
 
 ## Evidence
 

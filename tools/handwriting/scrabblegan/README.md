@@ -10,7 +10,7 @@ PNG/mask postprocessing, and downstream injection contracts. The host-side
 provider/cache path, single-text wrapper command contract, option-sidecar
 contract, and hard prerequisite checks are implemented. The Docker/upstream
 path was verified locally on 2026-07-15 with the official source checkout and
-checkpoint under `DycomData/HandwritingAssets/`.
+checkpoint under `DicomData/HandwritingAssets/`.
 
 ## Scope
 
@@ -19,7 +19,7 @@ Version 1 supports a batch CLI workflow:
 1. Read an input JSONL manifest.
 2. Render or fake-render assets.
 3. Write images, masks, hashes, bounding boxes, and an output manifest under
-   `DycomData/HandwritingAssets/`.
+   `DicomData/HandwritingAssets/`.
 4. Validate generated artifacts before injection.
 
 No HTTP API exists in v1. The integration adds a local cache lookup and
@@ -33,7 +33,7 @@ The real upstream stack needs an old Python/PyTorch/CUDA environment; do not add
 those dependencies to the main environment.
 
 Local generated assets, checkpoints, source clones, manifests, and logs belong
-under `DycomData/HandwritingAssets/` or another ignored local path.
+under `DicomData/HandwritingAssets/` or another ignored local path.
 
 ## Supported Prototype Fields
 
@@ -74,7 +74,7 @@ parent-directory traversal into committed fixtures.
 ## Local Layout
 
 ```text
-DycomData/HandwritingAssets/
+DicomData/HandwritingAssets/
 |-- inputs/
 |   `-- batch.jsonl
 |-- scrabblegan/
@@ -125,12 +125,12 @@ Run the fake renderer for local contract checks:
 $env:PYTHONPATH = "tools/handwriting/scrabblegan"
 uv run python -m scrabblegan_tool.cli render `
   --input tools/handwriting/scrabblegan/examples/batch_manifest.example.jsonl `
-  --output-root DycomData/HandwritingAssets/scrabblegan/runs `
+  --output-root DicomData/HandwritingAssets/scrabblegan/runs `
   --run-id fake-smoke `
-  --source-dir DycomData/HandwritingAssets/scrabblegan/source `
-  --checkpoint DycomData/HandwritingAssets/scrabblegan/checkpoints/latest_net_G.pth `
+  --source-dir DicomData/HandwritingAssets/scrabblegan/source `
+  --checkpoint DicomData/HandwritingAssets/scrabblegan/checkpoints/latest_net_G.pth `
   --checkpoint-sha256 PIN_CHECKPOINT_SHA256 `
-  --options-json DycomData/HandwritingAssets/scrabblegan/checkpoints/test_opt.txt `
+  --options-json DicomData/HandwritingAssets/scrabblegan/checkpoints/test_opt.txt `
   --fake-renderer
 ```
 
@@ -141,8 +141,8 @@ docker run --rm `
   -v ${PWD}:/workspace `
   injection-scrabblegan `
   scrabblegan-validate `
-    --manifest DycomData/HandwritingAssets/scrabblegan/runs/demo/manifest.jsonl `
-    --checkpoint DycomData/HandwritingAssets/scrabblegan/checkpoints/latest_net_G.pth `
+    --manifest DicomData/HandwritingAssets/scrabblegan/runs/demo/manifest.jsonl `
+    --checkpoint DicomData/HandwritingAssets/scrabblegan/checkpoints/latest_net_G.pth `
     --checkpoint-sha256 PIN_CHECKPOINT_SHA256
 ```
 
@@ -150,7 +150,7 @@ Use a generated manifest through the explicit compatibility path:
 
 ```powershell
 uv run injection-pipeline `
-  --handwriting-manifest DycomData/HandwritingAssets/scrabblegan/runs/demo/manifest.jsonl `
+  --handwriting-manifest DicomData/HandwritingAssets/scrabblegan/runs/demo/manifest.jsonl `
   --handwriting-asset patient_name=patient-name-001
 ```
 
@@ -165,7 +165,7 @@ The integrated command generates the Faker identity before resolving the asset
 bundle for the visible fields `patient_name`, `patient_id`, and
 `accession_number`. A cache hit reuses compatible images and masks; a cache miss
 starts the configured Docker image, invokes the isolated renderer, and writes the bundle below
-`DycomData/HandwritingAssets/`, and continues with injection. The exact cache
+`DicomData/HandwritingAssets/`, and continues with injection. The exact cache
 identity includes the seed, schema, field, generated text, checkpoint SHA-256,
 upstream commit, generator manifest hash, and `options_sha256`. The runtime
 starts automatically on cache miss; if the checkpoint, options sidecar,
@@ -192,20 +192,20 @@ root:
 
 ```powershell
 git clone https://github.com/amzn/convolutional-handwriting-gan `
-  DycomData/HandwritingAssets/scrabblegan/source
-$commit = git -C DycomData/HandwritingAssets/scrabblegan/source rev-parse HEAD
+  DicomData/HandwritingAssets/scrabblegan/source
+$commit = git -C DicomData/HandwritingAssets/scrabblegan/source rev-parse HEAD
 [System.IO.File]::WriteAllText(
-  "DycomData/HandwritingAssets/scrabblegan/source/.git_commit",
+  "DicomData/HandwritingAssets/scrabblegan/source/.git_commit",
   $commit.Trim(),
   [System.Text.UTF8Encoding]::new($false)
 )
 ```
 
 If you cannot keep the `.git` directory, copy only the source tree into
-`DycomData/HandwritingAssets/scrabblegan/source` and keep the `.git_commit`
+`DicomData/HandwritingAssets/scrabblegan/source` and keep the `.git_commit`
 file with the exact commit hash. Place the trained generator checkpoint and
 its `test_opt`/`train_opt` sidecar under
-`DycomData/HandwritingAssets/scrabblegan/checkpoints/`; keep both untracked.
+`DicomData/HandwritingAssets/scrabblegan/checkpoints/`; keep both untracked.
 
 ## Failure Modes
 

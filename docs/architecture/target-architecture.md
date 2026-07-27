@@ -94,7 +94,7 @@ cli.py ──> argparse.Namespace + options.py defaults
              ▼
         HandwritingAssetProvider (planned, handwriting mode only)
              │  cache hit or generated image/mask/manifest under
-             │  DycomData/HandwritingAssets/
+             │  DicomData/HandwritingAssets/
              ▼
         InjectionPlanner (planning.py)
              │  InjectionPlan = TagPlan + VisibleRenderPlan (typed)

@@ -317,6 +317,67 @@ def test_render_handwriting_asset_preserves_segmented_api_contract(
     )
 
 
+def test_render_handwriting_asset_accepts_normalized_patient_name(
+    tmp_path: Path,
+) -> None:
+    image_path = tmp_path / "name.png"
+    mask_path = tmp_path / "name_mask.png"
+    image = Image.new("RGBA", (48, 8), (0, 0, 0, 0))
+    mask = Image.new("L", (48, 8), 0)
+    for x in range(4, 44):
+        for y in range(2, 6):
+            image.putpixel((x, y), (0, 0, 0, 255))
+            mask.putpixel((x, y), 255)
+    image.save(image_path)
+    mask.save(mask_path)
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "0.1.0-handwriting-assets",
+                "assets": [
+                    {
+                        "asset_id": "patient-name-normalized",
+                        "text": "Ross Lauren",
+                        "source_text": "Ross^Lauren",
+                        "identity_field": "patient_name",
+                        "image_path": image_path.name,
+                        "mask_path": mask_path.name,
+                        "ink_color": "black",
+                        "background_mode": "transparent",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    asset = load_handwriting_manifest(manifest_path)["patient-name-normalized"]
+    frame = np.full((32, 64, 3), 255, dtype=np.uint8)
+    annotations = [
+        {
+            "label": "PatientName",
+            "text": "Ross^Lauren",
+            "text_segments": [{"kind": "pii", "text": "Ross^Lauren"}],
+            "identity_field": "patient_name",
+            "renderer_type": "handwriting_asset",
+            "asset_id": "patient-name-normalized",
+            "asset": asset,
+            "position": (8, 9),
+            "region": "unit_test",
+            "rotation_degrees": 0,
+        }
+    ]
+
+    _, records = _render_frame_with_annotations(frame, annotations)
+
+    record = records[0]
+    assert record["text"] == "Ross Lauren"
+    assert record["rendered_text"] == "Ross Lauren"
+    assert record["render_metadata"]["text_segments"] == [
+        {"kind": "pii", "text": "Ross Lauren"}
+    ]
+
+
 def test_frame_renderer_reports_handwriting_assets_in_metadata(tmp_path: Path) -> None:
     manifest = load_handwriting_manifest(_write_asset(tmp_path))
     asset = manifest["patient-name-001"]

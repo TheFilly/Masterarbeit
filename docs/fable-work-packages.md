@@ -54,7 +54,7 @@ repo: a runnable environment, a working single-text inference path, a pinned
 checkpoint, and generated assets flowing through the existing manifest
 contract into an injection run. Extend that batch contract so the injection
 pipeline can generate missing assets after Faker identity generation, reuse
-them from `DycomData/HandwritingAssets/`, and expose the same behavior through
+them from `DicomData/HandwritingAssets/`, and expose the same behavior through
 a standalone seed-based console command.
 
 **Why now.** The first attempt produced a sound batch scaffold
@@ -332,7 +332,7 @@ smaller ground-truth files).
    Matplotlib window when the caller passes `--show`.
 
 **Scope / DoD.** This pass covers identity and preview hygiene with tests; no
-hardcoded `DycomData` patient paths remain in `src/`. Remaining DoD: decide
+hardcoded `DicomData` patient paths remain in `src/`. Remaining DoD: decide
 the ADR-0008 emission gate before adding JPEG encoder settings to
 `render_metadata`. **Depends on.** WP-I harness; the remaining JPEG point also
 depends on the ADR-0008 version decision. **Leverage.** Low.

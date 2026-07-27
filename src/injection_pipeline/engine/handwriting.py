@@ -103,7 +103,7 @@ def _prepare_handwriting_asset_overlay(annotation: dict[str, Any]) -> PreparedOv
     mask_bounds = _require_mask_bounds(rotated_mask, "handwriting ink mask")
     source_mask_bounds = _require_mask_bounds(mask, "handwriting ink mask")
     text = str(asset.get("text", annotation.get("text", "")))
-    text_segments = _normalize_text_segments(annotation, text)
+    text_segments = _handwriting_text_segments(annotation, asset, text)
     prefix_text, pii_text, suffix_text = _split_segment_text(text_segments)
     prefix_mask, pii_mask, suffix_mask = _derive_handwriting_segment_masks(
         mask,
@@ -177,6 +177,24 @@ def _prepare_handwriting_asset_overlay(annotation: dict[str, Any]) -> PreparedOv
             },
         },
     }
+
+
+# Input: `annotation`, Manifest-`asset` und gerenderter Asset-Text.
+# Output: Textsegmente, die den tatsaechlich gerenderten Asset-Text rekonstruieren.
+# Die Funktion erlaubt ScrabbleGAN-Normalisierung wie `^` zu Leerzeichen, ohne
+# Prefix-/PII-Segmente fuer unveraenderte Assets zu verlieren.
+def _handwriting_text_segments(
+    annotation: dict[str, Any],
+    asset: dict[str, Any],
+    rendered_text: str,
+) -> list[dict[str, str]]:
+    try:
+        return _normalize_text_segments(annotation, rendered_text)
+    except ValueError:
+        source_text = asset.get("source_text")
+        if source_text == annotation.get("text") and rendered_text != source_text:
+            return [{"kind": "pii", "text": rendered_text}]
+        raise
 
 
 # Input: Position und optionale Masken-Bounds im rotierten Overlay.

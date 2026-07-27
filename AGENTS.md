@@ -39,7 +39,7 @@ InjectionPipeline/
 |   |-- fixtures/
 |   |-- integration/
 |   `-- unit/
-|-- DycomData/               # Local input data, not committed
+|-- DicomData/               # Local input data, not committed
 |-- output/                  # Local generated outputs, not committed
 |-- .github/
 |-- pyproject.toml
@@ -59,7 +59,7 @@ InjectionPipeline/
 
 `uv run injection-pipeline` starts an interactive setup when no CLI arguments
 are provided. With CLI arguments but without `--input`, it chooses a seeded
-default from `DycomData/Dicom-Files` and `DycomData/images`.
+default from `DicomData/Dicom-Files` and `DicomData/images`.
 
 | Option | Default | Possible values | Description |
 |--------|---------|-----------------|-------------|

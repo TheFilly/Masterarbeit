@@ -6,11 +6,11 @@ phase: 1
 topic: pii-and-addressability
 confidence: low
 sources:
-  - DycomData/Anonymization/deanonymized_with_labels/patient_10005749_20010003/annotations_csv/hosp_patients.csv
-  - DycomData/Anonymization/deanonymized_with_labels/patient_10005749_20010003/discharge_note_20010003.txt
-  - DycomData/Anonymization/original_data/patient_10005749_20010003/csv/note_discharge_20010003.csv
-  - DycomData/MIMIC-IV-Note/note/discharge.csv
-  - DycomData/MIMIC-IV-ECG-subset/files/p1001/p10010066/s46643223/46643223.hea
+  - DicomData/Anonymization/deanonymized_with_labels/patient_10005749_20010003/annotations_csv/hosp_patients.csv
+  - DicomData/Anonymization/deanonymized_with_labels/patient_10005749_20010003/discharge_note_20010003.txt
+  - DicomData/Anonymization/original_data/patient_10005749_20010003/csv/note_discharge_20010003.csv
+  - DicomData/MIMIC-IV-Note/note/discharge.csv
+  - DicomData/MIMIC-IV-ECG-subset/files/p1001/p10010066/s46643223/46643223.hea
 related_decisions: []
 related_risks:
   - incomplete-dicom-tag-verification

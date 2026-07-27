@@ -14,7 +14,7 @@ def load_handwriting_manifest(manifest_path: Path) -> dict[str, dict[str, Any]]:
         raise FileNotFoundError(
             "Handwriting manifest not found: "
             f"{manifest_path}. Generate assets first or pass the actual "
-            "manifest.json/jsonl path under DycomData/HandwritingAssets."
+            "manifest.json/jsonl path under DicomData/HandwritingAssets."
         )
 
     raw_text = manifest_path.read_text(encoding="utf-8")

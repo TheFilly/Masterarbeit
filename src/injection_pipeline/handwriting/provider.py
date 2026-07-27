@@ -23,7 +23,7 @@ ALLOWED_HANDWRITING_FIELDS: frozenset[str] = frozenset(
 )
 HANDWRITING_RENDERER_VERSION = "scrabblegan-soft-alpha-v2"
 HANDWRITING_ASSET_MANIFEST_VERSION = "0.1.0-handwriting-assets"
-DEFAULT_HANDWRITING_ASSET_ROOT = Path("DycomData") / "HandwritingAssets"
+DEFAULT_HANDWRITING_ASSET_ROOT = Path("DicomData") / "HandwritingAssets"
 _JSON_INDENT = 2
 
 
@@ -782,7 +782,7 @@ def _render_text_for_handwriting(field: str, text: str, alphabet: str) -> str:
 
 # Input: Asset-Root und Seed.
 # Output: Ordner fuer das seedbasierte Cache-Bundle.
-# Die Funktion haelt alle Provider-Artefakte unter `DycomData/HandwritingAssets`
+# Die Funktion haelt alle Provider-Artefakte unter `DicomData/HandwritingAssets`
 # oder einem explizit gesetzten Test-/Integrationsroot.
 def _bundle_dir(asset_root: Path, seed: int) -> Path:
     return asset_root / f"seed-{seed}"

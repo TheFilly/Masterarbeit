@@ -6,14 +6,14 @@ phase: 1
 topic: format-inventory
 confidence: high
 sources:
-  - DycomData/
+  - DicomData/
 related_decisions: []
 related_risks: []
 ---
 
 ## Observation
 
-`DycomData/` contains a heterogeneous but finite set of file families that can be grouped into a small number of relevant technical formats.
+`DicomData/` contains a heterogeneous but finite set of file families that can be grouped into a small number of relevant technical formats.
 
 ## Evidence
 

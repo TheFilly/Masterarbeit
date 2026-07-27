@@ -7,8 +7,8 @@ from pathlib import Path
 from injection_pipeline.loaders.registry import resolve
 from injection_pipeline.runtime.seeding import derive_seed
 
-DEFAULT_DICOM_DIR = Path("DycomData/Dicom-Files")
-DEFAULT_IMAGE_DIR = Path("DycomData/images")
+DEFAULT_DICOM_DIR = Path("DicomData/Dicom-Files")
+DEFAULT_IMAGE_DIR = Path("DicomData/images")
 DEFAULT_INPUT_EXTENSIONS: tuple[str, ...] = (".dcm", ".jpg", ".jpeg")
 
 

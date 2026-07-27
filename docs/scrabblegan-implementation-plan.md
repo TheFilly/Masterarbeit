@@ -41,7 +41,7 @@ injecting a document.
   - An integrated handwriting render mode in the DICOM/JPG injection flow:
     Faker identity generation → asset lookup → generation of missing assets →
     handwriting overlay injection → persistent manifest/artifacts under
-    `DycomData/HandwritingAssets/`.
+    `DicomData/HandwritingAssets/`.
   - A standalone seed-based handwriting-generation command that uses the same
     cache and generator contract as the integrated mode.
   - Interactive CLI ordering in which the seed is selected before the common
@@ -57,7 +57,7 @@ injecting a document.
     ScrabbleGAN noise-vector styles stay implicit via the seed unless a later
     decision adds an explicit style parameter.
   - Committing datasets, checkpoints, or generated assets (stay under
-    `DycomData/`, gitignored).
+    `DicomData/`, gitignored).
 
 ## Decisions
 
@@ -81,7 +81,7 @@ injecting a document.
   `generator_options_sha256`). A changed identity or generator contract
   creates a new compatible asset instead of silently reusing stale output.
 - Asset lookup and writes are local filesystem operations below
-  `DycomData/HandwritingAssets/`; generated images, masks, manifests,
+  `DicomData/HandwritingAssets/`; generated images, masks, manifests,
   checkpoints, and third-party source remain untracked.
 - Both integrated and standalone modes start the isolated ScrabbleGAN runtime
   automatically on cache miss. If the runtime, checkpoint, required source,
@@ -157,7 +157,7 @@ produce real assets. The setup follows the official Amazon repository:
 5. Train with the official `train.py`/`train_semi_supervised.py` workflow on
    the external GPU, export the generator weights and architecture options,
    and place the resulting checkpoint under the ignored
-   `DycomData/HandwritingAssets/scrabblegan/checkpoints/` directory.
+   `DicomData/HandwritingAssets/scrabblegan/checkpoints/` directory.
 
 The repository implementation will then build the isolated runtime, validate
 the checkpoint hash, start CPU inference automatically, and generate/cache
@@ -173,7 +173,7 @@ Confirm the *(open)* decisions above and secure external prerequisites.
 - [x] Confirm CPU-only inference is acceptable for v1; GPU is reserved for
       one-time checkpoint training.
 - [ ] IAM dataset access obtained (registration) and stored under
-      `DycomData/` (gitignored); lexicon files downloaded.
+      `DicomData/` (gitignored); lexicon files downloaded.
 - [x] Training venue decided: external Linux GPU, preferably a university
       machine; a cloud GPU is the fallback. The checkpoint is not trained in
       the Python 3.13 project environment.
@@ -222,7 +222,7 @@ container.
   with `IAMcharH32rmPunct`.
 - Export `latest_net_G.pth` plus the architecture-options JSON sidecar;
   compute SHA-256; place under
-  `DycomData/HandwritingAssets/scrabblegan/checkpoints/`.
+  `DicomData/HandwritingAssets/scrabblegan/checkpoints/`.
 
 - [ ] Training run completed; sample grid images visually plausible.
 - [ ] `model.pth` (= exported `net_G`) + options sidecar + SHA-256 recorded
@@ -297,7 +297,7 @@ successfully on 2026-07-15.
   choice are known,
   generate the Faker identity, resolve or create the seed's asset bundle,
   attach matching assets to every selected render item, and persist the
-  resulting manifest under `DycomData/HandwritingAssets/`.
+  resulting manifest under `DicomData/HandwritingAssets/`.
 - Standalone seed run: invoke the asset provider without a document and write
   the same bundle and manifest that the integrated run would reuse.
 
@@ -405,7 +405,7 @@ uv run injection-pipeline --seed 42 --font-family handwriting
 
 - **Local prerequisites are present and verified.** The official source,
   `.git_commit`, checkpoint, companion checkpoints, and options sidecar are
-  already under the ignored `DycomData/HandwritingAssets/` tree. On another
+  already under the ignored `DicomData/HandwritingAssets/` tree. On another
   machine they must be provided in the same layout; do not copy IAM data,
   checkpoints, generated assets, or external source into tracked repo paths.
 - **Training remains external only if the checkpoint is replaced.** IAM

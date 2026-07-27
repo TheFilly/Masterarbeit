@@ -2,13 +2,13 @@
 
 ## Scope
 
-This summary consolidates the initial format inventory of `DycomData/` and distinguishes primary pipeline inputs from reference and auxiliary artifacts.
+This summary consolidates the initial format inventory of `DicomData/` and distinguishes primary pipeline inputs from reference and auxiliary artifacts.
 
 Phase 1 is materially useful, but parts of the result set are still provisional. In particular, the former standalone-`txt` MVP classification and the DICOM addressability claims require rework before Phase 2 should rely on them as settled fact.
 
 ## Current Findings
 
-- `DycomData/` contains 1,776 files across `Anonymization`, `MIMIC-IV`, `MIMIC-IV-ECG-subset`, `MIMIC-IV-ED`, `MIMIC-IV-Note`, and `MIMIC-IV-Waveform-subset`.
+- `DicomData/` contains 1,776 files across `Anonymization`, `MIMIC-IV`, `MIMIC-IV-ECG-subset`, `MIMIC-IV-ED`, `MIMIC-IV-Note`, and `MIMIC-IV-Waveform-subset`.
 - Dominant file types are `.dat`, `.hea`, `.csv`, `.dcm`, `.csv.gz`, `.txt`, `.html`, and `.pdf`.
 - Primary pipeline inputs are the raw MIMIC source tables, raw WFDB ECG/waveform pairs, and raw case bundles under `Anonymization/original_data/`.
 - Within `Anonymization/original_data/`, the currently observed raw case inputs are `csv`, `dcm`, `hea`, and `dat`; the note content is represented as CSV files such as `note_discharge_*.csv` and `note_radiology_*.csv`, not as standalone note `.txt` inputs.

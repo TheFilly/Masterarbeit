@@ -286,7 +286,7 @@ above. Pydantic serialization handles paths and nested typed metadata.
   "run_id": "dcm-27052026-1435-seed0042-angle020-corners-fs100-arial-none",
   "seed": 42,
   "rotation_degrees": 20,
-  "source_file": "DycomData/Dicom-Files/91180014_0001.dcm",   // Path -> str
+  "source_file": "DicomData/Dicom-Files/91180014_0001.dcm",   // Path -> str
   "output_file": "output/dcm-.../91180014_0001_injected.dcm",
   "preview_file": "output/dcm-.../preview.png",
   "annotated_preview_file": "output/dcm-.../preview_annotated.png",

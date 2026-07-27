@@ -67,7 +67,7 @@ Notes:
 1. `uv sync --extra dev`; confirm `uv run pytest tests/ -x` passes. Record any tests
    that already fail **before** the migration (they are not regressions).
 2. Capture equivalence baselines with the *current* prototype. Pick one local `.dcm`
-   and one local `.jpg` that exist under `DycomData/` (e.g. the files used in the
+   and one local `.jpg` that exist under `DicomData/` (e.g. the files used in the
    `output_validation_*` runs) and run:
 
    ```bash
@@ -77,7 +77,7 @@ Notes:
    ```
 
    (Directory is covered by the existing `prototypes/dicom/output*/` gitignore rule.)
-3. If local handwriting assets exist under `DycomData/HandwritingAssets/`, add one
+3. If local handwriting assets exist under `DicomData/HandwritingAssets/`, add one
    handwriting-manifest run to the baseline; otherwise note that the handwriting path
    is covered by `tests/unit/test_handwriting_asset_rendering.py` only.
 
@@ -130,7 +130,7 @@ Notes:
 3. **Single approved behavior change:** default `--output-dir` moves from
    `prototypes/dicom/output` to `output/` (repo root). Update
    `DEFAULT_PREVIEW_PATH` in `writers/preview.py` accordingly and add `output/` to
-   `.gitignore`. Everything else (DycomData default input dirs, run-folder naming,
+   `.gitignore`. Everything else (DicomData default input dirs, run-folder naming,
    schema version) stays identical.
 4. Update `tests/unit/test_inject_default_input.py` and
    `tests/unit/test_handwriting_asset_rendering.py` to import from
@@ -214,7 +214,7 @@ entry point, then compare new run folder vs. baseline run folder:
 
 - `inject.py`'s interactive mode triggers on `len(sys.argv) == 1` semantics - preserve
   exactly, including prompt wording and defaults.
-- All default paths (`DycomData/...`, output dirs) are CWD-relative and assume the
+- All default paths (`DicomData/...`, output dirs) are CWD-relative and assume the
   repo root as working directory. Keep them CWD-relative; do not "fix" them to be
   module-relative.
 - Seeding is explicit (`generate_identity(seed)`, seeded placement). Pure code motion

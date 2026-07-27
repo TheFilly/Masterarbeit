@@ -61,7 +61,7 @@ InjectionPipeline/
 |   |-- fixtures/
 |   |-- integration/
 |   `-- unit/
-|-- DycomData/                    # Local input data, not committed
+|-- DicomData/                    # Local input data, not committed
 |-- output/                       # Local generated outputs, not committed
 |-- .github/
 |-- pyproject.toml
@@ -152,8 +152,8 @@ Handwriting-Pipeline fuer den gesamten sichtbaren Text und benoetigt dieselben
 lokalen ScrabbleGAN-Voraussetzungen wie `--font-family handwriting`.
 `documentType` akzeptiert `dcm` und `jpg`, unabhaengig von Gross- und
 Kleinschreibung. `dcm` waehlt eine `.dcm`-Datei aus
-`DycomData/Dicom-Files`; `jpg` waehlt eine `.jpg`- oder `.jpeg`-Datei aus
-`DycomData/images`. Die Quelldatei wird passend zum Typ zufaellig aus den
+`DicomData/Dicom-Files`; `jpg` waehlt eine `.jpg`- oder `.jpeg`-Datei aus
+`DicomData/images`. Die Quelldatei wird passend zum Typ zufaellig aus den
 lokalen Standardkandidaten gewaehlt. Position und Rotation werden zufaellig
 bestimmt; Schriftgroesse, Farbe und die uebrigen Renderoptionen verwenden die
 Pipeline-Defaults, inklusive `placement_mode="corners"`.
@@ -191,14 +191,14 @@ Containers.
 Ein erneuter Build ist nur nach Änderungen am `Dockerfile` oder an den
 Runtime-Abhängigkeiten nötig. Bei neuen Seeds, Checkpoints oder Faker-Daten
 startet die Pipeline den Container bei einem Cache-Miss automatisch. Bereits
-kompatible Assets werden aus `DycomData/HandwritingAssets/` wiederverwendet.
+kompatible Assets werden aus `DicomData/HandwritingAssets/` wiederverwendet.
 Die Voraussetzungen für Source-Checkout, Checkpoint und Options-Sidecar sind
 unter `tools/handwriting/scrabblegan/README.md` beschrieben.
 
 Inject an already injected DICOM into an existing PDF template:
 
 ```bash
-uv run injection-pipeline inject-pdf --input-pdf DycomData/pdf/Briefmarken.1Stk.17.03.2026_1345.pdf --input-dicom DycomData/InjectedDicom/<run-id>/<source-stem>_injected.dcm --dicom-annotation DycomData/InjectedDicom/<run-id>/ground_truth.json
+uv run injection-pipeline inject-pdf --input-pdf DicomData/pdf/Briefmarken.1Stk.17.03.2026_1345.pdf --input-dicom DicomData/InjectedDicom/<run-id>/<source-stem>_injected.dcm --dicom-annotation DicomData/InjectedDicom/<run-id>/ground_truth.json
 ```
 
 `compose-pdf` is an alias. Both commands accept `--output-dir`, `--slot`, and
@@ -209,7 +209,7 @@ The same CLI is also available through `uv run python -m injection_pipeline`.
 
 With no CLI arguments, the command starts an interactive parameter setup. If at
 least one CLI argument is set and `--input` is missing, the pipeline chooses a
-seeded default from `DycomData/Dicom-Files` and `DycomData/images`.
+seeded default from `DicomData/Dicom-Files` and `DicomData/images`.
 
 | Option | Default | Possible values | Description |
 |--------|---------|-----------------|-------------|
@@ -226,11 +226,11 @@ seeded default from `DycomData/Dicom-Files` and `DycomData/images`.
 | `--run-timestamp` | Current time | ISO-8601 datetime | Fixed timestamp for deterministic run IDs |
 | `--handwriting-manifest` | none | JSONL manifest or JSON manifest with `assets` | Manifest for generated handwriting assets |
 | `--handwriting-asset` | none | Repeatable `identity_field=asset_id` mapping | Map schema fields to handwriting assets; requires `--handwriting-manifest` |
-| `--handwriting-asset-root` | `DycomData/HandwritingAssets` | Path | Persistent cache for generated handwriting assets |
-| `--handwriting-checkpoint` | `DycomData/HandwritingAssets/scrabblegan/checkpoints/latest_net_G.pth` | Path | Local ScrabbleGAN generator checkpoint |
+| `--handwriting-asset-root` | `DicomData/HandwritingAssets` | Path | Persistent cache for generated handwriting assets |
+| `--handwriting-checkpoint` | `DicomData/HandwritingAssets/scrabblegan/checkpoints/latest_net_G.pth` | Path | Local ScrabbleGAN generator checkpoint |
 | `--handwriting-checkpoint-sha256` | auto-hash local file | SHA-256 hex digest | Expected checkpoint hash |
 | `--handwriting-options-json` | checkpoint-adjacent sidecar | Path | Optional options sidecar; otherwise `options.json`, `test_opt.json`, `train_opt.json`, `test_opt.txt`, or `train_opt.txt` is resolved next to the checkpoint |
-| `--handwriting-source-dir` | `DycomData/HandwritingAssets/scrabblegan/source` | Path | Local official Amazon source checkout or source copy |
+| `--handwriting-source-dir` | `DicomData/HandwritingAssets/scrabblegan/source` | Path | Local official Amazon source checkout or source copy |
 | `--handwriting-upstream-commit` | source `.git_commit` or Git HEAD | Commit hash | Pinned upstream commit recorded in generated manifests |
 | `--handwriting-runtime-command` | automatic Docker runtime | Command string | Optional host-side generator override; default starts the configured Docker image |
 | `--handwriting-container-image` | `injection-scrabblegan` | Docker image tag | Image used by the automatic handwriting runtime |
@@ -240,7 +240,7 @@ In interactive mode, the seed is selected first, then the common
 font-family/renderer choice is asked before input/schema and the remaining
 render parameters. In handwriting mode, Faker values are generated first;
 missing compatible assets are generated through the isolated ScrabbleGAN
-runtime, stored below `DycomData/HandwritingAssets/`, and injected immediately.
+runtime, stored below `DicomData/HandwritingAssets/`, and injected immediately.
 A separate `generate-handwriting --seed` command pre-generates the same
 reusable bundle. Handwriting covers only `patient_name`, `patient_id`, and
 `accession_number`; the cache distinguishes seed, schema, field, generated

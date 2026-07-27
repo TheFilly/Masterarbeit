@@ -69,7 +69,7 @@ def test_resolve_input_path_prefers_explicit_input(
 def test_resolve_input_path_uses_default_selector_when_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    selected_path = Path("DycomData/images/random.jpg")
+    selected_path = Path("DicomData/images/random.jpg")
 
     monkeypatch.setattr(inputs, "select_default_input_path", lambda seed: selected_path)
 

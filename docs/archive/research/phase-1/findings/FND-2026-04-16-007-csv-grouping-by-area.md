@@ -6,12 +6,12 @@ phase: 1
 topic: csv-grouping-by-area
 confidence: medium
 sources:
-  - DycomData/MIMIC-IV/hosp/
-  - DycomData/MIMIC-IV/icu/
-  - DycomData/MIMIC-IV-ED/ed/
-  - DycomData/MIMIC-IV-Note/note/
-  - DycomData/MIMIC-IV-ECG-subset/
-  - DycomData/MIMIC-IV-Waveform-subset/
+  - DicomData/MIMIC-IV/hosp/
+  - DicomData/MIMIC-IV/icu/
+  - DicomData/MIMIC-IV-ED/ed/
+  - DicomData/MIMIC-IV-Note/note/
+  - DicomData/MIMIC-IV-ECG-subset/
+  - DicomData/MIMIC-IV-Waveform-subset/
   - docs/research/phase-1/summary.md
   - docs/research/phase-1/findings/FND-2026-04-16-006-true-input-scope-by-family.md
 related_decisions: []
@@ -22,7 +22,7 @@ related_risks:
 
 ## Observation
 
-The CSV-family artifacts under `DycomData/` can be grouped cleanly by the requested dataset areas, but the operational role of those CSV files differs across areas.
+The CSV-family artifacts under `DicomData/` can be grouped cleanly by the requested dataset areas, but the operational role of those CSV files differs across areas.
 
 ## Evidence
 

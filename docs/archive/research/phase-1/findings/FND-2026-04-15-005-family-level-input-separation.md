@@ -6,12 +6,12 @@ phase: 1
 topic: family-level-input-separation
 confidence: high
 sources:
-  - DycomData/MIMIC-IV/
-  - DycomData/MIMIC-IV-ED/
-  - DycomData/MIMIC-IV-Note/
-  - DycomData/MIMIC-IV-ECG-subset/
-  - DycomData/MIMIC-IV-Waveform-subset/
-  - DycomData/Anonymization/
+  - DicomData/MIMIC-IV/
+  - DicomData/MIMIC-IV-ED/
+  - DicomData/MIMIC-IV-Note/
+  - DicomData/MIMIC-IV-ECG-subset/
+  - DicomData/MIMIC-IV-Waveform-subset/
+  - DicomData/Anonymization/
   - docs/research/phase-1/summary.md
 related_decisions: []
 related_risks:

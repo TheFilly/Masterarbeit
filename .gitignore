@@ -9,8 +9,8 @@ build/
 
 Commands.md
 
-#Dycom Data
-DycomData/
+# Dicom data
+DicomData/
 
 # Test / coverage
 .pytest_cache/

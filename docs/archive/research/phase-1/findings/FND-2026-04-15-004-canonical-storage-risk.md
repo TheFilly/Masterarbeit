@@ -6,9 +6,9 @@ phase: 1
 topic: canonical-storage
 confidence: medium
 sources:
-  - DycomData/MIMIC-IV-ED/ed/triage.csv
-  - DycomData/MIMIC-IV-ED/ed/triage.csv.gz
-  - DycomData/MIMIC-IV-Waveform-subset/
+  - DicomData/MIMIC-IV-ED/ed/triage.csv
+  - DicomData/MIMIC-IV-ED/ed/triage.csv.gz
+  - DicomData/MIMIC-IV-Waveform-subset/
 related_decisions: []
 related_risks:
   - duplicate-storage-forms

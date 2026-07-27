@@ -28,16 +28,16 @@ uv run injection-pipeline --seed 42 --identifier-schema configs/identifier_schem
 uv run injection-pipeline --seed 42 --font-family tahoma --font-size-pct 120 --text-background white
 uv run injection-pipeline --seed 42 --font-family handwriting
 uv run injection-pipeline --seed 42 --rotation-angle 20 --show-label-boxes y
-uv run injection-pipeline --input DycomData/images/faces-00a0d634ad200ced.jpg --seed 42 --rotation-angle 20
-uv run injection-pipeline --handwriting-manifest DycomData/HandwritingAssets/scrabblegan/runs/demo/manifest.jsonl --handwriting-asset patient_name=patient-name-001
+uv run injection-pipeline --input DicomData/images/faces-00a0d634ad200ced.jpg --seed 42 --rotation-angle 20
+uv run injection-pipeline --handwriting-manifest DicomData/HandwritingAssets/scrabblegan/runs/demo/manifest.jsonl --handwriting-asset patient_name=patient-name-001
 uv run injection-pipeline generate-handwriting --seed 42
-uv run injection-pipeline inject-pdf --input-pdf DycomData/pdf/Briefmarken.1Stk.17.03.2026_1345.pdf --input-dicom DycomData/InjectedDicom/<run-id>/<source-stem>_injected.dcm --dicom-annotation DycomData/InjectedDicom/<run-id>/ground_truth.json
+uv run injection-pipeline inject-pdf --input-pdf DicomData/pdf/Briefmarken.1Stk.17.03.2026_1345.pdf --input-dicom DicomData/InjectedDicom/<run-id>/<source-stem>_injected.dcm --dicom-annotation DicomData/InjectedDicom/<run-id>/ground_truth.json
 ```
 
 `uv run python -m injection_pipeline ...` is equivalent. With no CLI arguments,
 the command starts interactive mode. If at least one CLI argument is set and
 `--input` is missing, the command chooses a local default file from sorted
-`DycomData/Dicom-Files` and `DycomData/images` candidates using the seeded
+`DicomData/Dicom-Files` and `DicomData/images` candidates using the seeded
 `input_selection` stream. Pass `--input` to replay the resolved file directly.
 Pass `--run-timestamp` to make the run directory name deterministic. The
 `--font-family handwriting` mode generates the Faker identity first,
@@ -94,7 +94,7 @@ Parameters:
 | `prefix` | Nicht-PII-Text vor dem Wert. Leerzeichen muessen explizit im String stehen. |
 | `suffix` | Nicht-PII-Text nach dem Wert. Leerzeichen muessen explizit im String stehen. |
 | `handwritten` | `True` nutzt die Handwriting-Pipeline fuer den kompletten sichtbaren Text `prefix + value + suffix`; `False` nutzt den normalen Renderer. |
-| `documentType` | Dokumenttyp, case-insensitive. Erlaubt sind `dcm` und `jpg`; `dcm` waehlt aus `DycomData/Dicom-Files`, `jpg` aus `DycomData/images` mit `.jpg` oder `.jpeg`. |
+| `documentType` | Dokumenttyp, case-insensitive. Erlaubt sind `dcm` und `jpg`; `dcm` waehlt aus `DicomData/Dicom-Files`, `jpg` aus `DicomData/images` mit `.jpg` oder `.jpeg`. |
 | `output_dir` | Optionales Exportverzeichnis. Wenn gesetzt, werden das injizierte Dokument und `ground_truth.json` dorthin kopiert. Andere vorhandene Dateien in diesem Ordner werden nicht bereinigt. |
 
 The visible text is rendered as `prefix + value + suffix`; the API does not add
@@ -146,11 +146,11 @@ load the artifacts without scanning either directory.
 | `--run-timestamp` | current time | Optional ISO-8601 timestamp used in `run_id` |
 | `--handwriting-manifest` | none | Explicit JSON or JSONL handwriting manifest (compatibility path) |
 | `--handwriting-asset` | none | Repeatable explicit `identity_field=asset_id` mapping (compatibility path) |
-| `--handwriting-asset-root` | `DycomData/HandwritingAssets` | Persistent cache root for generated assets |
-| `--handwriting-checkpoint` | `DycomData/HandwritingAssets/scrabblegan/checkpoints/latest_net_G.pth` | ScrabbleGAN generator checkpoint |
+| `--handwriting-asset-root` | `DicomData/HandwritingAssets` | Persistent cache root for generated assets |
+| `--handwriting-checkpoint` | `DicomData/HandwritingAssets/scrabblegan/checkpoints/latest_net_G.pth` | ScrabbleGAN generator checkpoint |
 | `--handwriting-checkpoint-sha256` | auto-hash local file | Expected checkpoint SHA-256 |
 | `--handwriting-options-json` | checkpoint-adjacent sidecar | Optional options sidecar; otherwise `options.json`, `test_opt.json`, `train_opt.json`, `test_opt.txt`, or `train_opt.txt` next to the checkpoint |
-| `--handwriting-source-dir` | `DycomData/HandwritingAssets/scrabblegan/source` | Official Amazon source checkout or source copy |
+| `--handwriting-source-dir` | `DicomData/HandwritingAssets/scrabblegan/source` | Official Amazon source checkout or source copy |
 | `--handwriting-upstream-commit` | source `.git_commit` or Git HEAD | Pinned upstream commit recorded in manifests |
 | `--handwriting-runtime-command` | automatic Docker runtime | Optional host-side runtime override; default starts the configured Docker image |
 | `--handwriting-container-image` | `injection-scrabblegan` | Docker image used on cache misses |
@@ -280,7 +280,7 @@ does not. ADR-0004 records this compatibility detail.
 
 ## Handwriting Assets
 
-Generated handwriting assets live under `DycomData/HandwritingAssets/` and stay
+Generated handwriting assets live under `DicomData/HandwritingAssets/` and stay
 out of git. The pipeline accepts JSON manifests with an `assets` list and JSONL
 manifests with one asset per line. The integrated handwriting mode uses the
 same manifest contract as the explicit compatibility path, but adds a cache

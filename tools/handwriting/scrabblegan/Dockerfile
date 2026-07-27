@@ -19,7 +19,7 @@ ENV SCRABBLEGAN_REPO_URL="${SCRABBLEGAN_REPO_URL}" \
     SCRABBLEGAN_CHECKPOINT_SHA256="${SCRABBLEGAN_CHECKPOINT_SHA256}" \
     SCRABBLEGAN_ENV="${SCRABBLEGAN_ENV}" \
     SCRABBLEGAN_SOURCE_DIR="/opt/scrabblegan/source" \
-    HANDWRITING_ASSET_ROOT="/workspace/DycomData/HandwritingAssets" \
+    HANDWRITING_ASSET_ROOT="/workspace/DicomData/HandwritingAssets" \
     CUDA_VISIBLE_DEVICES=""
 
 USER root
@@ -58,5 +58,5 @@ WORKDIR /workspace
 ENV PATH="/opt/conda/envs/${SCRABBLEGAN_ENV}/bin:${PATH}"
 
 # This image never clones ScrabbleGAN or downloads model weights. Mount pinned
-# source/checkpoint artifacts from DycomData/HandwritingAssets at runtime.
+# source/checkpoint artifacts from DicomData/HandwritingAssets at runtime.
 CMD ["/bin/bash", "-lc", "scrabblegan-render --help && scrabblegan-validate --help"]

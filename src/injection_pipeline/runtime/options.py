@@ -13,7 +13,7 @@ FONT_FAMILY_CHOICES: tuple[str, ...] = (
 )
 TEXT_BACKGROUND_CHOICES: tuple[str, ...] = ("white",)
 SHOW_LABEL_BOX_CHOICES: tuple[str, ...] = ("y", "n")
-DEFAULT_HANDWRITING_ASSET_ROOT = Path("DycomData") / "HandwritingAssets"
+DEFAULT_HANDWRITING_ASSET_ROOT = Path("DicomData") / "HandwritingAssets"
 DEFAULT_HANDWRITING_CHECKPOINT_PATH = (
     DEFAULT_HANDWRITING_ASSET_ROOT / "scrabblegan" / "checkpoints" / "latest_net_G.pth"
 )

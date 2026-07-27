@@ -4,7 +4,7 @@ This directory contains isolated tooling for handwriting assets used by the
 injection workflow.
 
 Generated images, masks, manifests, checkpoints, logs, and third-party source
-belong under `DycomData/HandwritingAssets/` or another ignored local path. Do
+belong under `DicomData/HandwritingAssets/` or another ignored local path. Do
 not commit them.
 
 The ScrabbleGAN subtool now has the host-side provider/cache contract used by
