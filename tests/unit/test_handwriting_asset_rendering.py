@@ -242,6 +242,43 @@ def test_render_handwriting_asset_uses_transformed_ink_mask(tmp_path: Path) -> N
     assert record["render_metadata"]["geometry_source"] == "transformed_ink_mask"
 
 
+def test_render_handwriting_asset_uses_rotated_tight_quad(
+    tmp_path: Path,
+) -> None:
+    manifest = load_handwriting_manifest(_write_asset(tmp_path))
+    asset = manifest["patient-name-001"]
+    frame = np.full((40, 40, 3), 255, dtype=np.uint8)
+    annotations = [
+        {
+            "label": "PatientName",
+            "text": "Doe^Jane",
+            "identity_field": "patient_name",
+            "renderer_type": "handwriting_asset",
+            "asset_id": "patient-name-001",
+            "asset": asset,
+            "position": (10, 9),
+            "region": "unit_test",
+            "rotation_degrees": 20,
+        }
+    ]
+
+    _, records = _render_frame_with_annotations(frame, annotations)
+
+    corners = records[0]["corners"]
+    assert corners[0]["y"] != pytest.approx(corners[1]["y"])
+    assert corners[0]["x"] != pytest.approx(corners[3]["x"])
+    horizontal_edge = np.hypot(
+        corners[1]["x"] - corners[0]["x"],
+        corners[1]["y"] - corners[0]["y"],
+    )
+    vertical_edge = np.hypot(
+        corners[3]["x"] - corners[0]["x"],
+        corners[3]["y"] - corners[0]["y"],
+    )
+    assert horizontal_edge == pytest.approx(5.0, abs=0.1)
+    assert vertical_edge == pytest.approx(4.0, abs=0.1)
+
+
 def test_render_handwriting_asset_preserves_segmented_api_contract(
     tmp_path: Path,
 ) -> None:

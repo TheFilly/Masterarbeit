@@ -1,15 +1,15 @@
 """Handwriting-asset rendering for pixel injection."""
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from PIL import Image, ImageDraw, ImageFont
 
 from injection_pipeline.engine.geometry import (
     _MASK_ALPHA_THRESHOLD,
     _coerce_position,
-    _mask_bounds_to_corners,
     _require_mask_bounds,
+    _rotated_corners,
     _serialize_mask_bounds,
     _thresholded_mask_bounds,
     _validate_rotation,
@@ -19,6 +19,13 @@ from injection_pipeline.engine.segments import (
     _normalize_text_segments,
     _split_segment_text,
 )
+
+_SOURCE_BOUNDS_KEY = Literal[
+    "text_source_bounds",
+    "pii_source_bounds",
+    "label_source_bounds",
+    "suffix_source_bounds",
+]
 
 
 # Input: `base_image` mit Zielbild, `annotation` mit Handschrift-Asset und
@@ -53,25 +60,27 @@ def _render_handwriting_annotation(
         "suffix": overlay["suffix_text"],
         "region": annotation.get("region", overlay["region"]),
         "rotation_degrees": overlay["rotation_degrees"],
-        "corners": _mask_bounds_to_corners(position, overlay["pii_rotated_bounds"]),
+        "corners": _rotated_mask_corners(position, overlay, "pii_source_bounds"),
         "label_corners": _optional_mask_corners(
             position,
-            overlay["label_rotated_bounds"],
+            overlay,
+            "label_source_bounds",
         ),
         "prefix_corners": _optional_mask_corners(
             position,
-            overlay["label_rotated_bounds"],
+            overlay,
+            "label_source_bounds",
         ),
         "suffix_corners": _optional_mask_corners(
             position,
-            overlay["suffix_rotated_bounds"],
+            overlay,
+            "suffix_source_bounds",
         ),
         "render_metadata": {
             "position": {"x": position[0], "y": position[1]},
             **overlay["render_metadata"],
-            "rendered_text_corners": _mask_bounds_to_corners(
-                position,
-                overlay["text_rotated_bounds"],
+            "rendered_text_corners": _rotated_mask_corners(
+                position, overlay, "text_source_bounds"
             ),
         },
     }
@@ -197,17 +206,40 @@ def _handwriting_text_segments(
         raise
 
 
-# Input: Position und optionale Masken-Bounds im rotierten Overlay.
+# Input: `position`, Overlay-Metadaten und Name der Quellmasken-Bounds.
 # Output: Absolute Ecken oder `None`.
-# Die Funktion verhindert, dass leere Prefix-/Suffix-Segmente als Volltextbox
-# in die Annotation serialisiert werden.
+# Die Funktion transformiert die engen Bounds der unrotierten Ink-Maske in ein
+# rotiertes Quad. Leere Prefix-/Suffix-Segmente bleiben `None`.
 def _optional_mask_corners(
     position: tuple[int, int],
-    bounds: tuple[int, int, int, int] | None,
+    overlay: PreparedOverlay,
+    bounds_key: _SOURCE_BOUNDS_KEY,
 ) -> list[dict[str, float]] | None:
+    bounds = overlay[bounds_key]
     if bounds is None:
         return None
-    return _mask_bounds_to_corners(position, bounds)
+    return _rotated_mask_corners(position, overlay, bounds_key)
+
+
+# Input: `position`, Overlay-Metadaten und Quellmasken-Bounds.
+# Output: Vier absolute, rotationskongruente Ecken oder `None`.
+# Die Funktion verwendet die enge Bounds-Box der unrotierten Ink-Maske und
+# transformiert sie mit exakt derselben Rotation wie das gerenderte Overlay.
+def _rotated_mask_corners(
+    position: tuple[int, int],
+    overlay: PreparedOverlay,
+    bounds_key: _SOURCE_BOUNDS_KEY,
+) -> list[dict[str, float]] | None:
+    bounds = overlay[bounds_key]
+    if bounds is None:
+        return None
+    return _rotated_corners(
+        position,
+        overlay["text_box_size"],
+        overlay["rotated_size"],
+        overlay["rotation_degrees"],
+        bounds=bounds,
+    )
 
 
 # Input: Handschrift-Gesamtmaske und normalisierte Textsegmente.

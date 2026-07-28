@@ -21,7 +21,6 @@ from injection_pipeline.pdf.make_layout import (
     build_make_pdf_layout,
     page_size_for,
     rotate_point_in_rect,
-    rotated_quad,
 )
 from injection_pipeline.pdf.models import (
     PdfMakeAnnotationRecord,
@@ -512,17 +511,60 @@ def _build_text_annotations(
                 suffix=text.suffix,
                 rendered_text=text_plans[text_index].rendered_text,
                 handwritten=text.handwritten,
-                pdf_corners=rotated_quad(
-                    placement.x,
-                    placement.y,
-                    placement.width,
-                    placement.height,
-                    placement.rotation_degrees,
-                ),
+                pdf_corners=_text_annotation_quad(text_plans[text_index], placement),
                 placement=placement,
             )
         )
     return records
+
+
+# Input: Gemessener Text-Renderplan und finale PDF-Platzierung.
+# Output: Enges PDF-Quad um die tatsaechlich gezeichneten Textzeilen.
+# Die Funktion verwendet Fontmetriken statt der aeusseren Layout-Textbox und
+# transformiert das Ergebnis mit exakt derselben Rotation wie das Rendering.
+def _text_annotation_quad(
+    text_plan: _TextRenderPlan,
+    placement: PdfMakeLayoutPlacement,
+) -> PdfQuad:
+    first_baseline = (
+        placement.y + placement.height - text_plan.padding - text_plan.font_size
+    )
+    last_baseline = first_baseline - (len(text_plan.lines) - 1) * text_plan.leading
+    text_width = max(
+        (
+            _string_width(line.rstrip(), text_plan.font_name, text_plan.font_size)
+            for line in text_plan.lines
+        ),
+        default=0.0,
+    )
+    text_top = first_baseline + pdfmetrics.getAscent(
+        text_plan.font_name, text_plan.font_size
+    )
+    text_bottom = last_baseline + pdfmetrics.getDescent(
+        text_plan.font_name, text_plan.font_size
+    )
+    text_x = placement.x + text_plan.padding
+    text_y = text_bottom
+    text_height = text_top - text_bottom
+    corners = [
+        PdfPoint(x=text_x, y=text_y),
+        PdfPoint(x=text_x + text_width, y=text_y),
+        PdfPoint(x=text_x + text_width, y=text_y + text_height),
+        PdfPoint(x=text_x, y=text_y + text_height),
+    ]
+    return PdfQuad.model_validate(
+        [
+            rotate_point_in_rect(
+                placement.x,
+                placement.y,
+                placement.width,
+                placement.height,
+                placement.rotation_degrees,
+                corner,
+            )
+            for corner in corners
+        ]
+    )
 
 
 # Input: Bildraum-Quad, Bildgroesse und PDF-Platzierung.

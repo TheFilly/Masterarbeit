@@ -17,8 +17,17 @@ from injection_pipeline import (
     PdfMakeTextInput,
     make_pdf,
 )
-from injection_pipeline.pdf.models import PdfMakeAnnotationRecord, PdfTemplate
-from injection_pipeline.writers.pdf_make import make_pdf_composition
+from injection_pipeline.pdf.models import (
+    PdfMakeAnnotationRecord,
+    PdfMakeLayoutPlacement,
+    PdfTemplate,
+)
+from injection_pipeline.writers.pdf_make import (
+    _string_width,
+    _text_annotation_quad,
+    _TextRenderPlan,
+    make_pdf_composition,
+)
 
 
 def _write_pdf(path: Path, page_size: tuple[float, float], page_count: int = 1) -> Path:
@@ -113,6 +122,47 @@ def _make_inputs(
     ]
     texts = [_text_payload(index) for index in range(text_count)]
     return pdf, images, texts
+
+
+def test_text_annotation_quad_is_tight_and_rotates_with_text() -> None:
+    text_plan = _TextRenderPlan(
+        rendered_text="Direct value",
+        lines=("Direct value",),
+        width=100.0,
+        height=25.5,
+        font_name="Helvetica",
+        font_size=11.0,
+        leading=13.5,
+        padding=4.0,
+    )
+    placement = {
+        "item_type": "text",
+        "source_index": 0,
+        "page_index": 0,
+        "x": 100.0,
+        "y": 200.0,
+        "width": text_plan.width,
+        "height": text_plan.height,
+        "rotation_degrees": 20.0,
+    }
+
+    quad = _text_annotation_quad(text_plan, PdfMakeLayoutPlacement(**placement))
+    points = quad.root
+    horizontal_width = (
+        (points[1].x - points[0].x) ** 2
+        + (points[1].y - points[0].y) ** 2
+    ) ** 0.5
+    vertical_height = (
+        (points[3].x - points[0].x) ** 2
+        + (points[3].y - points[0].y) ** 2
+    ) ** 0.5
+
+    assert horizontal_width == pytest.approx(
+        _string_width("Direct value", "Helvetica", 11.0)
+    )
+    assert vertical_height < text_plan.height
+    assert points[0].y != pytest.approx(points[1].y)
+    assert points[0].x != pytest.approx(points[3].x)
 
 
 def _bounds(quad: Iterable[Any]) -> tuple[float, float, float, float]:
