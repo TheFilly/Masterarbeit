@@ -104,14 +104,18 @@ identity.
 Build the image:
 
 ```powershell
-docker build -t injection-scrabblegan tools/handwriting/scrabblegan
+docker build --platform linux/amd64 -t injection-scrabblegan tools/handwriting/scrabblegan
 ```
 
 The image uses Micromamba to solve the historical Python 3.6/PyTorch 1.2
 environment. This keeps the upstream runtime contract while avoiding the
-memory-heavy legacy Conda solver. On Windows with the WSL2 backend, configure
-about 12 GB of WSL memory and 8 GB of swap for the initial build. Do not
-upgrade the pinned legacy Python/PyTorch stack inside the image.
+memory-heavy legacy Conda solver. The ScrabbleGAN runtime is pinned to
+`linux/amd64` because those legacy Conda packages are not available for
+`linux-aarch64`. Linux and Windows x86_64 hosts run that image natively; Apple
+Silicon and Windows-on-ARM hosts use Docker's amd64 emulation. On Windows with
+the WSL2 backend, configure about 12 GB of WSL memory and 8 GB of swap for the
+initial build. Do not upgrade the pinned legacy Python/PyTorch stack inside the
+image.
 
 The tested CPU image is approximately 1.9 GB. Keep at least 5 GB free for the
 image, BuildKit layers/cache, local checkpoints, and generated assets. This is
@@ -138,6 +142,7 @@ Validate a run:
 
 ```powershell
 docker run --rm `
+  --platform linux/amd64 `
   -v ${PWD}:/workspace `
   injection-scrabblegan `
   scrabblegan-validate `

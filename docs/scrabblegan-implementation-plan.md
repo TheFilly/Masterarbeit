@@ -393,8 +393,8 @@ uv run mypy src/
 uv run pytest tests/unit/test_handwriting*.py tests/unit/test_scrabblegan_generator.py
 
 # Container build + smoke
-docker build -t injection-scrabblegan tools/handwriting/scrabblegan
-docker run --rm injection-scrabblegan
+docker build --platform linux/amd64 -t injection-scrabblegan tools/handwriting/scrabblegan
+docker run --rm --platform linux/amd64 injection-scrabblegan
 
 # Real render + validate + inject (verified 2026-07-15):
 uv run injection-pipeline generate-handwriting --seed 42

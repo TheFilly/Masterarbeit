@@ -4,8 +4,11 @@
 # This image is intentionally separate from the Python 3.13 project.
 # Micromamba keeps the historical Python/PyTorch contract while avoiding the
 # memory-heavy legacy Conda solver during image builds.
+# The pinned Python 3.6/PyTorch 1.2 stack is only available for linux/amd64 in
+# the configured Conda channels; ARM hosts use Docker's amd64 emulation.
 
-FROM mambaorg/micromamba:2.8.1
+ARG SCRABBLEGAN_IMAGE_PLATFORM=linux/amd64
+FROM --platform=${SCRABBLEGAN_IMAGE_PLATFORM} mambaorg/micromamba:2.8.1
 
 ARG SCRABBLEGAN_REPO_URL="https://github.com/amzn/convolutional-handwriting-gan"
 ARG SCRABBLEGAN_COMMIT="PIN_UPSTREAM_COMMIT"

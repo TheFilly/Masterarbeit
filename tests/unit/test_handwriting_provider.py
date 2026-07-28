@@ -425,9 +425,9 @@ def test_docker_generator_mounts_workspace_and_translates_paths(
 
     assert result.manifest_path == output_root / "run-001" / "manifest.jsonl"
     docker_run = calls[1]
-    assert docker_run[:3] == ["docker", "run", "--rm"]
-    assert "type=bind,source=" in docker_run[6]
-    assert "target=/workspace" in docker_run[6]
+    assert docker_run[:5] == ["docker", "run", "--rm", "--platform", "linux/amd64"]
+    assert "type=bind,source=" in docker_run[8]
+    assert "target=/workspace" in docker_run[8]
     assert "/workspace/work/input.jsonl" in docker_run
     assert "/workspace/source" in docker_run
     assert "/workspace/checkpoint.pth" in docker_run

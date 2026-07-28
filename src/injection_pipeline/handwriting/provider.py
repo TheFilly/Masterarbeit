@@ -386,6 +386,8 @@ class DockerHandwritingGenerator:
             "docker",
             "run",
             "--rm",
+            "--platform",
+            "linux/amd64",
             "--env",
             "CUDA_VISIBLE_DEVICES=",
             "--mount",

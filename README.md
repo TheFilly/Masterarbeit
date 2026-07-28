@@ -262,14 +262,17 @@ Für die Handschrift-Integration muss das ScrabbleGAN-Docker-Image einmalig
 aus dem Projektstamm gebaut werden:
 
 ```powershell
-docker build -t injection-scrabblegan tools/handwriting/scrabblegan
+docker build --platform linux/amd64 -t injection-scrabblegan tools/handwriting/scrabblegan
 ```
 
 Das Image verwendet für die historische Python-3.6/PyTorch-1.2-Umgebung
 Micromamba. Dadurch bleibt der Amazon-Kompatibilitätsvertrag erhalten, ohne
-den speicherintensiven alten Conda-Solver zu verwenden. Unter Windows mit
-WSL2 sollten für den initialen Build ungefähr 12 GB WSL-RAM und 8 GB Swap
-konfiguriert sein.
+den speicherintensiven alten Conda-Solver zu verwenden. Der ScrabbleGAN-
+Runtime-Container ist fest auf `linux/amd64` gesetzt, weil diese alten Conda-
+Pakete nicht für `linux-aarch64` verfügbar sind. Linux- und Windows-x86_64-
+Hosts führen dieses Image nativ aus; Apple-Silicon- und Windows-on-ARM-Hosts
+verwenden Docker-Emulation. Unter Windows mit WSL2 sollten für den initialen
+Build ungefähr 12 GB WSL-RAM und 8 GB Swap konfiguriert sein.
 
 Der aktuell getestete CPU-Container belegt ungefähr 1,9 GB als Docker-Image.
 Für BuildKit-Zwischenschichten, lokale Checkpoints und den Docker-Cache sollten
@@ -412,4 +415,3 @@ external research code, datasets, or standards.
   PhysioBank, PhysioToolkit, and PhysioNet: Components of a new research
   resource for complex physiologic signals. *Circulation, 101*(23), e215-e220.
   RRID:SCR_007345.
-
