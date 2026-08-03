@@ -4,7 +4,8 @@ from pathlib import Path
 
 
 def test_scrabblegan_dockerfile_pins_legacy_amd64_platform() -> None:
-    dockerfile = Path("tools/handwriting/scrabblegan/Dockerfile")
+    repository_root = Path(__file__).resolve().parents[2]
+    dockerfile = repository_root / "tools/handwriting/scrabblegan/Dockerfile"
 
     content = dockerfile.read_text(encoding="utf-8")
 

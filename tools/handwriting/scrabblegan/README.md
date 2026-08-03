@@ -117,6 +117,34 @@ the WSL2 backend, configure about 12 GB of WSL memory and 8 GB of swap for the
 initial build. Do not upgrade the pinned legacy Python/PyTorch stack inside the
 image.
 
+### macOS (zsh/bash)
+
+Docker Desktop must be running. On Apple Silicon, Docker uses amd64
+emulation for this legacy image; keep `--platform linux/amd64` on both build
+and run commands. The following commands use POSIX shell syntax:
+
+```sh
+docker build --platform linux/amd64 -t injection-scrabblegan tools/handwriting/scrabblegan
+```
+
+```sh
+docker run --rm \
+  --platform linux/amd64 \
+  --mount "type=bind,source=$PWD,target=/workspace" \
+  injection-scrabblegan \
+  scrabblegan-validate \
+    --manifest DicomData/HandwritingAssets/scrabblegan/runs/demo/manifest.jsonl \
+    --checkpoint DicomData/HandwritingAssets/scrabblegan/checkpoints/latest_net_G.pth \
+    --checkpoint-sha256 PIN_CHECKPOINT_SHA256
+```
+
+The integrated host commands are shell-independent:
+
+```sh
+uv run injection-pipeline --seed 42 --font-family handwriting
+uv run injection-pipeline generate-handwriting --seed 42
+```
+
 The tested CPU image is approximately 1.9 GB. Keep at least 5 GB free for the
 image, BuildKit layers/cache, local checkpoints, and generated assets. This is
 a practical planning value rather than a hard Docker limit; exact usage depends

@@ -425,13 +425,22 @@ def test_docker_generator_mounts_workspace_and_translates_paths(
 
     assert result.manifest_path == output_root / "run-001" / "manifest.jsonl"
     docker_run = calls[1]
-    assert docker_run[:5] == ["docker", "run", "--rm", "--platform", "linux/amd64"]
-    assert "type=bind,source=" in docker_run[8]
-    assert "target=/workspace" in docker_run[8]
-    assert "/workspace/work/input.jsonl" in docker_run
-    assert "/workspace/source" in docker_run
-    assert "/workspace/checkpoint.pth" in docker_run
-    assert "/workspace/test_opt.txt" in docker_run
+    platform_index = docker_run.index("--platform")
+    assert docker_run[platform_index + 1] == "linux/amd64"
+
+    mount_index = docker_run.index("--mount")
+    mount_argument = docker_run[mount_index + 1]
+    assert "type=bind,source=" in mount_argument
+    assert "target=/workspace" in mount_argument
+
+    def argument_value(option: str) -> str:
+        option_index = docker_run.index(option)
+        return docker_run[option_index + 1]
+
+    assert argument_value("--input") == "/workspace/work/input.jsonl"
+    assert argument_value("--source-dir") == "/workspace/source"
+    assert argument_value("--checkpoint") == "/workspace/checkpoint.pth"
+    assert argument_value("--options-json") == "/workspace/test_opt.txt"
 
 
 def test_provider_passes_options_sidecar_to_generator_request(tmp_path: Path) -> None:

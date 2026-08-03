@@ -265,6 +265,10 @@ aus dem Projektstamm gebaut werden:
 docker build --platform linux/amd64 -t injection-scrabblegan tools/handwriting/scrabblegan
 ```
 
+Auf macOS mit zsh/bash sind die POSIX-Befehle und der Docker-Volume-Mount in
+`tools/handwriting/scrabblegan/README.md` dokumentiert. Apple-Silicon-Hosts
+verwenden für die Legacy-Runtime weiterhin `linux/amd64`-Emulation.
+
 Das Image verwendet für die historische Python-3.6/PyTorch-1.2-Umgebung
 Micromamba. Dadurch bleibt der Amazon-Kompatibilitätsvertrag erhalten, ohne
 den speicherintensiven alten Conda-Solver zu verwenden. Der ScrabbleGAN-

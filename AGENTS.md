@@ -146,6 +146,10 @@ default from `DicomData/Dicom-Files` and `DicomData/images`.
   formats.
 - Prefer small diffs and avoid unrelated refactoring.
 
+## Subagent Workflow
+
+- For all applicable work, create a subagent using `luna` with medium effort.
+
 ## Documentation Rules
 
 - Use the current architecture, decision, and operational documents in `docs/`
