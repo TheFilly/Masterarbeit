@@ -29,7 +29,7 @@ def collect_default_input_candidates(
             for path in directory.iterdir()
             if path.is_file() and path.suffix.lower() in DEFAULT_INPUT_EXTENSIONS
         )
-    return sorted(candidates, key=lambda path: str(path).lower())
+    return sorted(candidates, key=lambda path: (str(path).casefold(), str(path)))
 
 
 # Input: `candidates` mit moeglichen Default-Eingabedateien und `seed`.
@@ -42,7 +42,9 @@ def select_seeded_default_input(candidates: list[Path], seed: int) -> Path:
             "No default input files found in "
             f"{DEFAULT_DICOM_DIR} or {DEFAULT_IMAGE_DIR}."
         )
-    sorted_candidates = sorted(candidates, key=lambda path: str(path).lower())
+    sorted_candidates = sorted(
+        candidates, key=lambda path: (str(path).casefold(), str(path))
+    )
     rng = random.Random(derive_seed(seed, "input_selection"))
     return rng.choice(sorted_candidates)
 

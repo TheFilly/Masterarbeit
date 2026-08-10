@@ -1,7 +1,10 @@
 """Run identifier and output path construction."""
 
+import re
 from datetime import datetime
 from pathlib import Path
+
+_SAFE_RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 # Input: Laufparameter wie `filetype`, Zeitstempel, Seed und Renderoptionen.
@@ -37,6 +40,10 @@ def build_output_paths(
     source_stem: str,
     output_suffix: str,
 ) -> dict[str, Path]:
+    if not _SAFE_RUN_ID.fullmatch(run_id):
+        raise ValueError(f"run_id must be a safe single path segment: {run_id!r}")
+    if output_root.exists() and not output_root.is_dir():
+        raise ValueError(f"output root must be a directory: {output_root}")
     run_dir = output_root / run_id
     return {
         "run_dir": run_dir,
@@ -46,3 +53,12 @@ def build_output_paths(
         "preview_file": run_dir / "preview.png",
         "annotated_preview_file": run_dir / "preview_annotated.png",
     }
+
+
+# Input: Geplanter Ausgabeordner.
+# Output: Keine Rueckgabe; wirft bei belegtem Run-Ordner.
+# Die Funktion reserviert keine Dateien, verhindert aber, dass ein neuer Lauf
+# still in ein bestehendes Run-Bundle schreibt.
+def ensure_run_directory_available(run_dir: Path) -> None:
+    if run_dir.exists():
+        raise ValueError(f"run directory already exists: {run_dir}")

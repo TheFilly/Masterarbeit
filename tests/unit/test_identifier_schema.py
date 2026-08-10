@@ -169,6 +169,32 @@ def test_identifier_schema_rejects_bad_dicom_route_values(
         IdentifierSchema.model_validate(payload)
 
 
+@pytest.mark.parametrize("route_field", ["keyword", "address", "vr"])
+def test_identifier_schema_rejects_semantically_inconsistent_dicom_route(
+    route_field: str,
+) -> None:
+    payload = _minimal_schema_payload()
+    route = payload["fields"][0]["routing"]["dicom_tag"]
+    route[route_field] = {
+        "keyword": "PatientName",
+        "address": "0010,0010",
+        "vr": "PN",
+    }[route_field]
+
+    with pytest.raises(ValidationError, match="DICOM keyword|unknown DICOM"):
+        IdentifierSchema.model_validate(payload)
+
+
+def test_identifier_schema_rejects_duplicate_dicom_targets() -> None:
+    payload = _minimal_schema_payload()
+    payload["fields"][1]["routing"]["dicom_tag"] = dict(
+        payload["fields"][0]["routing"]["dicom_tag"]
+    )
+
+    with pytest.raises(ValidationError, match="DICOM route"):
+        IdentifierSchema.model_validate(payload)
+
+
 def test_identifier_schema_forbids_extra_fields() -> None:
     payload = _minimal_schema_payload()
     payload["fields"][0]["unexpected"] = True

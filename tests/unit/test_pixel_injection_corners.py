@@ -1,3 +1,4 @@
+import random
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +23,7 @@ from injection_pipeline.engine.overlay import (
     _render_single_annotation,
 )
 from injection_pipeline.engine.pixel_injection import _write_pixel_array
+from injection_pipeline.engine.placement import _materialize_positions
 from injection_pipeline.engine.segments import (
     _split_prefix_and_pii_text,
     _split_segment_text,
@@ -87,6 +89,54 @@ def test_rotated_corners_bounding_box_matches_estimate(angle: int) -> None:
     bbox_height = max(ys) - min(ys)
     assert bbox_width == pytest.approx(rotated_size[0], abs=1.0)
     assert bbox_height == pytest.approx(rotated_size[1], abs=1.0)
+
+
+@pytest.mark.parametrize("placement_mode", ["corners", "free"])
+@pytest.mark.parametrize("rotation_degrees", [0, 20, 90, 180, 270])
+def test_materialize_positions_rejects_text_that_cannot_fit(
+    placement_mode: str,
+    rotation_degrees: int,
+) -> None:
+    frame = np.zeros((128, 128, 3), dtype=np.uint8)
+    injection = {
+        "label": "PatientID",
+        "text": "X" * 500,
+        "text_segments": [{"kind": "pii", "text": "X" * 500}],
+        "rotation_degrees": rotation_degrees,
+    }
+
+    with pytest.raises(ValueError, match="does not fit"):
+        _materialize_positions(
+            [injection],
+            frame,
+            font_family="arial",
+            font_size_px=18,
+            placement_mode=placement_mode,
+            rng=random.Random(42),
+        )
+
+
+@pytest.mark.parametrize("placement_mode", ["corners", "free"])
+def test_materialize_positions_rejects_oversized_font(
+    placement_mode: str,
+) -> None:
+    frame = np.zeros((128, 128, 3), dtype=np.uint8)
+    injection = {
+        "label": "PatientID",
+        "text": "123456",
+        "text_segments": [{"kind": "pii", "text": "123456"}],
+        "rotation_degrees": 20,
+    }
+
+    with pytest.raises(ValueError, match="does not fit"):
+        _materialize_positions(
+            [injection],
+            frame,
+            font_family="arial",
+            font_size_px=256,
+            placement_mode=placement_mode,
+            rng=random.Random(42),
+        )
 
 
 def test_split_prefix_and_pii_text_for_prefixed_identifier() -> None:

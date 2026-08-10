@@ -5,6 +5,7 @@ from typing import ClassVar
 
 import numpy as np
 import pydicom
+from pydicom.uid import UID
 
 from injection_pipeline.models.adapters import SourceDocument
 from injection_pipeline.models.dicom import DicomContext
@@ -25,6 +26,7 @@ class DicomLoader:
 
         ds = load_dicom(path)
         pixel_array = np.asarray(ds.pixel_array)
+        validate_supported_dicom_dataset(ds, pixel_array)
         return SourceDocument(
             format_id=self.format_id,
             path=path,
@@ -40,6 +42,45 @@ class DicomLoader:
 # Die Funktion laedt die Datei direkt ueber pydicom.
 def load_dicom(path: Path) -> pydicom.Dataset:
     return pydicom.dcmread(str(path))
+
+
+# Input: `ds` mit geladenem Dataset und optional dekodiertem Pixelarray.
+# Output: Keine Rueckgabe.
+# Die Funktion begrenzt den aktuellen Writervertrag auf uint8, Little Endian,
+# MONOCHROME2 und RGB, bevor ein Pipeline-Output angelegt wird.
+def validate_supported_dicom_dataset(
+    ds: pydicom.Dataset,
+    pixel_array: np.ndarray | None = None,
+) -> None:
+    values = np.asarray(ds.pixel_array if pixel_array is None else pixel_array)
+    if values.dtype != np.uint8:
+        raise ValueError(
+            "Unsupported DICOM pixel representation: only uint8 pixel data "
+            f"is supported, got {values.dtype}."
+        )
+
+    transfer_syntax = getattr(getattr(ds, "file_meta", None), "TransferSyntaxUID", None)
+    transfer_uid = None if transfer_syntax is None else UID(str(transfer_syntax))
+    if transfer_uid is not None and transfer_uid.is_little_endian is False:
+        raise ValueError(
+            "Unsupported DICOM transfer syntax: big-endian pixel data is not "
+            "supported."
+        )
+
+    photometric = str(getattr(ds, "PhotometricInterpretation", "")).upper()
+    if photometric not in {"MONOCHROME2", "RGB"}:
+        raise ValueError(
+            "Unsupported DICOM photometric interpretation: "
+            f"{photometric or '<missing>'}."
+        )
+
+    samples_per_pixel = int(getattr(ds, "SamplesPerPixel", 1))
+    if photometric == "RGB" and samples_per_pixel != 3:
+        raise ValueError("RGB DICOM pixel data must declare SamplesPerPixel=3.")
+    if photometric == "MONOCHROME2" and samples_per_pixel != 1:
+        raise ValueError(
+            "MONOCHROME2 DICOM pixel data must declare SamplesPerPixel=1."
+        )
 
 
 # Input: `ds` mit geparstem DICOM-Dataset.

@@ -73,6 +73,7 @@ Exact signature:
 
 ```python
 from os import PathLike
+from datetime import datetime
 from pathlib import Path
 
 
@@ -84,6 +85,13 @@ def inject_function(
     handwritten: bool,
     documentType: str,
     output_dir: str | PathLike[str] | None = None,
+    handwriting_ink_color: str = "auto",
+    handwriting_contrast_mode: str = "none",
+    *,
+    seed: int | None = None,
+    input_path: str | PathLike[str] | None = None,
+    rotation_degrees: int | None = None,
+    run_timestamp: datetime | None = None,
 ) -> tuple[Path, Path]: ...
 ```
 
@@ -98,13 +106,19 @@ Parameters:
 | `handwritten` | `True` nutzt die Handwriting-Pipeline fuer den kompletten sichtbaren Text `prefix + value + suffix`; `False` nutzt den normalen Renderer. |
 | `documentType` | Dokumenttyp, case-insensitive. Erlaubt sind `dcm` und `jpg`; `dcm` waehlt aus `DicomData/Dicom-Files`, `jpg` aus `DicomData/images` mit `.jpg` oder `.jpeg`. |
 | `output_dir` | Optionales Exportverzeichnis. Wenn gesetzt, werden das injizierte Dokument und `ground_truth.json` dorthin kopiert. Andere vorhandene Dateien in diesem Ordner werden nicht bereinigt. |
+| `handwriting_ink_color` | `auto`, `black`, `gray` oder `white`; gilt für Handschrift. |
+| `handwriting_contrast_mode` | `none` oder `halo`; gilt für Handschrift. |
+| `seed` | Optionaler Seed für deterministische Identität und Layout-Entscheidungen. Ohne Seed bleibt das Legacy-Verhalten nondeterministisch. |
+| `input_path` | Optionaler expliziter DICOM-/JPG-Quellpfad. Ohne Pfad wird die Legacy-Zufallsauswahl verwendet. |
+| `rotation_degrees` | Optionaler expliziter Winkel aus `0`, `20`, `90`, `180`, `270`. |
+| `run_timestamp` | Optionaler Timestamp für reproduzierbare Run-IDs. |
 
 The visible text is rendered as `prefix + value + suffix`; the API does not add
 spaces or separators. The call creates only this one injection. The source
-document is selected randomly from the local default candidates for the chosen
-document type. Rotation is random, and position is selected by the standard
-`placement_mode="corners"` default. Font size, color, background, placement
-mode, and the remaining rendering options use the standard pipeline defaults.
+document is selected randomly from the local default candidates when
+`input_path` is omitted. Rotation remains random when neither `seed` nor
+`rotation_degrees` is supplied. Passing the optional deterministic parameters
+enables replay without changing the legacy defaults.
 Invalid parameters, unsupported document types, missing default input folders,
 or missing candidate files raise `ValueError`.
 
@@ -239,6 +253,8 @@ quads when the source annotation provides them.
 | `--placement-mode` | `corners` | `corners` or `free` |
 | `--font-family` | `arial` | `arial`, `calibri`, `tahoma`, `consolas`, `handwriting` |
 | `--text-background` | none | Optional `white` background |
+| `--handwriting-ink-color` | `auto` | `auto`, `black`, `gray`, `white`; render-time handwriting color |
+| `--handwriting-contrast-mode` | `none` | `none` or `halo`; auto can enable a halo when needed |
 | `--show-label-boxes` | `n` | Draw generic prefix boxes in blue |
 | `--run-timestamp` | current time | Optional ISO-8601 timestamp used in `run_id` |
 | `--handwriting-manifest` | none | Explicit JSON or JSONL handwriting manifest (compatibility path) |
@@ -302,6 +318,12 @@ The runner loads the source through `loaders/registry.py`, which resolves DICOM
 and JPG adapters by extension. DICOM writes through `writers/dicom.py`; JPG
 writes through `writers/jpg.py`. Adding another injected source format should
 use a loader/writer pair and registry entry, not a new runner branch.
+
+The current DICOM writer contract accepts only little-endian `uint8` input with
+`MONOCHROME2` or `RGB` photometry. Unsupported 16-bit, big-endian, and other
+photometric representations fail before an output directory is created. For
+Multi-Frame-DICOM, only Frame 0 is currently injected and recorded; injection
+of all frames is reserved for a future explicit policy.
 
 ## PDF injection
 
@@ -405,11 +427,35 @@ Each asset needs:
 - checkpoint SHA-256, ScrabbleGAN commit, generator manifest hash, and
   `generator_options_sha256`/`options_sha256` metadata for cache identity
 
+The generator's image color and background are legacy presentation metadata.
+The current renderer treats the separate mask as canonical and reconstructs
+the visible ink at render time, so changing the render color does not require
+a second generated asset or cache entry. The selected color, actual contrast
+mode, luminance statistics, and decision reason are recorded in annotation
+metadata.
+
 When `renderer_type = "handwriting_asset"`, the pipeline records the full
 visible handwritten text as `rendered_text` and keeps the PII value, prefix,
 and suffix as separate annotation fields. Segment boxes are derived from the
 asset ink mask so the full handwritten sentence is not silently labelled as
 PII.
+
+### Dynamic handwriting appearance
+
+The handwriting PNG and its separate L-mask are treated as shape data. During
+the final render pass, the pipeline samples only valid pixels below the final
+rotated mask in the display-mapped RGB frame. Median luminance below `128`
+selects white ink; luminance at or above `128` selects black ink. A p10-p90
+spread above `96`, selected contrast below `64`, or fewer than eight valid
+samples activates a two-pixel halo. If no samples are available, the
+deterministic fallback is white ink with a black halo.
+
+`--handwriting-ink-color black|gray|white` overrides automatic color choice.
+`--handwriting-contrast-mode halo` always requests the halo, while `none`
+allows automatic mode to add it only when needed. Halo pixels are not part of
+the ground-truth ink mask or segment geometry. Legacy manifests remain
+readable; their stored `ink_color` and `background` fields are retained as
+provenance rather than controlling the new render-time color.
 
 The ScrabbleGAN tooling has the host-side provider/cache path, automatic Docker
 runtime wiring, fake renderer validation, option-sidecar hashing, and hard

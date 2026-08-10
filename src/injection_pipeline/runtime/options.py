@@ -12,6 +12,13 @@ FONT_FAMILY_CHOICES: tuple[str, ...] = (
     HANDWRITING_FONT_FAMILY,
 )
 TEXT_BACKGROUND_CHOICES: tuple[str, ...] = ("white",)
+HANDWRITING_INK_COLOR_CHOICES: tuple[str, ...] = (
+    "auto",
+    "black",
+    "gray",
+    "white",
+)
+HANDWRITING_CONTRAST_MODE_CHOICES: tuple[str, ...] = ("none", "halo")
 SHOW_LABEL_BOX_CHOICES: tuple[str, ...] = ("y", "n")
 DEFAULT_HANDWRITING_ASSET_ROOT = Path("DicomData") / "HandwritingAssets"
 DEFAULT_HANDWRITING_CHECKPOINT_PATH = (

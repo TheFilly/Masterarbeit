@@ -41,6 +41,36 @@ def test_generate_handwriting_subcommand_delegates_to_runner(
     )
 
 
+def test_cli_exposes_handwriting_appearance_options(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_args: list[Namespace] = []
+
+    def fake_run(args: Namespace, now: object) -> dict[str, object]:
+        captured_args.append(args)
+        return {}
+
+    monkeypatch.setattr(cli, "run", fake_run)
+    monkeypatch.setattr(
+        cli.sys,
+        "argv",
+        [
+            "injection-pipeline",
+            "--input",
+            "fixture.jpg",
+            "--handwriting-ink-color",
+            "white",
+            "--handwriting-contrast-mode",
+            "halo",
+        ],
+    )
+
+    cli.main()
+
+    assert captured_args[0].handwriting_ink_color == "white"
+    assert captured_args[0].handwriting_contrast_mode == "halo"
+
+
 def test_interactive_prompts_seed_then_font(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -115,6 +145,8 @@ def _base_args(**overrides: object) -> Namespace:
         "placement_mode": "corners",
         "font_family": "arial",
         "text_background": None,
+        "handwriting_ink_color": "auto",
+        "handwriting_contrast_mode": "none",
         "show_label_boxes": "n",
         "run_timestamp": datetime(2026, 7, 15, 12, 0, 0),
     }

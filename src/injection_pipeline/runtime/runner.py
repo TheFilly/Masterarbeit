@@ -49,7 +49,11 @@ from injection_pipeline.runtime.planning import (
     build_tag_annotations,
     build_visible_render_plan,
 )
-from injection_pipeline.runtime.run_layout import build_output_paths, build_run_id
+from injection_pipeline.runtime.run_layout import (
+    build_output_paths,
+    build_run_id,
+    ensure_run_directory_available,
+)
 from injection_pipeline.writers.preview import create_annotated_preview
 
 
@@ -406,6 +410,7 @@ def run(args: Any, now: datetime | None = None) -> dict[str, Path]:
         input_path.stem,
         writer.output_suffix,
     )
+    ensure_run_directory_available(output_paths["run_dir"])
 
     identity_a = _resolve_identity(args, args.seed, identifier_schema)
     tag_identity = _resolve_tag_identity(args, identity_a)
@@ -423,8 +428,8 @@ def run(args: Any, now: datetime | None = None) -> dict[str, Path]:
         visible_render_plan,
     )
 
-    output_paths["run_dir"].mkdir(parents=True, exist_ok=True)
     source_document = loader.load(input_path)
+    output_paths["run_dir"].mkdir(parents=True, exist_ok=False)
     tag_plan = {
         annotation.tag_keyword: annotation
         for annotation in build_tag_annotations(
@@ -445,6 +450,10 @@ def run(args: Any, now: datetime | None = None) -> dict[str, Path]:
         placement_mode=args.placement_mode,
         font_family=args.font_family,
         text_background=args.text_background,
+        handwriting_ink_color=getattr(args, "handwriting_ink_color", "auto"),
+        handwriting_contrast_mode=getattr(
+            args, "handwriting_contrast_mode", "none"
+        ),
     )
     injected_document = InjectedDocument(
         source=source_document,

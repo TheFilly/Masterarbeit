@@ -24,7 +24,10 @@ from injection_pipeline.engine.geometry import (
     ALLOWED_ROTATIONS_DEGREES,
     _validate_rotation,
 )
-from injection_pipeline.engine.handwriting import _render_handwriting_annotation
+from injection_pipeline.engine.handwriting import (
+    _render_handwriting_annotation,
+    _validate_handwriting_appearance_options,
+)
 from injection_pipeline.engine.overlay import (
     _TEXT_BACKGROUND_COLORS,
     _render_single_annotation,
@@ -64,6 +67,8 @@ def inject_visible_text(
     placement_mode: str = "corners",
     font_family: str = "arial",
     text_background: str | None = None,
+    handwriting_ink_color: str = "auto",
+    handwriting_contrast_mode: str = "none",
 ) -> dict[str, Any]:
     del output_path
     del example_type
@@ -79,6 +84,8 @@ def inject_visible_text(
         placement_mode=placement_mode,
         font_family=font_family,
         text_background=text_background,
+        handwriting_ink_color=handwriting_ink_color,
+        handwriting_contrast_mode=handwriting_contrast_mode,
         frame_count=resolve_dicom_frame_count(ds, pixel_array),
     )
 
@@ -119,6 +126,8 @@ def inject_visible_text_into_image(
     placement_mode: str = "corners",
     font_family: str = "arial",
     text_background: str | None = None,
+    handwriting_ink_color: str = "auto",
+    handwriting_contrast_mode: str = "none",
 ) -> dict[str, Any]:
     render_result = _inject_visible_text_into_frame(
         frame=np.asarray(image.convert("RGB")),
@@ -130,6 +139,8 @@ def inject_visible_text_into_image(
         placement_mode=placement_mode,
         font_family=font_family,
         text_background=text_background,
+        handwriting_ink_color=handwriting_ink_color,
+        handwriting_contrast_mode=handwriting_contrast_mode,
         frame_count=1,
     )
     return {
@@ -158,6 +169,8 @@ def _inject_visible_text_into_frame(
     font_family: str,
     text_background: str | None,
     frame_count: int,
+    handwriting_ink_color: str = "auto",
+    handwriting_contrast_mode: str = "none",
 ) -> dict[str, Any]:
     # Both DICOM and JPG runs delegate to the same frame-level renderer so that
     # preview output, box geometry, and ground-truth metadata stay aligned.
@@ -186,6 +199,10 @@ def _inject_visible_text_into_frame(
             "text_background must be None or one of "
             f"{tuple(_TEXT_BACKGROUND_COLORS)}, got {text_background!r}."
         )
+    _validate_handwriting_appearance_options(
+        handwriting_ink_color,
+        handwriting_contrast_mode,
+    )
 
     font_size_px = _resolve_font_size_px(font_size_pct)
     rng = random.Random(seed)
@@ -204,6 +221,8 @@ def _inject_visible_text_into_frame(
         font_family=font_family,
         font_size_px=font_size_px,
         text_background=text_background,
+        handwriting_ink_color=handwriting_ink_color,
+        handwriting_contrast_mode=handwriting_contrast_mode,
     )
     renderer_types = sorted(
         {
@@ -218,11 +237,23 @@ def _inject_visible_text_into_frame(
             "mask_path": annotation["render_metadata"].get("mask_path"),
             "ink_color": annotation["render_metadata"].get("ink_color"),
             "background_mode": annotation["render_metadata"].get("background_mode"),
+            "selected_ink_color": annotation["render_metadata"].get(
+                "selected_ink_color"
+            ),
+            "contrast_mode": annotation["render_metadata"].get("contrast_mode"),
         }
         for annotation in rendered_annotations
         if annotation.get("render_metadata", {}).get("renderer_type")
         == "handwriting_asset"
     ]
+    handwriting_options = (
+        {
+            "handwriting_ink_color": handwriting_ink_color,
+            "handwriting_contrast_mode": handwriting_contrast_mode,
+        }
+        if handwriting_assets
+        else {}
+    )
     preview_file = save_preview_image(
         Image.fromarray(output_array).convert("RGB"),
         preview_path,
@@ -248,6 +279,7 @@ def _inject_visible_text_into_frame(
                 if text_background is not None
                 else None
             ),
+            **handwriting_options,
             "geometry_source": "mask_bbox_after_final_rotation",
             "renderer_types": renderer_types,
             "handwriting_assets": handwriting_assets,
@@ -273,8 +305,11 @@ def render_visible_annotations(
     font_family: str = "arial",
     font_size_px: int = _DEFAULT_FONT_SIZE_PX,
     text_background: str | None = None,
+    handwriting_ink_color: str = "auto",
+    handwriting_contrast_mode: str = "none",
 ) -> tuple[Image.Image, list[dict[str, Any]]]:
-    preview = frame_to_image(frame)
+    source_image = frame_to_image(frame)
+    preview = source_image.copy()
     font: Any | None = None
     render_records: list[dict[str, Any]] = []
 
@@ -284,6 +319,9 @@ def render_visible_annotations(
                 preview,
                 annotation,
                 prepared_overlay=get_prepared_overlay(annotation),
+                handwriting_ink_color=handwriting_ink_color,
+                handwriting_contrast_mode=handwriting_contrast_mode,
+                sampling_image=source_image,
             )
         else:
             if font is None:
@@ -319,6 +357,8 @@ def _render_frame_with_annotations(
     font_family: str = "arial",
     font_size_px: int = _DEFAULT_FONT_SIZE_PX,
     text_background: str | None = None,
+    handwriting_ink_color: str = "auto",
+    handwriting_contrast_mode: str = "none",
 ) -> tuple[np.ndarray, list[dict[str, Any]]]:
     preview_image, rendered_annotations = render_visible_annotations(
         frame,
@@ -326,6 +366,8 @@ def _render_frame_with_annotations(
         font_family=font_family,
         font_size_px=font_size_px,
         text_background=text_background,
+        handwriting_ink_color=handwriting_ink_color,
+        handwriting_contrast_mode=handwriting_contrast_mode,
     )
     return np.asarray(preview_image), rendered_annotations
 

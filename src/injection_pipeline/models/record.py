@@ -64,6 +64,14 @@ class RecordRenderMetadata(BaseModel):
     geometry_notes: str
     mask_alpha_threshold: int
     visible_annotations: list[RenderedAnnotation]
+    handwriting_ink_color: str | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
+    handwriting_contrast_mode: str | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
 
 
 class RunRecord(BaseModel):

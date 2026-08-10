@@ -7,7 +7,11 @@ import numpy as np
 import pydicom
 from pydicom.uid import ExplicitVRLittleEndian
 
-from injection_pipeline.loaders.dicom import is_multiframe_grayscale, summarize_dicom
+from injection_pipeline.loaders.dicom import (
+    is_multiframe_grayscale,
+    summarize_dicom,
+    validate_supported_dicom_dataset,
+)
 from injection_pipeline.models.adapters import InjectedDocument, SourceDocument, TagPlan
 from injection_pipeline.models.annotations import DicomTagAnnotation
 
@@ -43,7 +47,9 @@ class DicomWriter:
         ds = _require_dataset(document.native)
         rendered_frame = np.asarray(document.rendered_frame)
         pixel_array = np.asarray(ds.pixel_array)
+        validate_supported_dicom_dataset(ds, pixel_array)
         if is_multiframe_grayscale(ds, pixel_array):
+            # Die aktuelle Kompatibilitaetspolicy rendert bewusst nur Frame 0.
             output_array = np.array(pixel_array, copy=True)
             output_array[0] = _coerce_rendered_frame_to_source_shape(
                 rendered_frame,
@@ -109,8 +115,6 @@ def _write_pixel_array(ds: pydicom.Dataset, output_array: np.ndarray) -> None:
         _set_grayscale_bit_metadata(ds, contiguous)
 
     ds.file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
-    ds.is_implicit_VR = False
-    ds.is_little_endian = True
 
 
 # Input: `rendered_frame` vom Renderer und `source_frame` aus dem DICOM-Stack.

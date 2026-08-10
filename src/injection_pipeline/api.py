@@ -41,6 +41,7 @@ from injection_pipeline.runtime.options import (
     HANDWRITING_FONT_FAMILY,
 )
 from injection_pipeline.runtime.runner import run as run_pipeline
+from injection_pipeline.runtime.seeding import derive_seed
 
 _DOCUMENT_TYPE_EXTENSIONS: dict[str, tuple[str, ...]] = {
     "dcm": (".dcm",),
@@ -105,7 +106,11 @@ def _validate_api_inputs(
 # Output: Zufaellig ausgewaehlter lokaler Quellpfad.
 # Die Funktion liest nur die etablierte Default-Quelle des jeweiligen Formats
 # und erzeugt keine reproduzierbare Auswahl.
-def _select_random_source(document_type: str) -> Path:
+# Input: Dokumenttyp und optionaler deterministischer Seed.
+# Output: Ausgewaehlter lokaler Quellpfad.
+# Ohne Seed bleibt die bestehende SystemRandom-Auswahl erhalten; mit Seed wird
+# ein benannter Stream und eine totale Kandidatensortierung verwendet.
+def _select_random_source(document_type: str, seed: int | None = None) -> Path:
     input_dir = _DOCUMENT_TYPE_INPUT_DIRS[document_type]
     allowed_extensions = _DOCUMENT_TYPE_EXTENSIONS[document_type]
     if not input_dir.exists():
@@ -113,15 +118,21 @@ def _select_random_source(document_type: str) -> Path:
             f"No default input directory found for {document_type}: {input_dir}"
         )
     candidates = sorted(
-        path
-        for path in input_dir.iterdir()
-        if path.is_file() and path.suffix.casefold() in allowed_extensions
+        [
+            path
+            for path in input_dir.iterdir()
+            if path.is_file() and path.suffix.casefold() in allowed_extensions
+        ],
+        key=lambda path: (str(path).casefold(), str(path)),
     )
     if not candidates:
         raise ValueError(
             f"No default {document_type} input files found in {input_dir}."
         )
-    return random.SystemRandom().choice(candidates)
+    if seed is None:
+        return random.SystemRandom().choice(candidates)
+    rng = random.Random(derive_seed(seed, "api_input_selection"))
+    return rng.choice(candidates)
 
 
 # Input: `category` aus der API.
@@ -255,6 +266,8 @@ def _build_runner_args(
     visible_render_plan: list[dict[str, object]],
     rotation_degrees: int,
     handwritten: bool,
+    handwriting_ink_color: str = "auto",
+    handwriting_contrast_mode: str = "none",
 ) -> Namespace:
     return Namespace(
         seed=seed,
@@ -283,6 +296,8 @@ def _build_runner_args(
         placement_mode="corners",
         font_family=HANDWRITING_FONT_FAMILY if handwritten else "arial",
         text_background=None,
+        handwriting_ink_color=handwriting_ink_color,
+        handwriting_contrast_mode=handwriting_contrast_mode,
         show_label_boxes="n",
         run_timestamp=None,
     )
@@ -294,14 +309,14 @@ def _build_runner_args(
 # laesst alle vollstaendigen Run-Artefakte im normalen `output/`-Runordner.
 def _export_api_outputs(
     paths: dict[str, Path],
-    output_dir: str | PathLike[str] | None,
+    output_dir: Path | None,
 ) -> tuple[Path, Path]:
     injected_path = paths["output_file"]
     ground_truth_path = paths["output_json"]
     if output_dir is None:
         return injected_path, ground_truth_path
 
-    export_dir = Path(output_dir)
+    export_dir = output_dir
     export_dir.mkdir(parents=True, exist_ok=True)
     exported_injected_path = export_dir / injected_path.name
     exported_ground_truth_path = export_dir / ground_truth_path.name
@@ -310,6 +325,24 @@ def _export_api_outputs(
     if ground_truth_path.resolve() != exported_ground_truth_path.resolve():
         shutil.copy2(ground_truth_path, exported_ground_truth_path)
     return exported_injected_path, exported_ground_truth_path
+
+
+# Input: Optionaler API-Exportordner.
+# Output: Normalisierter Exportordner oder `None`.
+# Die Funktion validiert den Exportpfad vor dem eigentlichen Pipeline-Lauf,
+# damit ungueltige Ziele keine DICOM-, JPG- oder Handschrift-Artefakte erzeugen.
+def _validate_api_output_dir(
+    output_dir: str | PathLike[str] | None,
+) -> Path | None:
+    if output_dir is None:
+        return None
+    try:
+        output_path = Path(output_dir)
+    except TypeError as exc:
+        raise ValueError("output_dir must be a str or path-like value.") from exc
+    if output_path.exists() and not output_path.is_dir():
+        raise ValueError(f"output_dir must be a directory path: {output_path}")
+    return output_path
 
 
 # Input: Textbestandteile eines make_pdf-Eintrags und sein API-Feldpfad.
@@ -446,7 +479,29 @@ def _validate_make_pdf_paths(
         raise ValueError(f"pdf must be a file: {pdf_path}")
     if output_dir_path.exists() and not output_dir_path.is_dir():
         raise ValueError(f"output_dir must be a directory path: {output_dir_path}")
+    output_targets = (
+        output_dir_path / "pdf_make.pdf",
+        output_dir_path / "pdf_make_annotated.pdf",
+        output_dir_path / "pdf_make_annotations.json",
+    )
+    if any(_paths_alias(pdf_path, target) for target in output_targets):
+        raise ValueError("PDF template and make_pdf output paths must be different.")
     return pdf_path, output_dir_path
+
+
+# Input: Zwei Datei- oder Zielpfade.
+# Output: `True`, wenn beide Pfade dasselbe Dateisystemobjekt bezeichnen.
+# Die Prüfung deckt normale Pfadaliasse sowie bereits existierende Hardlinks
+# ab, ohne nicht vorhandene Ausgabeziele vorzeitig anzulegen.
+def _paths_alias(first: Path, second: Path) -> bool:
+    if first.resolve() == second.resolve():
+        return True
+    if not first.exists() or not second.exists():
+        return False
+    try:
+        return first.samefile(second)
+    except OSError:
+        return False
 
 
 # Input: Optionaler API-Seed.
@@ -499,10 +554,12 @@ def make_pdf(
     )
 
 
-# Input: API-Parameter fuer Kategorie, Wert, Kontexttexte, Handschriftmodus und Format.
+# Input: API-Parameter sowie optionale deterministische Seed-, Quellen-,
+# Rotations- und Zeitparameter.
 # Output: Pfade zu injiziertem Dokument und Ground-Truth-JSON.
 # Die Funktion fuehrt einen normalen DICOM/JPG-Run mit genau einer sichtbaren
-# Injektion aus und exportiert optional die zwei Hauptartefakte in `output_dir`.
+# Injektion aus. Ohne optionale Determinismusparameter bleibt das Legacy-
+# Verhalten mit SystemRandom und aktueller Uhrzeit erhalten.
 def inject_function(
     category: str,
     value: str,
@@ -511,6 +568,13 @@ def inject_function(
     handwritten: bool,
     documentType: str,
     output_dir: str | PathLike[str] | None = None,
+    handwriting_ink_color: str = "auto",
+    handwriting_contrast_mode: str = "none",
+    *,
+    seed: int | None = None,
+    input_path: str | PathLike[str] | None = None,
+    rotation_degrees: int | None = None,
+    run_timestamp: datetime | None = None,
 ) -> tuple[Path, Path]:
     category, value, prefix, suffix, handwritten, document_type = _validate_api_inputs(
         category,
@@ -520,6 +584,7 @@ def inject_function(
         handwritten,
         documentType,
     )
+    validated_output_dir = _validate_api_output_dir(output_dir)
     default_schema = load_identifier_schema(DEFAULT_IDENTIFIER_SCHEMA_PATH)
     field_name, dicom_tag = _resolve_api_field(
         category=category,
@@ -533,35 +598,68 @@ def inject_function(
     )
 
     rendered_text = f"{prefix}{value}{suffix}"
-    seed = random.SystemRandom().randrange(0, 1_000_000_000)
-    rotation_degrees = random.SystemRandom().choice(tuple(ALLOWED_ROTATIONS_DEGREES))
+    resolved_seed = (
+        random.SystemRandom().randrange(0, _NONDETERMINISTIC_SEED_UPPER_BOUND)
+        if seed is None
+        else seed
+    )
+    if not isinstance(resolved_seed, int) or isinstance(resolved_seed, bool):
+        raise ValueError("seed must be an integer.")
+    if rotation_degrees is None:
+        if seed is None:
+            resolved_rotation = random.SystemRandom().choice(
+                tuple(ALLOWED_ROTATIONS_DEGREES)
+            )
+        else:
+            rotation_rng = random.Random(derive_seed(resolved_seed, "api_rotation"))
+            resolved_rotation = rotation_rng.choice(tuple(ALLOWED_ROTATIONS_DEGREES))
+    else:
+        if rotation_degrees not in ALLOWED_ROTATIONS_DEGREES:
+            raise ValueError(
+                "rotation_degrees must be one of: "
+                f"{', '.join(str(value) for value in ALLOWED_ROTATIONS_DEGREES)}."
+            )
+        resolved_rotation = rotation_degrees
+    resolved_input = (
+        Path(input_path)
+        if input_path is not None
+        else _select_random_source(
+            document_type, resolved_seed if seed is not None else None
+        )
+    )
     visible_render_plan = _build_api_render_plan(
         field_name=field_name,
         category=category,
         value=value,
         prefix=prefix,
         suffix=suffix,
-        rotation_degrees=rotation_degrees,
+        rotation_degrees=resolved_rotation,
     )
-    identity = Identity(identity_id=value, seed=seed, fields={field_name: value})
-    tag_identity = Identity(identity_id=value, seed=seed, fields={field_name: value})
+    identity = Identity(
+        identity_id=value, seed=resolved_seed, fields={field_name: value}
+    )
+    tag_identity = Identity(
+        identity_id=value, seed=resolved_seed, fields={field_name: value}
+    )
     handwriting_identity = None
     handwriting_text_asset_override = (
         {"field": field_name, "text": rendered_text} if handwritten else None
     )
     paths = run_pipeline(
         _build_runner_args(
-            seed=seed,
-            input_path=_select_random_source(document_type),
+            seed=resolved_seed,
+            input_path=resolved_input,
             schema=schema,
             identity=identity,
             tag_identity=tag_identity,
             handwriting_identity=handwriting_identity,
             handwriting_text_asset_override=handwriting_text_asset_override,
             visible_render_plan=visible_render_plan,
-            rotation_degrees=rotation_degrees,
+            rotation_degrees=resolved_rotation,
             handwritten=handwritten,
+            handwriting_ink_color=handwriting_ink_color,
+            handwriting_contrast_mode=handwriting_contrast_mode,
         ),
-        now=datetime.now(),
+        now=datetime.now() if run_timestamp is None else run_timestamp,
     )
-    return _export_api_outputs(paths, output_dir)
+    return _export_api_outputs(paths, validated_output_dir)

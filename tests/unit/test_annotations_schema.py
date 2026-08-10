@@ -3,7 +3,11 @@
 import json
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
+
 from injection_pipeline.models.annotations import BoxAnnotation, DicomTagAnnotation
+from injection_pipeline.models.geometry import ImagePoint, PdfPoint
 
 
 def test_box_annotation_serializes_prefix_suffix_fields() -> None:
@@ -60,6 +64,36 @@ def test_box_annotation_backfills_new_fields_from_legacy_payload() -> None:
     assert payload["suffix"] == ""
     assert payload["prefix_corners"] == payload["label_corners"]
     assert payload["suffix_corners"] is None
+
+
+def test_box_annotation_rejects_inconsistent_rendered_text() -> None:
+    with pytest.raises(
+        ValidationError,
+        match=r"rendered_text must equal prefix \+ text \+ suffix",
+    ):
+        BoxAnnotation(
+            label="PatientID",
+            text="123456",
+            rendered_text="WRONG-123456",
+            prefix="SYNTH-",
+            suffix="",
+            region="corners",
+            corners=[{"x": 1.0, "y": 2.0}] * 4,
+            label_corners=None,
+            rotation_degrees=0,
+            frame_index=0,
+            font_size_pct=100,
+        )
+
+
+@pytest.mark.parametrize("point_type", [ImagePoint, PdfPoint])
+@pytest.mark.parametrize("coordinate", [float("nan"), float("inf"), -float("inf")])
+def test_coordinate_models_reject_non_finite_values(
+    point_type: type[ImagePoint] | type[PdfPoint],
+    coordinate: float,
+) -> None:
+    with pytest.raises(ValidationError):
+        point_type(x=coordinate, y=0.0)
 
 
 def test_dicom_tag_annotation_serializes_optional_category() -> None:

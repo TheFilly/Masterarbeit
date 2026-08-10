@@ -2,6 +2,7 @@
 
 import io
 import json
+import os
 from pathlib import Path
 
 from pypdf import PdfReader
@@ -45,7 +46,20 @@ class PdfWriterAdapter:
         if page_index < 0 or page_index >= template.page_count:
             raise ValueError("PDF page_index is outside the input document.")
         record = load_run_record(annotation_path)
-        DicomLoader().load(dicom_path)
+        if (
+            record.record_type != "dicom_injection_run"
+            or record.document_type != "dicom"
+        ):
+            raise ValueError("PDF injection requires a DICOM run record.")
+        recorded_dicom = _resolve_record_path(annotation_path, record.output_file)
+        if not _paths_alias(recorded_dicom, dicom_path):
+            raise ValueError("DICOM path does not match the run record output file.")
+        dicom_document = DicomLoader().load(dicom_path)
+        if (
+            record.run_metadata.output_dicom_context is not None
+            and record.run_metadata.output_dicom_context != dicom_document.context
+        ):
+            raise ValueError("DICOM metadata does not match the run record.")
         preview_path = _resolve_preview_path(annotation_path, record.preview_file)
         if not preview_path.is_file():
             raise FileNotFoundError(f"Preview image does not exist: {preview_path}")
@@ -79,10 +93,14 @@ class PdfWriterAdapter:
         run_id = record.run_id
         template_id = template.source_file.stem
         output_dir = output_root / "pdf" / run_id / f"{template_id}-{slot}"
-        output_dir.mkdir(parents=True, exist_ok=True)
         clean_pdf = output_dir / "pdf_injected.pdf"
         annotated_pdf = output_dir / "pdf_injected_annotated.pdf"
         annotation_json = output_dir / "pdf_annotations.json"
+        _validate_output_aliases(
+            (template.source_file, dicom_path, annotation_path, preview_path),
+            (clean_pdf, annotated_pdf, annotation_json),
+        )
+        output_dir.mkdir(parents=True, exist_ok=True)
         placement = placement.model_copy(update={"page_index": page_index})
         sidecar = PdfAnnotationRecord(
             source_pdf=template.source_file,
@@ -120,11 +138,50 @@ PdfWriter = PdfWriterAdapter
 def _resolve_preview_path(annotation_path: Path, preview_path: Path) -> Path:
     if preview_path.is_absolute():
         return preview_path
-    candidates = (preview_path, annotation_path.parent / preview_path)
+    candidates = (annotation_path.parent / preview_path,)
     for candidate in candidates:
         if candidate.is_file():
             return candidate
     return annotation_path.parent / preview_path
+
+
+# Input: Annotationdatei und ein im RunRecord gespeicherter Pfad.
+# Output: Auf die Annotationdatei bezogener Pfad.
+# Relative Artefaktpfade bleiben innerhalb des Run-Bundles und werden nicht
+# versehentlich gegen das aktuelle Arbeitsverzeichnis aufgelöst.
+def _resolve_record_path(annotation_path: Path, record_path: Path) -> Path:
+    if record_path.is_absolute():
+        return record_path
+    return annotation_path.parent / record_path
+
+
+# Input: Quellpfade und geplante Ausgabepfade.
+# Output: Keine Rueckgabe; wirft bei einem Alias zwischen Quelle und Ausgabe.
+# Die Prüfung läuft vor dem Anlegen des Ausgabeordners und erkennt auch
+# bestehende Hardlinks.
+def _validate_output_aliases(
+    sources: tuple[Path, ...],
+    outputs: tuple[Path, ...],
+) -> None:
+    for source in sources:
+        for output in outputs:
+            if _paths_alias(source, output):
+                raise ValueError("PDF output path aliases an input file.")
+
+
+# Input: Zwei Datei- oder Zielpfade.
+# Output: `True`, wenn beide Pfade dasselbe Dateisystemobjekt bezeichnen.
+# Nicht vorhandene Ausgabeziele werden ausschließlich über `resolve` geprüft;
+# bestehende Dateien zusätzlich über die Betriebssystemidentität.
+def _paths_alias(first: Path, second: Path) -> bool:
+    if first.resolve() == second.resolve():
+        return True
+    if not first.exists() or not second.exists():
+        return False
+    try:
+        return os.path.samefile(first, second)
+    except OSError:
+        return False
 
 
 # Input: `corners` im Bildraum sowie die Bildabmessungen in Pixeln.

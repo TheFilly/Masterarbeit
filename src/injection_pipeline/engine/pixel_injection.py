@@ -25,6 +25,8 @@ from injection_pipeline.engine.geometry import (
     _validate_rotation,
 )
 from injection_pipeline.engine.handwriting import (
+    HANDWRITING_CONTRAST_MODE_CHOICES,
+    HANDWRITING_INK_COLOR_CHOICES,
     _prepare_handwriting_asset_overlay,
     _render_handwriting_annotation,
 )
@@ -57,6 +59,8 @@ __all__ = [
     "ALLOWED_ROTATIONS_DEGREES",
     "_DEFAULT_FONT_SIZE_PX",
     "_FONT_PATHS",
+    "HANDWRITING_CONTRAST_MODE_CHOICES",
+    "HANDWRITING_INK_COLOR_CHOICES",
     "_MASK_ALPHA_THRESHOLD",
     "_TEXT_BACKGROUND_COLORS",
     "_VALID_PLACEMENT_MODES",

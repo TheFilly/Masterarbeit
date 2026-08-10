@@ -64,6 +64,15 @@ def _materialize_positions(
         prepared_overlays.append(overlay)
         sizes.append(overlay["rotated_size"])
 
+    _validate_overlay_fit(
+        sizes=sizes,
+        image_width=image_width,
+        image_height=image_height,
+        h_margin=h_margin,
+        v_margin=v_margin,
+        placement_mode=placement_mode,
+    )
+
     positioned_annotations: list[dict[str, Any]] = []
 
     if placement_mode == "corners":
@@ -126,6 +135,45 @@ def _materialize_positions(
             )
 
     return positioned_annotations
+
+
+# Input: Overlay-Groessen, Frame-Abmessungen, Margins und Placement-Modus.
+# Output: Keine Rueckgabe.
+# Die Funktion verhindert, dass ein einzelnes Overlay ausserhalb des Frames
+# liegt. Dadurch bleiben gerenderte Pixel und Ground Truth geometrisch
+# konsistent; Clipping durch Pillow wird nicht als gueltiges Ergebnis akzeptiert.
+def _validate_overlay_fit(
+    *,
+    sizes: list[tuple[int, int]],
+    image_width: int,
+    image_height: int,
+    h_margin: int,
+    v_margin: int,
+    placement_mode: str,
+) -> None:
+    available_width = image_width - h_margin
+    available_height = image_height - v_margin
+    if available_width <= 0 or available_height <= 0:
+        raise ValueError(
+            "Image is too small for the configured placement margins: "
+            f"image={image_width}x{image_height}, "
+            f"margins={h_margin}x{v_margin}."
+        )
+
+    for index, (overlay_width, overlay_height) in enumerate(sizes):
+        if overlay_width > available_width:
+            raise ValueError(
+                "Visible overlay does not fit within the image width: "
+                f"overlay={overlay_width}px, available={available_width}px, "
+                f"index={index}, placement_mode={placement_mode}."
+            )
+        if overlay_height > available_height:
+            raise ValueError(
+                "Visible overlay does not fit within the image height: "
+                f"overlay={overlay_height}px, available={available_height}px, "
+                f"index={index}, placement_mode={placement_mode}."
+            )
+
 
 
 # Input: `annotation` mit Renderer-Typ und Font-Konfiguration.

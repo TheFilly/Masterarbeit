@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 from pypdf import PdfReader
 from reportlab.pdfgen.canvas import Canvas
 
@@ -85,3 +86,47 @@ def test_pdf_writer_is_reproducible_for_identical_inputs(tmp_path: Path) -> None
 
     assert second.clean_pdf.read_bytes() == first_clean
     assert second.annotated_pdf.read_bytes() == first_annotated
+
+
+def test_pdf_writer_rejects_dicom_run_record_linkage_mismatch(tmp_path: Path) -> None:
+    template_path = _write_template(tmp_path / "template.pdf")
+    run_dir = tmp_path / "run"
+    annotation_path, _ = write_synthetic_pdf_run(run_dir)
+    dicom_path = write_synthetic_dicom(run_dir / "different.dcm")
+    template = PdfLoader().load(template_path)
+
+    with pytest.raises(ValueError, match="does not match the run record"):
+        PdfWriterAdapter().write(
+            template,
+            dicom_path,
+            annotation_path,
+            tmp_path / "output",
+        )
+
+
+def test_pdf_writer_rejects_output_alias_without_mutating_input(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    annotation_path, _ = write_synthetic_pdf_run(run_dir)
+    dicom_path = write_synthetic_dicom(run_dir / "injected.dcm")
+    output_root = tmp_path / "output"
+    aliased_output = (
+        output_root
+        / "pdf"
+        / "synthetic-pdf-run"
+        / "pdf_injected-top_left"
+        / "pdf_injected.pdf"
+    )
+    aliased_output.parent.mkdir(parents=True)
+    template_path = _write_template(aliased_output)
+    source_bytes = aliased_output.read_bytes()
+    template = PdfLoader().load(template_path)
+
+    with pytest.raises(ValueError, match="aliases an input file"):
+        PdfWriterAdapter().write(
+            template,
+            dicom_path,
+            annotation_path,
+            output_root,
+        )
+
+    assert aliased_output.read_bytes() == source_bytes

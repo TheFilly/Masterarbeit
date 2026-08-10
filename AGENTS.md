@@ -72,6 +72,8 @@ default from `DicomData/Dicom-Files` and `DicomData/images`.
 | `--placement-mode` | `corners` | `corners`, `free` | Placement strategy for visible injected text |
 | `--font-family` | `arial` | `arial`, `calibri`, `tahoma`, `consolas` | Font family used for visible rendering |
 | `--text-background` | none | `white` | Optional white background behind visible text |
+| `--handwriting-ink-color` | `auto` | `auto`, `black`, `gray`, `white` | Handwriting ink color; `auto` selects by local luminance |
+| `--handwriting-contrast-mode` | `none` | `none`, `halo` | Optional handwriting halo; auto enables it when contrast is uncertain |
 | `--show-label-boxes` | `n` | `y`, `n` | Draw generic prefix boxes in `preview_annotated.png` |
 | `--run-timestamp` | Current time | ISO-8601 datetime | Fixed timestamp for deterministic run IDs |
 | `--handwriting-manifest` | none | JSONL manifest or JSON manifest with `assets` | Manifest for generated handwriting assets |

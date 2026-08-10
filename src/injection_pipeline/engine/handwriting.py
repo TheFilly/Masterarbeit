@@ -3,7 +3,8 @@
 from pathlib import Path
 from typing import Any, Literal
 
-from PIL import Image, ImageDraw, ImageFont
+import numpy as np
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from injection_pipeline.engine.geometry import (
     _MASK_ALPHA_THRESHOLD,
@@ -27,6 +28,24 @@ _SOURCE_BOUNDS_KEY = Literal[
     "suffix_source_bounds",
 ]
 
+HANDWRITING_INK_COLOR_CHOICES: tuple[str, ...] = (
+    "auto",
+    "black",
+    "gray",
+    "white",
+)
+HANDWRITING_CONTRAST_MODE_CHOICES: tuple[str, ...] = ("none", "halo")
+_HANDWRITING_INK_RGB: dict[str, tuple[int, int, int]] = {
+    "black": (20, 20, 20),
+    "gray": (110, 110, 110),
+    "white": (255, 255, 255),
+}
+_AUTO_LUMINANCE_THRESHOLD = 128.0
+_MIN_AUTO_CONTRAST = 64.0
+_MAX_AUTO_LUMINANCE_SPREAD = 96.0
+_MIN_LUMINANCE_SAMPLES = 8
+_HALO_RADIUS = 2
+
 
 # Input: `base_image` mit Zielbild, `annotation` mit Handschrift-Asset und
 # optionales `prepared_overlay`.
@@ -39,6 +58,9 @@ def _render_handwriting_annotation(
     annotation: dict[str, Any],
     *,
     prepared_overlay: PreparedOverlay | None = None,
+    handwriting_ink_color: str = "auto",
+    handwriting_contrast_mode: str = "none",
+    sampling_image: Image.Image | None = None,
 ) -> tuple[Image.Image, dict[str, Any]]:
     position = _coerce_position(annotation["position"])
     overlay = (
@@ -46,8 +68,15 @@ def _render_handwriting_annotation(
         if prepared_overlay is not None
         else _prepare_handwriting_asset_overlay(annotation)
     )
+    appearance = _resolve_handwriting_appearance(
+        base_image if sampling_image is None else sampling_image,
+        overlay,
+        position,
+        requested_ink_color=handwriting_ink_color,
+        requested_contrast_mode=handwriting_contrast_mode,
+    )
     composed = base_image.convert("RGBA")
-    composed.alpha_composite(overlay["rotated_layer"], dest=position)
+    composed.alpha_composite(appearance["layer"], dest=position)
 
     record = {
         "label": overlay["label"],
@@ -79,12 +108,189 @@ def _render_handwriting_annotation(
         "render_metadata": {
             "position": {"x": position[0], "y": position[1]},
             **overlay["render_metadata"],
+            "ink_color": appearance["selected_ink_color"],
+            "background_mode": "transparent",
+            "selected_ink_color": appearance["selected_ink_color"],
+            "contrast_mode": appearance["contrast_mode"],
+            "sampled_luminance": appearance["sampled_luminance"],
+            "luminance_spread": appearance["luminance_spread"],
+            "contrast_decision_reason": appearance["decision_reason"],
             "rendered_text_corners": _rotated_mask_corners(
                 position, overlay, "text_source_bounds"
             ),
         },
     }
     return composed.convert("RGB"), record
+
+
+# Input: `base_image`, vorbereitetes Handschrift-Overlay, Position und
+# Darstellungsoptionen.
+# Output: RGBA-Layer und reproduzierbare Kontrastentscheidung.
+# Die Funktion analysiert nur Bildpixel unter der tatsächlichen Ink-Maske und
+# erzeugt Farbe sowie Halo erst im finalen Renderpass.
+def _resolve_handwriting_appearance(
+    base_image: Image.Image,
+    overlay: PreparedOverlay,
+    position: tuple[int, int],
+    *,
+    requested_ink_color: str,
+    requested_contrast_mode: str,
+) -> dict[str, Any]:
+    _validate_handwriting_appearance_options(
+        requested_ink_color,
+        requested_contrast_mode,
+    )
+    sampled_luminance, luminance_spread = _sample_background_luminance(
+        base_image,
+        overlay["rotated_mask"],
+        position,
+    )
+
+    if requested_ink_color == "auto":
+        if sampled_luminance is None:
+            selected_ink_color = "white"
+            decision_reason = "auto_insufficient_samples_fallback"
+        else:
+            selected_ink_color = (
+                "white"
+                if sampled_luminance < _AUTO_LUMINANCE_THRESHOLD
+                else "black"
+            )
+            decision_reason = "auto_median_luminance"
+    else:
+        selected_ink_color = requested_ink_color
+        decision_reason = "manual_override"
+
+    auto_uncertain = _auto_contrast_is_uncertain(
+        selected_ink_color,
+        sampled_luminance,
+        luminance_spread,
+    )
+    use_halo = requested_contrast_mode == "halo" or (
+        requested_ink_color == "auto" and auto_uncertain
+    )
+    if use_halo and requested_ink_color == "auto" and auto_uncertain:
+        decision_reason = f"{decision_reason}_halo_fallback"
+
+    layer = _compose_handwriting_layer(
+        overlay["rotated_mask"],
+        selected_ink_color,
+        use_halo,
+    )
+    return {
+        "layer": layer,
+        "selected_ink_color": selected_ink_color,
+        "contrast_mode": "halo" if use_halo else "none",
+        "sampled_luminance": sampled_luminance,
+        "luminance_spread": luminance_spread,
+        "decision_reason": decision_reason,
+    }
+
+
+# Input: angeforderte Handschriftfarbe und Kontrastmodus.
+# Output: Keine Rueckgabe.
+# Die Funktion validiert die neuen Renderoptionen zentral, damit CLI, API und
+# direkte Engine-Aufrufe denselben Vertrag verwenden.
+def _validate_handwriting_appearance_options(
+    requested_ink_color: str,
+    requested_contrast_mode: str,
+) -> None:
+    if requested_ink_color not in HANDWRITING_INK_COLOR_CHOICES:
+        raise ValueError(
+            "handwriting_ink_color must be one of "
+            f"{HANDWRITING_INK_COLOR_CHOICES}, got {requested_ink_color!r}."
+        )
+    if requested_contrast_mode not in HANDWRITING_CONTRAST_MODE_CHOICES:
+        raise ValueError(
+            "handwriting_contrast_mode must be one of "
+            f"{HANDWRITING_CONTRAST_MODE_CHOICES}, got "
+            f"{requested_contrast_mode!r}."
+        )
+
+
+# Input: RGB-Bild, rotiertes Ink-Maske und Overlay-Position.
+# Output: Median-Luminanz und p10-p90-Luminanzspread oder zweimal `None`.
+# Die Stichprobe bleibt auf sichtbare Overlaypixel beschränkt und ignoriert
+# außerhalb des Bildes liegende Bereiche.
+def _sample_background_luminance(
+    base_image: Image.Image,
+    rotated_mask: Image.Image,
+    position: tuple[int, int],
+) -> tuple[float | None, float | None]:
+    image = np.asarray(base_image.convert("RGB"), dtype=np.float32)
+    mask = np.asarray(rotated_mask, dtype=np.uint8)
+    image_width, image_height = base_image.size
+    x, y = position
+    left = max(0, x)
+    top = max(0, y)
+    right = min(image_width, x + rotated_mask.width)
+    bottom = min(image_height, y + rotated_mask.height)
+    if left >= right or top >= bottom:
+        return None, None
+
+    mask_left = left - x
+    mask_top = top - y
+    mask_right = mask_left + (right - left)
+    mask_bottom = mask_top + (bottom - top)
+    sample_mask = mask[mask_top:mask_bottom, mask_left:mask_right]
+    valid = sample_mask > _MASK_ALPHA_THRESHOLD
+    if int(valid.sum()) < _MIN_LUMINANCE_SAMPLES:
+        return None, None
+
+    sample_image = image[top:bottom, left:right]
+    luminance = (
+        0.2126 * sample_image[:, :, 0]
+        + 0.7152 * sample_image[:, :, 1]
+        + 0.0722 * sample_image[:, :, 2]
+    )
+    values = luminance[valid]
+    spread = np.percentile(values, 90) - np.percentile(values, 10)
+    return float(np.median(values)), float(spread)
+
+
+# Input: gewählte Ink-Farbe und lokale Luminanzstatistik.
+# Output: `True`, wenn automatische Kontrastverstärkung notwendig ist.
+# Die Entscheidung nutzt einen Mindestkontrast und erkennt heterogene
+# Hintergrundbereiche über den robusten p10-p90-Spread.
+def _auto_contrast_is_uncertain(
+    selected_ink_color: str,
+    sampled_luminance: float | None,
+    luminance_spread: float | None,
+) -> bool:
+    if sampled_luminance is None or luminance_spread is None:
+        return True
+    if luminance_spread > _MAX_AUTO_LUMINANCE_SPREAD:
+        return True
+    ink_luminance = float(np.mean(_HANDWRITING_INK_RGB[selected_ink_color]))
+    contrast = (
+        255.0 - sampled_luminance
+        if selected_ink_color == "white"
+        else sampled_luminance - ink_luminance
+    )
+    return contrast < _MIN_AUTO_CONTRAST
+
+
+# Input: rotierte Ink-Maske, Zielfarbe und Halo-Schalter.
+# Output: RGBA-Handschrift-Layer mit transparentem Hintergrund.
+# Der Halo wird aus einer dilatierten Kopie der Ink-Maske erzeugt; die originale
+# Maske bleibt unverändert und wird weiterhin für Ground Truth verwendet.
+def _compose_handwriting_layer(
+    rotated_mask: Image.Image,
+    ink_color: str,
+    use_halo: bool,
+) -> Image.Image:
+    ink_rgb = _HANDWRITING_INK_RGB[ink_color]
+    layer = Image.new("RGBA", rotated_mask.size, (0, 0, 0, 0))
+    if use_halo:
+        halo_color = (0, 0, 0) if ink_color == "white" else (255, 255, 255)
+        halo_mask = rotated_mask.filter(ImageFilter.MaxFilter(2 * _HALO_RADIUS + 1))
+        halo_layer = Image.new("RGBA", rotated_mask.size, halo_color + (0,))
+        halo_layer.putalpha(halo_mask)
+        layer.alpha_composite(halo_layer)
+    ink_layer = Image.new("RGBA", rotated_mask.size, ink_rgb + (0,))
+    ink_layer.putalpha(rotated_mask)
+    layer.alpha_composite(ink_layer)
+    return layer
 
 
 # Input: `annotation` mit Manifest-Asset und Renderoptionen.
@@ -151,7 +357,8 @@ def _prepare_handwriting_asset_overlay(annotation: dict[str, Any]) -> PreparedOv
         "suffix_text": suffix_text,
         "region": annotation.get("region", "top_left_overlay"),
         "rotation_degrees": rotation,
-        "rotated_layer": rotated_layer,
+        "rotated_layer": _compose_handwriting_layer(rotated_mask, "black", False),
+        "rotated_mask": rotated_mask,
         "rotated_size": rotated_layer.size,
         "text_box_size": layer.size,
         "text_source_bounds": source_mask_bounds,

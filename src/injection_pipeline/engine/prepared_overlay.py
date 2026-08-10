@@ -20,6 +20,7 @@ class PreparedOverlay(TypedDict):
     region: str
     rotation_degrees: int
     rotated_layer: Image.Image
+    rotated_mask: Image.Image
     rotated_size: tuple[int, int]
     text_box_size: tuple[int, int]
     text_source_bounds: MaskBounds

@@ -51,8 +51,8 @@ Open:
 - Validators/DICOM conformance policy, batch mode, manifest split, and output
   hygiene packages listed in `docs/fable-work-packages.md`.
 - ScrabbleGAN real-model generation and the integrated handwriting asset
-  provider/cache. The current manifest loader supports explicit assets, but
-  the runner does not yet generate or persist missing assets.
+  provider/cache are implemented. ADR-0010 and complete
+  environment/provenance gates remain open.
 
 ## Before / after
 
@@ -92,7 +92,7 @@ cli.py ──> argparse.Namespace + options.py defaults
         IdentityProvider (identity/, schema-driven) 
              │  Identity                            [ADR-0007]
              ▼
-        HandwritingAssetProvider (planned, handwriting mode only)
+        HandwritingAssetProvider (implemented, handwriting mode only)
              │  cache hit or generated image/mask/manifest under
              │  DicomData/HandwritingAssets/
              ▼
@@ -137,7 +137,7 @@ snapshot above for the 2026-07-14 code state.
 | `writers/preview.py` | matplotlib previews + own CLI, hardcoded default path | preview writer with required input and opt-in display | stays, cleaned |
 | `validators/` | empty docstring | schema round-trip validation, annotation-geometry checks, format validity | created (post-WP-B; PLAN.md Phase 4) |
 | handwriting manifest logic | in `runner.py:59-168` | `engine/handwriting_manifest.py` (load/parse/apply), typed asset model | moves (WP-D) |
-| handwriting generation/cache | not present; explicit manifests only | isolated ScrabbleGAN asset provider shared by injection and standalone seed command; cache lookup after identity generation | planned in WP-J |
+| handwriting generation/cache | integrated provider/cache with isolated runtime | isolated ScrabbleGAN asset provider shared by injection and standalone seed command; cache lookup after identity generation | implemented; ADR-0010 and full gates remain open |
 | dead engine API (`build_visible_text_annotations`, `render_annotations_for_dataset`) | exported, uncalled, duplicates prefix taxonomy | deleted | removed |
 
 ## Boundaries and rules

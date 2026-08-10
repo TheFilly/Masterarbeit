@@ -21,7 +21,7 @@ from injection_pipeline.models.identity import Identity
 ALLOWED_HANDWRITING_FIELDS: frozenset[str] = frozenset(
     ("patient_name", "patient_id", "accession_number")
 )
-HANDWRITING_RENDERER_VERSION = "scrabblegan-soft-alpha-v2"
+HANDWRITING_RENDERER_VERSION = "scrabblegan-mask-render-v3"
 HANDWRITING_ASSET_MANIFEST_VERSION = "0.1.0-handwriting-assets"
 DEFAULT_HANDWRITING_ASSET_ROOT = Path("DicomData") / "HandwritingAssets"
 _JSON_INDENT = 2
@@ -692,7 +692,10 @@ def _build_requested_assets(
 
     requested_assets: list[RequestedHandwritingAsset] = []
     generator_options = {
-        **options.model_dump(mode="json"),
+        **options.model_dump(
+            mode="json",
+            exclude={"ink_color", "background"},
+        ),
         "renderer_version": HANDWRITING_RENDERER_VERSION,
         "text_normalization": "dicom-person-name-separators-v1",
     }
@@ -733,7 +736,10 @@ def _build_text_requested_asset(
 ) -> RequestedHandwritingAsset:
     _validate_alphabet(request.field, request.text, options.alphabet)
     generator_options = {
-        **options.model_dump(mode="json"),
+        **options.model_dump(
+            mode="json",
+            exclude={"ink_color", "background"},
+        ),
         "renderer_version": HANDWRITING_RENDERER_VERSION,
         "text_normalization": "none",
     }
@@ -809,6 +815,8 @@ def _load_existing_assets(manifest_path: Path) -> dict[str, dict[str, Any]]:
             continue
         asset_id = str(raw_asset.get("asset_id", ""))
         if asset_id in expected_ids:
+            raw_asset = dict(raw_asset)
+            raw_asset["_manifest_root"] = manifest_path.parent.resolve()
             records[asset_id] = dict(raw_asset)
     return records
 
@@ -825,7 +833,11 @@ def _split_hits(
     missing: list[RequestedHandwritingAsset] = []
     for requested_asset in requested_assets:
         existing = existing_assets.get(requested_asset.asset_id)
-        if existing is None or not _cache_identity_matches(requested_asset, existing):
+        if (
+            existing is None
+            or not _cache_identity_matches(requested_asset, existing)
+            or not _cache_asset_hashes_match(existing)
+        ):
             missing.append(requested_asset)
         else:
             hits.append(requested_asset)
@@ -849,6 +861,38 @@ def _cache_identity_matches(
         if raw_identity.get(key) != value:
             return False
     return True
+
+
+# Input: Persistierter Cache-Record mit relativen Assetpfaden und Hashes.
+# Output: `True`, wenn Bild und Maske unveraendert zum Record sind.
+# Die Funktion prueft Cache-Hits erneut, damit nachtraeglich veraenderte Dateien
+# nicht als reproduzierbare Handschrift-Artefakte weiterverwendet werden.
+def _cache_asset_hashes_match(existing_record: dict[str, Any]) -> bool:
+    manifest_root = existing_record.get("_manifest_root")
+    if not isinstance(manifest_root, Path):
+        return False
+    image_hash = existing_record.get("image_sha256")
+    mask_hash = existing_record.get("mask_sha256")
+    image_path = existing_record.get("image_path")
+    mask_path = existing_record.get("mask_path")
+    if not all(
+        isinstance(value, str)
+        for value in (image_hash, mask_hash, image_path, mask_path)
+    ):
+        return False
+    assert isinstance(image_path, str)
+    assert isinstance(mask_path, str)
+    try:
+        resolved_image = _resolve_relative_path(manifest_root, image_path)
+        resolved_mask = _resolve_relative_path(manifest_root, mask_path)
+    except HandwritingProviderError:
+        return False
+    return (
+        resolved_image.is_file()
+        and resolved_mask.is_file()
+        and _sha256_file(resolved_image) == image_hash
+        and _sha256_file(resolved_mask) == mask_hash
+    )
 
 
 # Input: Zielpfad, fehlende Asset-Anfragen und Generatoroptionen.
@@ -1025,7 +1069,13 @@ def _write_cache_manifest_atomic(
     payload = {
         "schema_version": HANDWRITING_ASSET_MANIFEST_VERSION,
         "bundle": {"seed": seed},
-        "assets": sorted(assets, key=lambda asset: str(asset.get("asset_id", ""))),
+        "assets": sorted(
+            [
+                {key: value for key, value in asset.items() if not key.startswith("_")}
+                for asset in assets
+            ],
+            key=lambda asset: str(asset.get("asset_id", "")),
+        ),
     }
     _write_text_atomic(
         manifest_path,

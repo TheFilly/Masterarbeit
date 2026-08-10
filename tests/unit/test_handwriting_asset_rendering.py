@@ -72,6 +72,29 @@ def test_load_handwriting_manifest_rejects_missing_manifest(tmp_path: Path) -> N
         load_handwriting_manifest(manifest_path)
 
 
+@pytest.mark.parametrize("raw_path", ["../name.png", "C:/outside/name.png"])
+def test_load_handwriting_manifest_rejects_paths_outside_manifest(
+    tmp_path: Path, raw_path: str
+) -> None:
+    manifest_path = _write_asset(tmp_path)
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    payload["assets"][0]["image_path"] = raw_path
+    manifest_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must be relative|escapes manifest"):
+        load_handwriting_manifest(manifest_path)
+
+
+def test_load_handwriting_manifest_rejects_duplicate_asset_ids(tmp_path: Path) -> None:
+    manifest_path = _write_asset(tmp_path)
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    payload["assets"].append(payload["assets"][0])
+    manifest_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Duplicate handwriting asset ID"):
+        load_handwriting_manifest(manifest_path)
+
+
 def test_load_handwriting_manifest_accepts_jsonl_generator_output(
     tmp_path: Path,
 ) -> None:
@@ -240,6 +263,124 @@ def test_render_handwriting_asset_uses_transformed_ink_mask(tmp_path: Path) -> N
     assert record["label_corners"] is None
     assert record["render_metadata"]["renderer_type"] == "handwriting_asset"
     assert record["render_metadata"]["geometry_source"] == "transformed_ink_mask"
+
+
+def test_auto_handwriting_color_selects_black_on_bright_background(
+    tmp_path: Path,
+) -> None:
+    asset = load_handwriting_manifest(_write_asset(tmp_path))["patient-name-001"]
+    frame = np.full((32, 32, 3), 255, dtype=np.uint8)
+    annotation = {
+        "label": "PatientName",
+        "text": "Doe^Jane",
+        "identity_field": "patient_name",
+        "renderer_type": "handwriting_asset",
+        "asset_id": "patient-name-001",
+        "asset": asset,
+        "position": (10, 9),
+        "region": "unit_test",
+        "rotation_degrees": 0,
+    }
+
+    rendered, records = _render_frame_with_annotations(frame, [annotation])
+
+    assert records[0]["render_metadata"]["selected_ink_color"] == "black"
+    assert records[0]["render_metadata"]["contrast_mode"] == "none"
+    assert tuple(rendered[10, 12]) == (20, 20, 20)
+
+
+def test_auto_handwriting_color_selects_white_on_dark_background(
+    tmp_path: Path,
+) -> None:
+    asset = load_handwriting_manifest(_write_asset(tmp_path))["patient-name-001"]
+    frame = np.zeros((32, 32, 3), dtype=np.uint8)
+    annotation = {
+        "label": "PatientName",
+        "text": "Doe^Jane",
+        "identity_field": "patient_name",
+        "renderer_type": "handwriting_asset",
+        "asset_id": "patient-name-001",
+        "asset": asset,
+        "position": (10, 9),
+        "region": "unit_test",
+        "rotation_degrees": 0,
+    }
+
+    rendered, records = _render_frame_with_annotations(frame, [annotation])
+
+    assert records[0]["render_metadata"]["selected_ink_color"] == "white"
+    assert tuple(rendered[10, 12]) == (255, 255, 255)
+
+
+def test_manual_handwriting_color_override_ignores_background(
+    tmp_path: Path,
+) -> None:
+    asset = load_handwriting_manifest(_write_asset(tmp_path))["patient-name-001"]
+    frame = np.zeros((32, 32, 3), dtype=np.uint8)
+    annotation = {
+        "label": "PatientName",
+        "text": "Doe^Jane",
+        "identity_field": "patient_name",
+        "renderer_type": "handwriting_asset",
+        "asset_id": "patient-name-001",
+        "asset": asset,
+        "position": (10, 9),
+        "region": "unit_test",
+        "rotation_degrees": 0,
+    }
+
+    rendered, records = _render_frame_with_annotations(
+        frame,
+        [annotation],
+        handwriting_ink_color="gray",
+    )
+
+    assert records[0]["render_metadata"]["selected_ink_color"] == "gray"
+    assert records[0]["render_metadata"]["contrast_decision_reason"] == (
+        "manual_override"
+    )
+    assert tuple(rendered[10, 12]) == (110, 110, 110)
+
+
+def test_auto_handwriting_adds_halo_for_mixed_background_without_changing_geometry(
+    tmp_path: Path,
+) -> None:
+    asset = load_handwriting_manifest(_write_asset(tmp_path))["patient-name-001"]
+    frame = np.full((32, 32, 3), 255, dtype=np.uint8)
+    frame[9:13, 11:15] = 0
+    annotation = {
+        "label": "PatientName",
+        "text": "Doe^Jane",
+        "identity_field": "patient_name",
+        "renderer_type": "handwriting_asset",
+        "asset_id": "patient-name-001",
+        "asset": asset,
+        "position": (10, 9),
+        "region": "unit_test",
+        "rotation_degrees": 0,
+    }
+
+    without_halo, no_halo_records = _render_frame_with_annotations(
+        frame,
+        [annotation],
+        handwriting_ink_color="black",
+        handwriting_contrast_mode="none",
+    )
+    with_halo, halo_records = _render_frame_with_annotations(
+        frame,
+        [annotation],
+        handwriting_contrast_mode="none",
+    )
+
+    assert halo_records[0]["corners"] == no_halo_records[0]["corners"]
+    assert halo_records[0]["render_metadata"]["contrast_mode"] == "halo"
+    assert halo_records[0]["render_metadata"]["contrast_decision_reason"].endswith(
+        "halo_fallback"
+    )
+    selected_color = halo_records[0]["render_metadata"]["selected_ink_color"]
+    expected_halo = (0, 0, 0) if selected_color == "white" else (255, 255, 255)
+    assert tuple(with_halo[10, 11]) == expected_halo
+    assert tuple(without_halo[10, 11]) == (0, 0, 0)
 
 
 def test_render_handwriting_asset_uses_rotated_tight_quad(
@@ -452,6 +593,8 @@ def test_frame_renderer_reports_handwriting_assets_in_metadata(tmp_path: Path) -
             "mask_path": str(asset["mask_path"]),
             "ink_color": "black",
             "background_mode": "transparent",
+            "selected_ink_color": "black",
+            "contrast_mode": "none",
         }
     ]
 

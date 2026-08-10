@@ -165,7 +165,10 @@ into `render_metadata`.
 `asset_id`, `asset_path: Path`, `mask_path: Path`, `ink_color`,
 `background_mode`. Font-text and handwriting emit different key subsets —
 model as one class with optional fields (simplest byte-compat) and revisit a
-discriminated union after byte-compat is relaxed.
+discriminated union after byte-compat is relaxed. Handwriting additionally
+records `selected_ink_color`, `contrast_mode`, `sampled_luminance`,
+`luminance_spread`, and `contrast_decision_reason`; these describe render-time
+appearance and do not alter mask geometry.
 
 `RenderedAnnotation` — the `visible_annotations` entries produced by
 `engine/injector.py`: `label`, `text`, `rendered_text`,
@@ -181,6 +184,8 @@ discriminated union after byte-compat is relaxed.
 `renderer_types: list[str]`, `handwriting_assets: list[...]` (id/paths/ink
 subset), `geometry_notes: str`,
 `mask_alpha_threshold: int`, `visible_annotations: list[RenderedAnnotation]`.
+Handwriting runs may also include the requested `handwriting_ink_color` and
+`handwriting_contrast_mode`; these fields are omitted for font-only records.
 
 ### DICOM context (`models/dicom.py`)
 

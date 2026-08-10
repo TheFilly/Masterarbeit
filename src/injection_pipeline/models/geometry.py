@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, RootModel, field_validator, model_va
 class ImagePoint(BaseModel):
     """A point in image pixels with a top-left origin."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     x: float
     y: float
@@ -15,7 +15,7 @@ class ImagePoint(BaseModel):
 class PdfPoint(BaseModel):
     """A point in PDF points with a bottom-left origin."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     x: float
     y: float

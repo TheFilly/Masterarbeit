@@ -50,6 +50,8 @@ def run_document_pixel_injection(
     placement_mode: str,
     font_family: str,
     text_background: str | None,
+    handwriting_ink_color: str = "auto",
+    handwriting_contrast_mode: str = "none",
 ) -> tuple[np.ndarray, dict[str, Any]]:
     result = _inject_visible_text_into_frame(
         frame=np.asarray(document.frame),
@@ -61,6 +63,8 @@ def run_document_pixel_injection(
         placement_mode=placement_mode,
         font_family=font_family,
         text_background=text_background,
+        handwriting_ink_color=handwriting_ink_color,
+        handwriting_contrast_mode=handwriting_contrast_mode,
         frame_count=document.frame_count,
     )
     renderer_name = _FRAME_RENDERER_NAMES.get(
@@ -90,6 +94,8 @@ def run_dicom_pixel_injection(
     placement_mode: str,
     font_family: str,
     text_background: str | None,
+    handwriting_ink_color: str = "auto",
+    handwriting_contrast_mode: str = "none",
 ) -> tuple[Any, dict[str, Any]]:
     result = inject_visible_text(
         ds=ds,
@@ -103,6 +109,8 @@ def run_dicom_pixel_injection(
         placement_mode=placement_mode,
         font_family=font_family,
         text_background=text_background,
+        handwriting_ink_color=handwriting_ink_color,
+        handwriting_contrast_mode=handwriting_contrast_mode,
     )
     return result.get("dataset", ds), normalize_pixel_result(
         result,
@@ -125,6 +133,8 @@ def run_jpg_pixel_injection(
     placement_mode: str,
     font_family: str,
     text_background: str | None,
+    handwriting_ink_color: str = "auto",
+    handwriting_contrast_mode: str = "none",
 ) -> tuple[Image.Image, dict[str, Any]]:
     result = inject_visible_text_into_image(
         image=image,
@@ -136,6 +146,8 @@ def run_jpg_pixel_injection(
         placement_mode=placement_mode,
         font_family=font_family,
         text_background=text_background,
+        handwriting_ink_color=handwriting_ink_color,
+        handwriting_contrast_mode=handwriting_contrast_mode,
     )
     return result["image"], normalize_pixel_result(
         result,

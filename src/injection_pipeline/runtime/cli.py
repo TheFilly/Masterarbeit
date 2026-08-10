@@ -19,7 +19,9 @@ from injection_pipeline.runtime.options import (
     DEFAULT_HANDWRITING_SOURCE_DIR,
     DEFAULT_OUTPUT_DIR,
     FONT_FAMILY_CHOICES,
+    HANDWRITING_CONTRAST_MODE_CHOICES,
     HANDWRITING_FONT_FAMILY,
+    HANDWRITING_INK_COLOR_CHOICES,
     SHOW_LABEL_BOX_CHOICES,
     TEXT_BACKGROUND_CHOICES,
 )
@@ -280,6 +282,8 @@ def _collect_interactive_args() -> argparse.Namespace:
         parser=lambda raw: _validate_choice("placement-mode", raw, ("free", "corners")),
     )
     text_background = _prompt_for_text_background(default_value=None)
+    handwriting_ink_color = "auto"
+    handwriting_contrast_mode = "none"
     show_label_boxes = _prompt_for_show_label_boxes(default_value="n")
     run_timestamp = _prompt_for_run_timestamp()
     return argparse.Namespace(
@@ -303,6 +307,8 @@ def _collect_interactive_args() -> argparse.Namespace:
         placement_mode=placement_mode,
         font_family=font_family,
         text_background=text_background,
+        handwriting_ink_color=handwriting_ink_color,
+        handwriting_contrast_mode=handwriting_contrast_mode,
         show_label_boxes=show_label_boxes,
         run_timestamp=run_timestamp,
     )
@@ -324,6 +330,16 @@ def _validate_args(args: argparse.Namespace) -> None:
         )
     if args.font_size_pct < 1:
         raise ValueError("--font-size-pct must be >= 1.")
+    _validate_choice(
+        "--handwriting-ink-color",
+        getattr(args, "handwriting_ink_color", "auto"),
+        HANDWRITING_INK_COLOR_CHOICES,
+    )
+    _validate_choice(
+        "--handwriting-contrast-mode",
+        getattr(args, "handwriting_contrast_mode", "none"),
+        HANDWRITING_CONTRAST_MODE_CHOICES,
+    )
     if args.handwriting_asset and args.handwriting_manifest is None:
         raise ValueError("--handwriting-asset requires --handwriting-manifest.")
     if (
@@ -542,6 +558,26 @@ def main() -> None:
         default=None,
         choices=list(TEXT_BACKGROUND_CHOICES),
         help="Optional visible text background. Currently only 'white' is supported.",
+    )
+    parser.add_argument(
+        "--handwriting-ink-color",
+        type=str,
+        default="auto",
+        choices=list(HANDWRITING_INK_COLOR_CHOICES),
+        help=(
+            "Handwriting ink color; 'auto' selects black or white from local "
+            "luminance."
+        ),
+    )
+    parser.add_argument(
+        "--handwriting-contrast-mode",
+        type=str,
+        default="none",
+        choices=list(HANDWRITING_CONTRAST_MODE_CHOICES),
+        help=(
+            "Handwriting contrast treatment; auto may activate a halo when "
+            "needed."
+        ),
     )
     parser.add_argument(
         "--show-label-boxes",

@@ -28,21 +28,28 @@ def load_handwriting_manifest(manifest_path: Path) -> dict[str, dict[str, Any]]:
         if not isinstance(raw_assets, list):
             raise ValueError("Handwriting manifest must contain an assets list.")
 
-    manifest_root = manifest_path.parent
+    manifest_root = manifest_path.parent.resolve()
     assets: dict[str, dict[str, Any]] = {}
     for raw_asset in raw_assets:
         if not isinstance(raw_asset, dict):
-            continue
-        asset_id = str(raw_asset.get("asset_id", ""))
-        if not asset_id:
+            raise ValueError("Handwriting manifest assets must be objects.")
+        raw_asset_id = raw_asset.get("asset_id")
+        if not isinstance(raw_asset_id, str) or not raw_asset_id:
             raise ValueError("Handwriting asset is missing asset_id.")
-        image_path = manifest_root / str(raw_asset["image_path"])
-        mask_path = manifest_root / str(raw_asset["mask_path"])
-        if not image_path.exists():
+        asset_id = raw_asset_id
+        if asset_id in assets:
+            raise ValueError(f"Duplicate handwriting asset ID: {asset_id!r}.")
+        image_path = _resolve_manifest_asset_path(
+            manifest_root, raw_asset.get("image_path"), asset_id, "image"
+        )
+        mask_path = _resolve_manifest_asset_path(
+            manifest_root, raw_asset.get("mask_path"), asset_id, "mask"
+        )
+        if not image_path.is_file():
             raise FileNotFoundError(
                 f"Handwriting asset {asset_id!r} image not found: {image_path}"
             )
-        if not mask_path.exists():
+        if not mask_path.is_file():
             raise FileNotFoundError(
                 f"Handwriting asset {asset_id!r} mask not found: {mask_path}"
             )
@@ -57,6 +64,35 @@ def load_handwriting_manifest(manifest_path: Path) -> dict[str, dict[str, Any]]:
             "mask_path": mask_path,
         }
     return assets
+
+
+# Input: Manifestwurzel, relativer Assetpfad, Asset-ID und Assettyp.
+# Output: Aufgeloester Pfad innerhalb der Manifestwurzel.
+# Die Funktion lehnt absolute Pfade und Parent-Traversal einschliesslich
+# Symlink-Ausbruechen ab, bevor externe Bild- oder Maskendateien gelesen werden.
+def _resolve_manifest_asset_path(
+    manifest_root: Path,
+    raw_path: object,
+    asset_id: str,
+    asset_kind: str,
+) -> Path:
+    if not isinstance(raw_path, str) or not raw_path.strip():
+        raise ValueError(
+            f"Handwriting asset {asset_id!r} is missing a {asset_kind} path."
+        )
+    candidate = Path(raw_path)
+    if candidate.is_absolute():
+        raise ValueError(
+            f"Handwriting asset {asset_id!r} {asset_kind} path must be relative."
+        )
+    resolved = (manifest_root / candidate).resolve()
+    try:
+        resolved.relative_to(manifest_root)
+    except ValueError as exc:
+        raise ValueError(
+            f"Handwriting asset {asset_id!r} {asset_kind} path escapes manifest."
+        ) from exc
+    return resolved
 
 
 # Input: `raw_mappings` mit CLI-Werten im Format `identity_field=asset_id`.

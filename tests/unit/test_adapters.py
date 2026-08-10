@@ -5,15 +5,19 @@ import numpy as np
 import pydicom
 import pytest
 from PIL import Image
-from pydicom.dataset import FileDataset, FileMetaDataset
+from pydicom.dataset import Dataset, FileDataset, FileMetaDataset
 from pydicom.uid import (
+    ExplicitVRBigEndian,
     ExplicitVRLittleEndian,
     SecondaryCaptureImageStorage,
     generate_uid,
 )
 
 import injection_pipeline.loaders.registry as registry
-from injection_pipeline.loaders.dicom import DicomLoader
+from injection_pipeline.loaders.dicom import (
+    DicomLoader,
+    validate_supported_dicom_dataset,
+)
 from injection_pipeline.loaders.jpg import JpgLoader
 from injection_pipeline.models import (
     DicomTagAnnotation,
@@ -223,3 +227,44 @@ def test_dicom_writer_preserves_unrendered_grayscale_multiframe_bytes(
     assert len(reloaded.PixelData) == original_pixels.nbytes
     assert injected.output_context is not None
     assert injected.output_context.number_of_frames == 3
+
+
+def _in_memory_dicom_for_pixel_validation(
+    *,
+    transfer_syntax: str = ExplicitVRLittleEndian,
+    photometric: str = "MONOCHROME2",
+    samples_per_pixel: int = 1,
+) -> Dataset:
+    dataset = Dataset()
+    dataset.file_meta = FileMetaDataset()
+    dataset.file_meta.TransferSyntaxUID = transfer_syntax
+    dataset.PhotometricInterpretation = photometric
+    dataset.SamplesPerPixel = samples_per_pixel
+    return dataset
+
+
+def test_dicom_pixel_validation_rejects_non_uint8() -> None:
+    dataset = _in_memory_dicom_for_pixel_validation()
+
+    with pytest.raises(ValueError, match="only uint8"):
+        validate_supported_dicom_dataset(dataset, np.zeros((2, 2), dtype=np.uint16))
+
+
+def test_dicom_pixel_validation_rejects_big_endian() -> None:
+    dataset = _in_memory_dicom_for_pixel_validation(
+        transfer_syntax=ExplicitVRBigEndian,
+    )
+
+    with pytest.raises(ValueError, match="big-endian"):
+        validate_supported_dicom_dataset(dataset, np.zeros((2, 2), dtype=np.uint8))
+
+
+def test_dicom_pixel_validation_rejects_unsupported_photometric_interpretation(
+) -> None:
+    dataset = _in_memory_dicom_for_pixel_validation(
+        photometric="YBR_FULL",
+        samples_per_pixel=3,
+    )
+
+    with pytest.raises(ValueError, match="photometric interpretation"):
+        validate_supported_dicom_dataset(dataset, np.zeros((2, 2, 3), dtype=np.uint8))

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -80,6 +81,12 @@ def make_pdf_composition(
     for image_input, image_size in zip(images, image_sizes, strict=True):
         _validate_image_annotations(image_input, image_size)
 
+    outputs = PdfMakeOutputFiles(
+        clean_pdf=output_dir / "pdf_make.pdf",
+        annotated_pdf=output_dir / "pdf_make_annotated.pdf",
+        annotation_json=output_dir / "pdf_make_annotations.json",
+    )
+    _validate_output_aliases(template.source_file, outputs)
     output_dir = _prepare_output_dir(output_dir)
     text_plans = _prepare_text_plans(texts, template.page_sizes[0])
     layout_decisions = build_make_pdf_layout(
@@ -96,11 +103,6 @@ def make_pdf_composition(
         layout_decisions,
     )
 
-    outputs = PdfMakeOutputFiles(
-        clean_pdf=output_dir / "pdf_make.pdf",
-        annotated_pdf=output_dir / "pdf_make_annotated.pdf",
-        annotation_json=output_dir / "pdf_make_annotations.json",
-    )
     record = PdfMakeAnnotationRecord(
         source_pdf=template.source_file,
         output_dir=output_dir,
@@ -141,6 +143,39 @@ def make_pdf_composition(
         annotation_json=outputs.annotation_json,
         record=record,
     )
+
+
+# Input: Templatequelle und die drei make_pdf-Ausgabepfade.
+# Output: Keine Rueckgabe; wirft bei einem Pfadalias.
+# Die Prüfung erfolgt vor dem ersten `mkdir` oder Schreibzugriff und schützt
+# auch Hardlink-/Symlink-Konstellationen, soweit das Betriebssystem sie meldet.
+def _validate_output_aliases(
+    source_pdf: Path,
+    outputs: PdfMakeOutputFiles,
+) -> None:
+    for output_path in (
+        outputs.clean_pdf,
+        outputs.annotated_pdf,
+        outputs.annotation_json,
+    ):
+        if _paths_alias(source_pdf, output_path):
+            raise ValueError(
+                "PDF template and make_pdf output paths must be different."
+            )
+
+
+# Input: Zwei Datei- oder Zielpfade.
+# Output: `True`, wenn beide Pfade dasselbe Dateisystemobjekt bezeichnen.
+# Die Prüfung nutzt kanonische Pfade und, für bestehende Dateien, `samefile`.
+def _paths_alias(first: Path, second: Path) -> bool:
+    if first.resolve() == second.resolve():
+        return True
+    if not first.exists() or not second.exists():
+        return False
+    try:
+        return os.path.samefile(first, second)
+    except OSError:
+        return False
 
 
 # Input: `template` mit Quelldatei und Seitenmetadaten.

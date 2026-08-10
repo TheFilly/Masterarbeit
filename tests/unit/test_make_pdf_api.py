@@ -483,6 +483,20 @@ def test_make_pdf_rejects_missing_files(tmp_path: Path) -> None:
         make_pdf(images, texts, tmp_path / "missing.pdf", tmp_path / "output", seed=4)
 
 
+def test_make_pdf_rejects_template_output_alias_without_mutating_source(
+    tmp_path: Path,
+) -> None:
+    pdf = _write_pdf(tmp_path / "pdf_make.pdf", (612.0, 792.0))
+    image = _image_payload(_write_image(tmp_path / "source.png"), 0)
+    source_bytes = pdf.read_bytes()
+
+    with pytest.raises(ValueError, match="template and make_pdf output paths"):
+        make_pdf([image], [_text_payload(0)], pdf, tmp_path, seed=4)
+
+    assert pdf.read_bytes() == source_bytes
+    assert not (tmp_path / "pdf_make_annotations.json").exists()
+
+
 def test_make_pdf_writer_rejects_handwritten_without_asset_source(
     tmp_path: Path,
 ) -> None:

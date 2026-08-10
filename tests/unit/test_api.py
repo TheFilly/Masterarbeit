@@ -1,4 +1,5 @@
 from argparse import Namespace
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -68,6 +69,30 @@ def test_inject_function_validates_public_inputs(
 ) -> None:
     with pytest.raises(ValueError, match=message):
         api.inject_function(**kwargs)
+
+
+def test_inject_function_rejects_file_output_dir_before_running_pipeline(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_file = tmp_path / "output-file"
+    output_file.write_bytes(b"not a directory")
+
+    def fail_if_called(*args: object, **kwargs: object) -> None:
+        raise AssertionError("run_pipeline must not be called")
+
+    monkeypatch.setattr(api, "run_pipeline", fail_if_called)
+
+    with pytest.raises(ValueError, match="output_dir must be a directory path"):
+        api.inject_function(
+            category="PatientID",
+            value="SYNTH-001",
+            prefix="",
+            suffix="",
+            handwritten=False,
+            documentType="jpg",
+            output_dir=output_file,
+        )
 
 
 def test_inject_function_runs_jpg_and_exports_only_main_files(
@@ -144,6 +169,66 @@ def test_inject_function_runs_jpg_and_exports_only_main_files(
             "line_index": 0,
         }
     ]
+
+
+def test_inject_function_accepts_optional_deterministic_parameters(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    source_path = tmp_path / "source.jpg"
+    source_path.write_bytes(b"source")
+    captured: list[tuple[Namespace, object]] = []
+
+    def fake_run_pipeline(args: Namespace, now: object) -> dict[str, Path]:
+        captured.append((args, now))
+        output_file = tmp_path / f"output-{len(captured)}.jpg"
+        output_json = tmp_path / f"output-{len(captured)}.json"
+        output_file.write_bytes(b"injected")
+        output_json.write_text("{}", encoding="utf-8")
+        return {"output_file": output_file, "output_json": output_json}
+
+    monkeypatch.setattr(api, "run_pipeline", fake_run_pipeline)
+    fixed_time = datetime(2026, 1, 2, 3, 4, 5)
+    kwargs = {
+        "category": "Age",
+        "value": "95",
+        "prefix": "",
+        "suffix": "",
+        "handwritten": False,
+        "documentType": "jpg",
+        "input_path": source_path,
+        "seed": 42,
+        "rotation_degrees": 90,
+        "run_timestamp": fixed_time,
+    }
+
+    api.inject_function(**kwargs)
+    api.inject_function(**kwargs)
+
+    first_args, first_now = captured[0]
+    second_args, second_now = captured[1]
+    assert first_args.seed == second_args.seed == 42
+    assert first_args.input == second_args.input == str(source_path)
+    assert first_args.rotation_angle == second_args.rotation_angle == 90
+    assert first_now == second_now == fixed_time
+
+
+def test_inject_function_rejects_invalid_deterministic_rotation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(api, "run_pipeline", pytest.fail)
+
+    with pytest.raises(ValueError, match="rotation_degrees"):
+        api.inject_function(
+            "Age",
+            "95",
+            "",
+            "",
+            False,
+            "jpg",
+            seed=42,
+            rotation_degrees=45,
+        )
 
 
 def test_inject_function_routes_known_dicom_category_case_insensitively(

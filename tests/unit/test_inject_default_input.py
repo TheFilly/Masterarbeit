@@ -49,6 +49,14 @@ def test_select_seeded_default_input_is_stable_over_sorted_candidates(
     )
 
 
+def test_select_seeded_default_input_has_case_tie_breaker(tmp_path: Path) -> None:
+    candidates = [tmp_path / "a.jpg", tmp_path / "A.jpg"]
+
+    assert inputs.select_seeded_default_input(
+        candidates, seed=42
+    ) == inputs.select_seeded_default_input(list(reversed(candidates)), seed=42)
+
+
 def test_resolve_input_path_prefers_explicit_input(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

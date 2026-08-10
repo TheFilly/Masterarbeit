@@ -125,6 +125,7 @@ Die Funktion hat diese Signatur:
 
 ```python
 from os import PathLike
+from datetime import datetime
 from pathlib import Path
 
 
@@ -136,6 +137,13 @@ def inject_function(
     handwritten: bool,
     documentType: str,
     output_dir: str | PathLike[str] | None = None,
+    handwriting_ink_color: str = "auto",
+    handwriting_contrast_mode: str = "none",
+    *,
+    seed: int | None = None,
+    input_path: str | PathLike[str] | None = None,
+    rotation_degrees: int | None = None,
+    run_timestamp: datetime | None = None,
 ) -> tuple[Path, Path]: ...
 ```
 
@@ -154,9 +162,11 @@ lokalen ScrabbleGAN-Voraussetzungen wie `--font-family handwriting`.
 Kleinschreibung. `dcm` waehlt eine `.dcm`-Datei aus
 `DicomData/Dicom-Files`; `jpg` waehlt eine `.jpg`- oder `.jpeg`-Datei aus
 `DicomData/images`. Die Quelldatei wird passend zum Typ zufaellig aus den
-lokalen Standardkandidaten gewaehlt. Position und Rotation werden zufaellig
-bestimmt; Schriftgroesse, Farbe und die uebrigen Renderoptionen verwenden die
-Pipeline-Defaults, inklusive `placement_mode="corners"`.
+lokalen Standardkandidaten gewaehlt, sofern `input_path` fehlt. Position und
+Rotation werden zufaellig bestimmt, sofern keine deterministischen Parameter
+angegeben sind. `seed`, `input_path`, `rotation_degrees` und `run_timestamp`
+ermöglichen reproduzierbare Aufrufe, ohne das bisherige nondeterministische
+Legacy-Verhalten ohne diese Parameter zu ändern.
 
 Jeder API-Aufruf erzeugt weiterhin einen vollstaendigen Run unter
 `output/<run-id>/` mit injiziertem Dokument, `ground_truth.json`,
@@ -319,6 +329,8 @@ seeded default from `DicomData/Dicom-Files` and `DicomData/images`.
 | `--placement-mode` | `corners` | `corners`, `free` | Placement strategy for visible injected text |
 | `--font-family` | `arial` | `arial`, `calibri`, `tahoma`, `consolas`, `handwriting` | Common font/renderer choice |
 | `--text-background` | none | `white` | Optional white background behind visible text |
+| `--handwriting-ink-color` | `auto` | `auto`, `black`, `gray`, `white` | Handwriting ink color; `auto` selects black/white from local luminance |
+| `--handwriting-contrast-mode` | `none` | `none`, `halo` | Optional handwriting halo; auto enables it when contrast is uncertain |
 | `--show-label-boxes` | `n` | `y`, `n` | Draw generic prefix boxes in `preview_annotated.png` |
 | `--run-timestamp` | Current time | ISO-8601 datetime | Fixed timestamp for deterministic run IDs |
 | `--handwriting-manifest` | none | JSONL manifest or JSON manifest with `assets` | Manifest for generated handwriting assets |
@@ -344,6 +356,14 @@ reusable bundle. Handwriting covers only `patient_name`, `patient_id`, and
 text, checkpoint SHA-256, upstream commit, generator manifest hash, and
 `options_sha256`. If the checkpoint, sidecar, source metadata, or runtime is
 missing, the command aborts without a font fallback.
+
+Handwriting appearance is reconstructed from the separate ink mask at render
+time. With `--handwriting-ink-color auto`, median luminance below `128`
+selects white ink and otherwise selects black ink. A p10-p90 luminance spread
+above `96`, contrast below `64`, or too few valid sample pixels activates a
+deterministic two-pixel halo; the no-sample fallback is white ink with a black
+halo. Explicit `black`, `gray`, and `white` values override auto selection.
+The halo is visual only and is excluded from the ground-truth ink mask.
 
 ## Outputs
 

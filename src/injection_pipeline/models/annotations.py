@@ -41,6 +41,14 @@ class BoxAnnotation(BaseModel):
             prefix_text, _, suffix_text = self.rendered_text.partition(self.text)
             self.prefix = prefix_text
             self.suffix = suffix_text
+        if not self.text:
+            raise ValueError("BoxAnnotation.text must be non-empty.")
+        if not self.rendered_text:
+            raise ValueError("BoxAnnotation.rendered_text must be non-empty.")
+        if self.rendered_text != self.prefix + self.text + self.suffix:
+            raise ValueError(
+                "BoxAnnotation.rendered_text must equal prefix + text + suffix."
+            )
         return self
 
 

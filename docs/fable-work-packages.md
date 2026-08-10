@@ -47,7 +47,7 @@ a repository artifact.
 
 ---
 
-## WP-J — ScrabbleGAN Restart and Injection Integration (design, then implementation)
+## WP-J — ScrabbleGAN Restart and Injection Integration (implementation, closure open)
 
 **Goal.** Make real ScrabbleGAN handwriting generation work end-to-end in this
 repo: a runnable environment, a working single-text inference path, a pinned
@@ -344,8 +344,7 @@ depends on the ADR-0008 version decision. **Leverage.** Low.
 ```text
 Architecture handoffs (docs/architecture/*, ADR review)   done for DICOM/JPG core
 WP-I  E2E harness + CI          done 2026-07-12
-WP-J  ScrabbleGAN + injection integration  open, parallel generator track with
-     a defined runtime/CLI integration handoff
+WP-J  ScrabbleGAN + injection integration  implemented; ADR-0010 and full gates open
   after WP-B..WP-G DICOM/JPG handoffs:
 WP-K  Validators & DICOM conformance
 WP-L  Multi-frame policy        open, pairs with WP-K

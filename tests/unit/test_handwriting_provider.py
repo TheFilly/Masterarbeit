@@ -123,6 +123,43 @@ def test_cache_identity_key_includes_required_inputs() -> None:
     assert changed_options.cache_key != base.cache_key
 
 
+def test_cache_identity_ignores_legacy_presentation_color_and_background(
+    tmp_path: Path,
+) -> None:
+    schema = load_identifier_schema(DEFAULT_IDENTIFIER_SCHEMA_PATH)
+    identity = Identity(
+        identity_id="test-id",
+        seed=42,
+        fields={
+            "patient_name": "Doe^Jane",
+            "patient_id": "SYNTH-123456",
+            "accession_number": "ACC-7654321",
+        },
+    )
+    runtime = _runtime(tmp_path)
+    black = _options()
+    gray_on_white = black.model_copy(
+        update={"ink_color": "gray", "background": "white"}
+    )
+
+    black_assets = provider_module._build_requested_assets(
+        identity,
+        schema,
+        runtime,
+        black,
+    )
+    gray_assets = provider_module._build_requested_assets(
+        identity,
+        schema,
+        runtime,
+        gray_on_white,
+    )
+
+    assert [asset.asset_id for asset in black_assets] == [
+        asset.asset_id for asset in gray_assets
+    ]
+
+
 def test_provider_filters_to_three_visible_handwriting_fields(tmp_path: Path) -> None:
     provider, generator = _provider(tmp_path)
     result = provider.resolve_assets(_identity(), _schema())
@@ -176,6 +213,27 @@ def test_cache_miss_generates_and_cache_hit_skips_generator(tmp_path: Path) -> N
     assert set(second_result.cache_hit_asset_ids) == set(
         first_result.generated_asset_ids
     )
+
+
+def test_cache_hit_rechecks_image_and_mask_hashes(tmp_path: Path) -> None:
+    provider, _generator = _provider(tmp_path)
+    first_result = provider.resolve_assets(_identity(), _schema())
+    payload = json.loads(first_result.manifest_path.read_text(encoding="utf-8"))
+    asset = payload["assets"][0]
+    image_path = first_result.manifest_path.parent / asset["image_path"]
+    image_path.write_bytes(b"changed image")
+
+    second_generator = FakeHandwritingGenerator()
+    second_provider = HandwritingAssetProvider(
+        runtime=_runtime(tmp_path),
+        options=_options(),
+        generator=second_generator,
+    )
+    second_result = second_provider.resolve_assets(_identity(), _schema())
+
+    assert len(second_generator.calls) == 1
+    assert asset["asset_id"] in second_result.generated_asset_ids
+    assert asset["asset_id"] not in second_result.cache_hit_asset_ids
 
 
 def test_provider_resolves_one_arbitrary_text_asset(tmp_path: Path) -> None:

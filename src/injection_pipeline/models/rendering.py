@@ -112,6 +112,11 @@ class AnnotationRenderDetail(BaseModel):
     mask_path: Path | None = None
     ink_color: str | None = None
     background_mode: str | None = None
+    selected_ink_color: str | None = None
+    contrast_mode: str | None = None
+    sampled_luminance: float | None = None
+    luminance_spread: float | None = None
+    contrast_decision_reason: str | None = None
     geometry_source: str
     segment_geometry_source: str | None = None
     mask_coordinate_space: str
@@ -171,6 +176,11 @@ class AnnotationRenderDetail(BaseModel):
                 "mask_path",
                 "ink_color",
                 "background_mode",
+                "selected_ink_color",
+                "contrast_mode",
+                "sampled_luminance",
+                "luminance_spread",
+                "contrast_decision_reason",
             ):
                 data.pop(field_name, None)
         return data
@@ -224,6 +234,8 @@ class HandwritingRenderAsset(BaseModel):
     mask_path: Path | None
     ink_color: str | None
     background_mode: str | None
+    selected_ink_color: str | None = None
+    contrast_mode: str | None = None
 
 
 class EngineRenderMetadata(BaseModel):
@@ -246,3 +258,11 @@ class EngineRenderMetadata(BaseModel):
     geometry_notes: str
     mask_alpha_threshold: int
     visible_annotations: list[RenderedAnnotation]
+    handwriting_ink_color: str | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
+    handwriting_contrast_mode: str | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )

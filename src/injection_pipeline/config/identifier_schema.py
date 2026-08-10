@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydicom.datadict import dictionary_VR, tag_for_keyword
+from pydicom.tag import Tag
 
 DEFAULT_IDENTIFIER_SCHEMA_PATH = (
     Path(__file__).resolve().parents[3]
@@ -121,6 +123,29 @@ class DicomTagRoute(BaseModel):
             raise ValueError("dicom vr must match '^[A-Z]{2}$'.")
         return value
 
+    @model_validator(mode="after")
+    # Input: `self` mit Keyword, Adresse und VR einer DICOM-Route.
+    # Output: Semantisch validierte DICOM-Route.
+    # Die Funktion verhindert widerspruechliche Ground-Truth- und DICOM-Routen.
+    def _validate_semantics(self) -> "DicomTagRoute":
+        tag_value = tag_for_keyword(self.keyword)
+        if tag_value is None:
+            raise ValueError(f"unknown DICOM keyword: {self.keyword!r}.")
+        expected_tag = Tag(tag_value)
+        declared_tag = Tag(int(self.address.replace(",", ""), 16))
+        if declared_tag != expected_tag:
+            raise ValueError(
+                f"DICOM keyword {self.keyword!r} maps to {expected_tag}, "
+                f"not {self.address}."
+            )
+        expected_vr = dictionary_VR(expected_tag)
+        if self.vr not in set(expected_vr.split(" or ")):
+            raise ValueError(
+                f"DICOM keyword {self.keyword!r} uses VR {expected_vr!r}, "
+                f"not {self.vr!r}."
+            )
+        return self
+
 
 class VisiblePixelRoute(BaseModel):
     """Visible pixel routing for one generated identity field."""
@@ -206,6 +231,18 @@ class IdentifierSchema(BaseModel):
             raise ValueError("identifier schema field names must be unique.")
         if self.identity_id_field not in set(field_names):
             raise ValueError("identity_id_field must reference an existing field.")
+
+        dicom_routes = [
+            field.routing.dicom_tag
+            for field in self.fields
+            if field.routing.dicom_tag is not None
+        ]
+        keywords = [route.keyword for route in dicom_routes]
+        addresses = [route.address for route in dicom_routes]
+        if len(set(keywords)) != len(keywords):
+            raise ValueError("DICOM route keywords must be unique.")
+        if len(set(addresses)) != len(addresses):
+            raise ValueError("DICOM route addresses must be unique.")
 
         visible_indices: list[int] = []
         for field in self.fields:
