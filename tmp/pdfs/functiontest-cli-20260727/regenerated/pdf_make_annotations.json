@@ -1,0 +1,998 @@
+{
+  "schema_version": "0.1.0-pdf-make",
+  "record_type": "pdf_make_run",
+  "source_pdf": "DicomData\\PDF\\Briefmarken.1Stk.17.03.2026_1345.pdf",
+  "output_dir": "tmp\\pdfs\\functiontest-cli-20260727\\regenerated",
+  "seed": 7001,
+  "outputs": {
+    "clean_pdf": "tmp\\pdfs\\functiontest-cli-20260727\\regenerated\\pdf_make.pdf",
+    "annotated_pdf": "tmp\\pdfs\\functiontest-cli-20260727\\regenerated\\pdf_make_annotated.pdf",
+    "annotation_json": "tmp\\pdfs\\functiontest-cli-20260727\\regenerated\\pdf_make_annotations.json"
+  },
+  "template": {
+    "source_file": "DicomData\\PDF\\Briefmarken.1Stk.17.03.2026_1345.pdf",
+    "page_count": 1,
+    "page_sizes": [
+      [
+        595.275,
+        841.889
+      ]
+    ]
+  },
+  "images": [
+    {
+      "path": "output\\functiontest-cli-20260727\\dcm-27072026-1321-seed0121-angle020-corners-fs110-arial-white\\preview.png",
+      "annotations": [
+        {
+          "category": "person_name",
+          "value": "Miller^Brandy",
+          "prefix": "",
+          "suffix": "",
+          "rendered_text": "Miller^Brandy",
+          "image_corners": [
+            {
+              "x": 36.28,
+              "y": 69.58
+            },
+            {
+              "x": 147.16,
+              "y": 29.22
+            },
+            {
+              "x": 153.66,
+              "y": 47.08
+            },
+            {
+              "x": 42.78,
+              "y": 87.44
+            }
+          ],
+          "prefix_corners": null,
+          "suffix_corners": null
+        },
+        {
+          "category": "identifier",
+          "value": "629825",
+          "prefix": "SYNTH-",
+          "suffix": "",
+          "rendered_text": "SYNTH-629825",
+          "image_corners": [
+            {
+              "x": 104.22,
+              "y": 131.26
+            },
+            {
+              "x": 166.24,
+              "y": 108.68
+            },
+            {
+              "x": 171.37,
+              "y": 122.78
+            },
+            {
+              "x": 109.35,
+              "y": 145.35
+            }
+          ],
+          "prefix_corners": [
+            {
+              "x": 36.57,
+              "y": 155.88
+            },
+            {
+              "x": 104.22,
+              "y": 131.26
+            },
+            {
+              "x": 109.35,
+              "y": 145.35
+            },
+            {
+              "x": 41.7,
+              "y": 169.98
+            }
+          ],
+          "suffix_corners": null
+        },
+        {
+          "category": "identifier",
+          "value": "6096207",
+          "prefix": "ACC-",
+          "suffix": "",
+          "rendered_text": "ACC-6096207",
+          "image_corners": [
+            {
+              "x": 81.28,
+              "y": 218.24
+            },
+            {
+              "x": 153.64,
+              "y": 191.91
+            },
+            {
+              "x": 158.77,
+              "y": 206.0
+            },
+            {
+              "x": 86.41,
+              "y": 232.34
+            }
+          ],
+          "prefix_corners": [
+            {
+              "x": 36.17,
+              "y": 234.66
+            },
+            {
+              "x": 81.28,
+              "y": 218.24
+            },
+            {
+              "x": 86.41,
+              "y": 232.34
+            },
+            {
+              "x": 41.3,
+              "y": 248.75
+            }
+          ],
+          "suffix_corners": null
+        }
+      ]
+    },
+    {
+      "path": "output\\functiontest-cli-20260727\\dcm-27072026-1322-seed0122-angle270-free-fs95-consolas-none\\preview.png",
+      "annotations": [
+        {
+          "category": "person_name",
+          "value": "Hicks^Carla",
+          "prefix": "",
+          "suffix": "",
+          "rendered_text": "Hicks^Carla",
+          "image_corners": [
+            {
+              "x": 569.0,
+              "y": 245.0
+            },
+            {
+              "x": 569.0,
+              "y": 345.0
+            },
+            {
+              "x": 555.0,
+              "y": 345.0
+            },
+            {
+              "x": 555.0,
+              "y": 245.0
+            }
+          ],
+          "prefix_corners": null,
+          "suffix_corners": null
+        },
+        {
+          "category": "identifier",
+          "value": "415379",
+          "prefix": "SYNTH-",
+          "suffix": "",
+          "rendered_text": "SYNTH-415379",
+          "image_corners": [
+            {
+              "x": 657.0,
+              "y": 391.0
+            },
+            {
+              "x": 657.0,
+              "y": 447.0
+            },
+            {
+              "x": 644.0,
+              "y": 447.0
+            },
+            {
+              "x": 644.0,
+              "y": 391.0
+            }
+          ],
+          "prefix_corners": [
+            {
+              "x": 657.0,
+              "y": 336.0
+            },
+            {
+              "x": 657.0,
+              "y": 391.0
+            },
+            {
+              "x": 644.0,
+              "y": 391.0
+            },
+            {
+              "x": 644.0,
+              "y": 336.0
+            }
+          ],
+          "suffix_corners": null
+        },
+        {
+          "category": "identifier",
+          "value": "4738662",
+          "prefix": "ACC-",
+          "suffix": "",
+          "rendered_text": "ACC-4738662",
+          "image_corners": [
+            {
+              "x": 977.0,
+              "y": 136.0
+            },
+            {
+              "x": 977.0,
+              "y": 201.0
+            },
+            {
+              "x": 964.0,
+              "y": 201.0
+            },
+            {
+              "x": 964.0,
+              "y": 136.0
+            }
+          ],
+          "prefix_corners": [
+            {
+              "x": 977.0,
+              "y": 99.0
+            },
+            {
+              "x": 977.0,
+              "y": 136.0
+            },
+            {
+              "x": 964.0,
+              "y": 136.0
+            },
+            {
+              "x": 964.0,
+              "y": 99.0
+            }
+          ],
+          "suffix_corners": null
+        }
+      ]
+    }
+  ],
+  "texts": [
+    {
+      "category": "PdfBatchId",
+      "value": "PDF-API-7001",
+      "prefix": "Batch ",
+      "suffix": " composed",
+      "handwritten": false
+    },
+    {
+      "category": "Reviewer",
+      "value": "Synthetic QA",
+      "prefix": "Checked by ",
+      "suffix": "",
+      "handwritten": false
+    }
+  ],
+  "layout_decisions": [
+    {
+      "placement": {
+        "item_type": "image",
+        "source_index": 0,
+        "page_index": 0,
+        "x": 36.0,
+        "y": 641.7990246062992,
+        "width": 235.47375,
+        "height": 164.08997539370077,
+        "rotation_degrees": 0.0,
+        "arrangement": "beside"
+      },
+      "page_size": [
+        595.275,
+        841.889
+      ],
+      "occupied_corners": [
+        {
+          "x": 36.0,
+          "y": 641.7990246062992
+        },
+        {
+          "x": 271.47375,
+          "y": 641.7990246062992
+        },
+        {
+          "x": 271.47375,
+          "y": 805.889
+        },
+        {
+          "x": 36.0,
+          "y": 805.889
+        }
+      ]
+    },
+    {
+      "placement": {
+        "item_type": "text",
+        "source_index": 0,
+        "page_index": 0,
+        "x": 289.47375,
+        "y": 713.0940123031496,
+        "width": 164.508,
+        "height": 21.5,
+        "rotation_degrees": 0.0,
+        "arrangement": "beside"
+      },
+      "page_size": [
+        595.275,
+        841.889
+      ],
+      "occupied_corners": [
+        {
+          "x": 289.47375,
+          "y": 713.0940123031496
+        },
+        {
+          "x": 453.98175000000003,
+          "y": 713.0940123031496
+        },
+        {
+          "x": 453.98175000000003,
+          "y": 734.5940123031496
+        },
+        {
+          "x": 289.47375,
+          "y": 734.5940123031496
+        }
+      ]
+    },
+    {
+      "placement": {
+        "item_type": "image",
+        "source_index": 1,
+        "page_index": 0,
+        "x": 43.390476323392164,
+        "y": 389.83337583245554,
+        "width": 320.1150473532157,
+        "height": 223.07229677763456,
+        "rotation_degrees": -4.0,
+        "arrangement": "stacked"
+      },
+      "page_size": [
+        595.275,
+        841.889
+      ],
+      "occupied_corners": [
+        {
+          "x": 35.99999999999999,
+          "y": 401.2701207320405
+        },
+        {
+          "x": 355.3352631867892,
+          "y": 378.9400238362465
+        },
+        {
+          "x": 370.89599999999996,
+          "y": 601.4689277105051
+        },
+        {
+          "x": 51.56073681321078,
+          "y": 623.7990246062991
+        }
+      ]
+    },
+    {
+      "placement": {
+        "item_type": "text",
+        "source_index": 1,
+        "page_index": 0,
+        "x": 136.781,
+        "y": 339.4400238362465,
+        "width": 133.334,
+        "height": 21.5,
+        "rotation_degrees": 0.0,
+        "arrangement": "stacked"
+      },
+      "page_size": [
+        595.275,
+        841.889
+      ],
+      "occupied_corners": [
+        {
+          "x": 136.781,
+          "y": 339.4400238362465
+        },
+        {
+          "x": 270.115,
+          "y": 339.4400238362465
+        },
+        {
+          "x": 270.115,
+          "y": 360.9400238362465
+        },
+        {
+          "x": 136.781,
+          "y": 360.9400238362465
+        }
+      ]
+    }
+  ],
+  "image_annotations": [
+    {
+      "source_image_index": 0,
+      "source_annotation_index": 0,
+      "category": "person_name",
+      "value": "Miller^Brandy",
+      "prefix": "",
+      "suffix": "",
+      "rendered_text": "Miller^Brandy",
+      "image_corners": [
+        {
+          "x": 36.28,
+          "y": 69.58
+        },
+        {
+          "x": 147.16,
+          "y": 29.22
+        },
+        {
+          "x": 153.66,
+          "y": 47.08
+        },
+        {
+          "x": 42.78,
+          "y": 87.44
+        }
+      ],
+      "pdf_corners": [
+        {
+          "x": 44.40845241141732,
+          "y": 789.7627563730315
+        },
+        {
+          "x": 70.10661126968503,
+          "y": 799.1168120324803
+        },
+        {
+          "x": 71.61308703248031,
+          "y": 794.9774801673228
+        },
+        {
+          "x": 45.9149281742126,
+          "y": 785.623424507874
+        }
+      ],
+      "prefix_corners": null,
+      "prefix_pdf_corners": null,
+      "suffix_corners": null,
+      "suffix_pdf_corners": null,
+      "placement": {
+        "item_type": "image",
+        "source_index": 0,
+        "page_index": 0,
+        "x": 36.0,
+        "y": 641.7990246062992,
+        "width": 235.47375,
+        "height": 164.08997539370077,
+        "rotation_degrees": 0.0,
+        "arrangement": "beside"
+      }
+    },
+    {
+      "source_image_index": 0,
+      "source_annotation_index": 1,
+      "category": "identifier",
+      "value": "629825",
+      "prefix": "SYNTH-",
+      "suffix": "",
+      "rendered_text": "SYNTH-629825",
+      "image_corners": [
+        {
+          "x": 104.22,
+          "y": 131.26
+        },
+        {
+          "x": 166.24,
+          "y": 108.68
+        },
+        {
+          "x": 171.37,
+          "y": 122.78
+        },
+        {
+          "x": 109.35,
+          "y": 145.35
+        }
+      ],
+      "pdf_corners": [
+        {
+          "x": 60.15460061515748,
+          "y": 775.4674602116141
+        },
+        {
+          "x": 74.5286970472441,
+          "y": 780.700725246063
+        },
+        {
+          "x": 75.71765407234253,
+          "y": 777.4328316683071
+        },
+        {
+          "x": 61.3435576402559,
+          "y": 772.201884288878
+        }
+      ],
+      "prefix_corners": [
+        {
+          "x": 36.57,
+          "y": 155.88
+        },
+        {
+          "x": 104.22,
+          "y": 131.26
+        },
+        {
+          "x": 109.35,
+          "y": 145.35
+        },
+        {
+          "x": 41.7,
+          "y": 169.98
+        }
+      ],
+      "prefix_pdf_corners": [
+        {
+          "x": 44.47566440698819,
+          "y": 769.7613935531497
+        },
+        {
+          "x": 60.15460061515748,
+          "y": 775.4674602116141
+        },
+        {
+          "x": 61.3435576402559,
+          "y": 772.201884288878
+        },
+        {
+          "x": 45.66462143208661,
+          "y": 766.4934999753937
+        }
+      ],
+      "suffix_corners": null,
+      "suffix_pdf_corners": null,
+      "placement": {
+        "item_type": "image",
+        "source_index": 0,
+        "page_index": 0,
+        "x": 36.0,
+        "y": 641.7990246062992,
+        "width": 235.47375,
+        "height": 164.08997539370077,
+        "rotation_degrees": 0.0,
+        "arrangement": "beside"
+      }
+    },
+    {
+      "source_image_index": 0,
+      "source_annotation_index": 2,
+      "category": "identifier",
+      "value": "6096207",
+      "prefix": "ACC-",
+      "suffix": "",
+      "rendered_text": "ACC-6096207",
+      "image_corners": [
+        {
+          "x": 81.28,
+          "y": 218.24
+        },
+        {
+          "x": 153.64,
+          "y": 191.91
+        },
+        {
+          "x": 158.77,
+          "y": 206.0
+        },
+        {
+          "x": 86.41,
+          "y": 232.34
+        }
+      ],
+      "pdf_corners": [
+        {
+          "x": 54.837900000000005,
+          "y": 755.3084968503937
+        },
+        {
+          "x": 71.60845172244095,
+          "y": 761.4108825172244
+        },
+        {
+          "x": 72.79740874753938,
+          "y": 758.1453065944881
+        },
+        {
+          "x": 56.02685702509842,
+          "y": 752.0406032726378
+        }
+      ],
+      "prefix_corners": [
+        {
+          "x": 36.17,
+          "y": 234.66
+        },
+        {
+          "x": 81.28,
+          "y": 218.24
+        },
+        {
+          "x": 86.41,
+          "y": 232.34
+        },
+        {
+          "x": 41.3,
+          "y": 248.75
+        }
+      ],
+      "prefix_pdf_corners": [
+        {
+          "x": 44.38295820620078,
+          "y": 751.5029073080709
+        },
+        {
+          "x": 54.837900000000005,
+          "y": 755.3084968503937
+        },
+        {
+          "x": 56.02685702509842,
+          "y": 752.0406032726378
+        },
+        {
+          "x": 45.571915231299215,
+          "y": 748.2373313853346
+        }
+      ],
+      "suffix_corners": null,
+      "suffix_pdf_corners": null,
+      "placement": {
+        "item_type": "image",
+        "source_index": 0,
+        "page_index": 0,
+        "x": 36.0,
+        "y": 641.7990246062992,
+        "width": 235.47375,
+        "height": 164.08997539370077,
+        "rotation_degrees": 0.0,
+        "arrangement": "beside"
+      }
+    },
+    {
+      "source_image_index": 1,
+      "source_annotation_index": 0,
+      "category": "person_name",
+      "value": "Hicks^Carla",
+      "prefix": "",
+      "suffix": "",
+      "rendered_text": "Hicks^Carla",
+      "image_corners": [
+        {
+          "x": 569.0,
+          "y": 245.0
+        },
+        {
+          "x": 569.0,
+          "y": 345.0
+        },
+        {
+          "x": 555.0,
+          "y": 345.0
+        },
+        {
+          "x": 555.0,
+          "y": 245.0
+        }
+      ],
+      "pdf_corners": [
+        {
+          "x": 225.01633820475953,
+          "y": 534.288232662923
+        },
+        {
+          "x": 222.81849402210267,
+          "y": 502.85759652249095
+        },
+        {
+          "x": 218.4182049624422,
+          "y": 503.1652947080629
+        },
+        {
+          "x": 220.61604914509905,
+          "y": 534.5959308484948
+        }
+      ],
+      "prefix_corners": null,
+      "prefix_pdf_corners": null,
+      "suffix_corners": null,
+      "suffix_pdf_corners": null,
+      "placement": {
+        "item_type": "image",
+        "source_index": 1,
+        "page_index": 0,
+        "x": 43.390476323392164,
+        "y": 389.83337583245554,
+        "width": 320.1150473532157,
+        "height": 223.07229677763456,
+        "rotation_degrees": -4.0,
+        "arrangement": "stacked"
+      }
+    },
+    {
+      "source_image_index": 1,
+      "source_annotation_index": 1,
+      "category": "identifier",
+      "value": "415379",
+      "prefix": "SYNTH-",
+      "suffix": "",
+      "rendered_text": "SYNTH-415379",
+      "image_corners": [
+        {
+          "x": 657.0,
+          "y": 391.0
+        },
+        {
+          "x": 657.0,
+          "y": 447.0
+        },
+        {
+          "x": 644.0,
+          "y": 447.0
+        },
+        {
+          "x": 644.0,
+          "y": 391.0
+        }
+      ],
+      "pdf_corners": [
+        {
+          "x": 249.46644550166064,
+          "y": 486.4654010171541
+        },
+        {
+          "x": 248.23565275937278,
+          "y": 468.8642447785122
+        },
+        {
+          "x": 244.14967006111664,
+          "y": 469.1499645222576
+        },
+        {
+          "x": 245.3804628034045,
+          "y": 486.7511207608995
+        }
+      ],
+      "prefix_corners": [
+        {
+          "x": 657.0,
+          "y": 336.0
+        },
+        {
+          "x": 657.0,
+          "y": 391.0
+        },
+        {
+          "x": 644.0,
+          "y": 391.0
+        },
+        {
+          "x": 644.0,
+          "y": 336.0
+        }
+      ],
+      "prefix_pdf_corners": [
+        {
+          "x": 250.67525980212193,
+          "y": 503.75225089439175
+        },
+        {
+          "x": 249.46644550166064,
+          "y": 486.4654010171541
+        },
+        {
+          "x": 245.3804628034045,
+          "y": 486.7511207608995
+        },
+        {
+          "x": 246.58927710386578,
+          "y": 504.03797063813715
+        }
+      ],
+      "suffix_corners": null,
+      "suffix_pdf_corners": null,
+      "placement": {
+        "item_type": "image",
+        "source_index": 1,
+        "page_index": 0,
+        "x": 43.390476323392164,
+        "y": 389.83337583245554,
+        "width": 320.1150473532157,
+        "height": 223.07229677763456,
+        "rotation_degrees": -4.0,
+        "arrangement": "stacked"
+      }
+    },
+    {
+      "source_image_index": 1,
+      "source_annotation_index": 2,
+      "category": "identifier",
+      "value": "4738662",
+      "prefix": "ACC-",
+      "suffix": "",
+      "rendered_text": "ACC-4738662",
+      "image_corners": [
+        {
+          "x": 977.0,
+          "y": 136.0
+        },
+        {
+          "x": 977.0,
+          "y": 201.0
+        },
+        {
+          "x": 964.0,
+          "y": 201.0
+        },
+        {
+          "x": 964.0,
+          "y": 136.0
+        }
+      ],
+      "pdf_corners": [
+        {
+          "x": 355.64898381681826,
+          "y": 559.5804217907537
+        },
+        {
+          "x": 354.22038509809124,
+          "y": 539.1505082994729
+        },
+        {
+          "x": 350.134402399835,
+          "y": 539.4362280432183
+        },
+        {
+          "x": 351.563001118562,
+          "y": 559.8661415344991
+        }
+      ],
+      "prefix_corners": [
+        {
+          "x": 977.0,
+          "y": 99.0
+        },
+        {
+          "x": 977.0,
+          "y": 136.0
+        },
+        {
+          "x": 964.0,
+          "y": 136.0
+        },
+        {
+          "x": 964.0,
+          "y": 99.0
+        }
+      ],
+      "prefix_pdf_corners": [
+        {
+          "x": 356.46218616440126,
+          "y": 571.2097571627136
+        },
+        {
+          "x": 355.64898381681826,
+          "y": 559.5804217907537
+        },
+        {
+          "x": 351.563001118562,
+          "y": 559.8661415344991
+        },
+        {
+          "x": 352.376203466145,
+          "y": 571.495476906459
+        }
+      ],
+      "suffix_corners": null,
+      "suffix_pdf_corners": null,
+      "placement": {
+        "item_type": "image",
+        "source_index": 1,
+        "page_index": 0,
+        "x": 43.390476323392164,
+        "y": 389.83337583245554,
+        "width": 320.1150473532157,
+        "height": 223.07229677763456,
+        "rotation_degrees": -4.0,
+        "arrangement": "stacked"
+      }
+    }
+  ],
+  "text_annotations": [
+    {
+      "source_text_index": 0,
+      "category": "PdfBatchId",
+      "value": "PDF-API-7001",
+      "prefix": "Batch ",
+      "suffix": " composed",
+      "rendered_text": "Batch PDF-API-7001 composed",
+      "handwritten": false,
+      "pdf_corners": [
+        {
+          "x": 324.65875,
+          "y": 717.3170123031496
+        },
+        {
+          "x": 396.18075,
+          "y": 717.3170123031496
+        },
+        {
+          "x": 396.18075,
+          "y": 727.4920123031496
+        },
+        {
+          "x": 324.65875,
+          "y": 727.4920123031496
+        }
+      ],
+      "placement": {
+        "item_type": "text",
+        "source_index": 0,
+        "page_index": 0,
+        "x": 289.47375,
+        "y": 713.0940123031496,
+        "width": 164.508,
+        "height": 21.5,
+        "rotation_degrees": 0.0,
+        "arrangement": "beside"
+      }
+    },
+    {
+      "source_text_index": 1,
+      "category": "Reviewer",
+      "value": "Synthetic QA",
+      "prefix": "Checked by ",
+      "suffix": "",
+      "rendered_text": "Checked by Synthetic QA",
+      "handwritten": false,
+      "pdf_corners": [
+        {
+          "x": 201.919,
+          "y": 343.6630238362465
+        },
+        {
+          "x": 266.115,
+          "y": 343.6630238362465
+        },
+        {
+          "x": 266.115,
+          "y": 353.8380238362465
+        },
+        {
+          "x": 201.919,
+          "y": 353.8380238362465
+        }
+      ],
+      "placement": {
+        "item_type": "text",
+        "source_index": 1,
+        "page_index": 0,
+        "x": 136.781,
+        "y": 339.4400238362465,
+        "width": 133.334,
+        "height": 21.5,
+        "rotation_degrees": 0.0,
+        "arrangement": "stacked"
+      }
+    }
+  ]
+}

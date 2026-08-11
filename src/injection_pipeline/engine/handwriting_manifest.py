@@ -1,7 +1,7 @@
 """Handwriting asset manifest loading and render-plan attachment."""
 
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
 
@@ -66,10 +66,11 @@ def load_handwriting_manifest(manifest_path: Path) -> dict[str, dict[str, Any]]:
     return assets
 
 
-# Input: Manifestwurzel, relativer Assetpfad, Asset-ID und Assettyp.
+# Input: Manifestwurzel, Assetpfad, Asset-ID und Assettyp.
 # Output: Aufgeloester Pfad innerhalb der Manifestwurzel.
-# Die Funktion lehnt absolute Pfade und Parent-Traversal einschliesslich
-# Symlink-Ausbruechen ab, bevor externe Bild- oder Maskendateien gelesen werden.
+# Die Funktion lehnt absolute und laufwerksrelative Pfade in POSIX- und
+# Windows-Syntax sowie Parent-Traversal einschliesslich Symlink-Ausbruechen ab,
+# bevor externe Bild- oder Maskendateien gelesen werden.
 def _resolve_manifest_asset_path(
     manifest_root: Path,
     raw_path: object,
@@ -81,7 +82,12 @@ def _resolve_manifest_asset_path(
             f"Handwriting asset {asset_id!r} is missing a {asset_kind} path."
         )
     candidate = Path(raw_path)
-    if candidate.is_absolute():
+    windows_candidate = PureWindowsPath(raw_path)
+    if (
+        candidate.is_absolute()
+        or PurePosixPath(raw_path).is_absolute()
+        or bool(windows_candidate.anchor)
+    ):
         raise ValueError(
             f"Handwriting asset {asset_id!r} {asset_kind} path must be relative."
         )

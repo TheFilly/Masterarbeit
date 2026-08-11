@@ -23,6 +23,7 @@ from injection_pipeline.pdf.models import (
     PdfTemplate,
 )
 from injection_pipeline.writers.pdf_make import (
+    _draw_annotation_outlines,
     _string_width,
     _text_annotation_quad,
     _TextRenderPlan,
@@ -254,11 +255,63 @@ def test_make_pdf_public_api_creates_artifacts_for_multiple_images_and_texts(
         "Direct TXT-1 value",
         "Direct TXT-2 value",
     ]
+    text_points = artifacts.record.text_annotations[0].pdf_corners.root
+    text_width = (
+        (text_points[1].x - text_points[0].x) ** 2
+        + (text_points[1].y - text_points[0].y) ** 2
+    ) ** 0.5
+    assert text_width == pytest.approx(_string_width("TXT-0", "Helvetica", 11.0))
 
     sidecar = PdfMakeAnnotationRecord.model_validate_json(
         artifacts.annotation_json.read_text(encoding="utf-8")
     )
     assert sidecar.model_dump(mode="json") == artifacts.record.model_dump(mode="json")
+
+
+def test_make_pdf_draws_values_red_and_image_labels_blue(
+    tmp_path: Path,
+) -> None:
+    pdf, images, texts = _make_inputs(tmp_path, image_count=1, text_count=1)
+    artifacts = make_pdf_composition(
+        template=PdfTemplate(
+            source_file=pdf,
+            page_count=2,
+            page_sizes=[(612.0, 792.0), (612.0, 792.0)],
+        ),
+        images=[PdfMakeImageInput.model_validate(images[0])],
+        texts=[PdfMakeTextInput.model_validate(texts[0])],
+        output_dir=tmp_path / "output",
+        seed=4,
+    )
+
+    class RecordingCanvas:
+        def __init__(self) -> None:
+            self.colors: list[tuple[float, float, float]] = []
+
+        def saveState(self) -> None:
+            pass
+
+        def restoreState(self) -> None:
+            pass
+
+        def setStrokeColorRGB(self, red: float, green: float, blue: float) -> None:
+            self.colors.append((red, green, blue))
+
+        def setLineWidth(self, width: float) -> None:
+            pass
+
+        def line(self, *coordinates: float) -> None:
+            pass
+
+    canvas = RecordingCanvas()
+    _draw_annotation_outlines(
+        canvas,
+        page_index=0,
+        image_annotations=artifacts.record.image_annotations,
+        text_annotations=artifacts.record.text_annotations,
+    )
+
+    assert canvas.colors == [(1, 0, 0), (0, 0, 1)]
 
 
 def test_make_pdf_writer_preserves_pages_and_adds_pages_for_small_templates(

@@ -72,7 +72,17 @@ def test_load_handwriting_manifest_rejects_missing_manifest(tmp_path: Path) -> N
         load_handwriting_manifest(manifest_path)
 
 
-@pytest.mark.parametrize("raw_path", ["../name.png", "C:/outside/name.png"])
+@pytest.mark.parametrize(
+    "raw_path",
+    [
+        "../name.png",
+        "/outside/name.png",
+        "C:/outside/name.png",
+        r"C:\outside\name.png",
+        r"\\server\share\name.png",
+        "C:outside/name.png",
+    ],
+)
 def test_load_handwriting_manifest_rejects_paths_outside_manifest(
     tmp_path: Path, raw_path: str
 ) -> None:

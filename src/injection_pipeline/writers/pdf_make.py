@@ -59,6 +59,9 @@ class _TextRenderPlan:
     font_size: float
     leading: float
     padding: float
+    line_source_maps: tuple[tuple[int, ...], ...] = ()
+    value_start: int = 0
+    value_end: int | None = None
 
 
 # Input: PDF-Template, bereits injizierte Bilder, Text-Inputs, Ausgabeordner und Seed.
@@ -362,9 +365,13 @@ def _prepare_text_plan(
 ) -> _TextRenderPlan:
     rendered_text = text.prefix + text.value + text.suffix
     usable_width = max_text_width - TEXT_PADDING * 2
-    lines = tuple(
-        _wrap_text(rendered_text, usable_width, TEXT_FONT_NAME, TEXT_FONT_SIZE)
+    wrapped_lines = _wrap_text_with_source_maps(
+        rendered_text,
+        usable_width,
+        TEXT_FONT_NAME,
+        TEXT_FONT_SIZE,
     )
+    lines = tuple(line for line, _ in wrapped_lines)
     widest_line = max(
         _string_width(line, TEXT_FONT_NAME, TEXT_FONT_SIZE) for line in lines
     )
@@ -377,6 +384,9 @@ def _prepare_text_plan(
         font_size=TEXT_FONT_SIZE,
         leading=TEXT_LEADING,
         padding=TEXT_PADDING,
+        line_source_maps=tuple(source_map for _, source_map in wrapped_lines),
+        value_start=len(text.prefix),
+        value_end=len(text.prefix) + len(text.value),
     )
 
 
@@ -396,6 +406,84 @@ def _wrap_text(
     for segment in text.splitlines() or [text]:
         lines.extend(_wrap_segment(segment, max_width, font_name, font_size))
     return lines or [""]
+
+
+# Input: Volltext, maximale Zeilenbreite und Fontdaten.
+# Output: Gerenderte Zeilen mit Quellindex-Maps je Zeichen.
+# Die Funktion spiegelt `_wrap_text` und bewahrt zusätzlich die Positionen des
+# Originaltexts, damit ein Value-Quad auch bei Zeilenumbrüchen eng bleibt.
+def _wrap_text_with_source_maps(
+    text: str,
+    max_width: float,
+    font_name: str,
+    font_size: float,
+) -> list[tuple[str, tuple[int, ...]]]:
+    if max_width <= 0:
+        raise ValueError("Text layout width must be positive.")
+    results: list[tuple[str, tuple[int, ...]]] = []
+    offset = 0
+    for segment in text.splitlines() or [text]:
+        results.extend(
+            _wrap_segment_with_source_maps(
+                segment,
+                offset,
+                max_width,
+                font_name,
+                font_size,
+            )
+        )
+        offset += len(segment) + 1
+    return results or [("", ())]
+
+
+# Input: Eine Textzeile, globaler Quelloffset und Fontdaten.
+# Output: Umgebrochene Zeilen mit Quellindex-Maps.
+# Das Ergebnis verwendet dieselben Umbruchregeln wie `_wrap_segment`, ergänzt
+# aber die Zuordnung jedes ausgegebenen Zeichens zur Eingabe.
+def _wrap_segment_with_source_maps(
+    segment: str,
+    source_offset: int,
+    max_width: float,
+    font_name: str,
+    font_size: float,
+) -> list[tuple[str, tuple[int, ...]]]:
+    words = segment.split(" ")
+    lines: list[tuple[str, tuple[int, ...]]] = []
+    current = ""
+    current_map: list[int] = []
+    word_start = 0
+    for word in words:
+        fragments = _split_word(word, max_width, font_name, font_size)
+        fragment_offset = 0
+        for fragment in fragments:
+            fragment_map = list(
+                range(
+                    source_offset + word_start + fragment_offset,
+                    source_offset + word_start + fragment_offset + len(fragment),
+                )
+            )
+            candidate = fragment if current == "" else f"{current} {fragment}"
+            separator_source_index = (
+                source_offset + word_start - 1 if fragment_offset == 0 else -1
+            )
+            candidate_map = (
+                fragment_map
+                if current == ""
+                else current_map + [separator_source_index] + fragment_map
+            )
+            if _string_width(candidate, font_name, font_size) <= max_width:
+                current = candidate
+                current_map = candidate_map
+            else:
+                if current:
+                    lines.append((current, tuple(current_map)))
+                current = fragment
+                current_map = fragment_map
+            fragment_offset += len(fragment)
+        word_start += len(word) + 1
+    if current or not lines:
+        lines.append((current, tuple(current_map)))
+    return lines
 
 
 # Input: Einzeiliger Textabschnitt, Zielbreite und Fontdaten.
@@ -528,7 +616,8 @@ def _build_image_annotations(
 
 # Input: Textinputs, gemessene Renderplaene und Layout-Platzierungen.
 # Output: Textannotation-Records mit PDF-Quads.
-# Das Quad beschreibt die gesamte sichtbare PDF-native Textbox.
+# Das Quad beschreibt nur den Value; Prefix und Suffix bleiben im gerenderten
+# Text enthalten, werden aber nicht Teil der roten Ground-Truth-Box.
 def _build_text_annotations(
     texts: list[PdfMakeTextInput],
     text_plans: list[_TextRenderPlan],
@@ -546,7 +635,9 @@ def _build_text_annotations(
                 suffix=text.suffix,
                 rendered_text=text_plans[text_index].rendered_text,
                 handwritten=text.handwritten,
-                pdf_corners=_text_annotation_quad(text_plans[text_index], placement),
+                pdf_corners=_text_value_annotation_quad(
+                    text_plans[text_index], placement
+                ),
                 placement=placement,
             )
         )
@@ -586,6 +677,81 @@ def _text_annotation_quad(
         PdfPoint(x=text_x + text_width, y=text_y),
         PdfPoint(x=text_x + text_width, y=text_y + text_height),
         PdfPoint(x=text_x, y=text_y + text_height),
+    ]
+    return PdfQuad.model_validate(
+        [
+            rotate_point_in_rect(
+                placement.x,
+                placement.y,
+                placement.width,
+                placement.height,
+                placement.rotation_degrees,
+                corner,
+            )
+            for corner in corners
+        ]
+    )
+
+
+# Input: Gemessener Text-Renderplan und finale PDF-Platzierung.
+# Output: Enges PDF-Quad ausschließlich um den injizierten Value.
+# Prefix und Suffix werden anhand der Quellindex-Maps aus dem gerenderten Text
+# herausgeschnitten; dadurch bleibt die Box auch bei Umbrüchen wertbezogen.
+def _text_value_annotation_quad(
+    text_plan: _TextRenderPlan,
+    placement: PdfMakeLayoutPlacement,
+) -> PdfQuad:
+    value_end = text_plan.value_end
+    if not text_plan.line_source_maps or value_end is None:
+        return _text_annotation_quad(text_plan, placement)
+
+    first_line: int | None = None
+    last_line: int | None = None
+    left = float("inf")
+    right = float("-inf")
+    text_x = placement.x + text_plan.padding
+    first_baseline = (
+        placement.y + placement.height - text_plan.padding - text_plan.font_size
+    )
+    for line_index, (line, source_map) in enumerate(
+        zip(text_plan.lines, text_plan.line_source_maps, strict=True)
+    ):
+        value_positions = [
+            index
+            for index, source_index in enumerate(source_map)
+            if text_plan.value_start <= source_index < value_end
+        ]
+        if not value_positions:
+            continue
+        line_left = text_x + _string_width(
+            line[: value_positions[0]], text_plan.font_name, text_plan.font_size
+        )
+        line_right = text_x + _string_width(
+            line[: value_positions[-1] + 1],
+            text_plan.font_name,
+            text_plan.font_size,
+        )
+        left = min(left, line_left)
+        right = max(right, line_right)
+        first_line = line_index if first_line is None else first_line
+        last_line = line_index
+
+    if first_line is None or last_line is None:
+        return _text_annotation_quad(text_plan, placement)
+
+    first_baseline_for_value = first_baseline - first_line * text_plan.leading
+    last_baseline_for_value = first_baseline - last_line * text_plan.leading
+    value_top = first_baseline_for_value + pdfmetrics.getAscent(
+        text_plan.font_name, text_plan.font_size
+    )
+    value_bottom = last_baseline_for_value + pdfmetrics.getDescent(
+        text_plan.font_name, text_plan.font_size
+    )
+    corners = [
+        PdfPoint(x=left, y=value_bottom),
+        PdfPoint(x=right, y=value_bottom),
+        PdfPoint(x=right, y=value_top),
+        PdfPoint(x=left, y=value_top),
     ]
     return PdfQuad.model_validate(
         [
@@ -788,7 +954,7 @@ def _draw_image(
 
 # Input: Canvas, Text-Renderplan und PDF-Platzierung.
 # Output: Keine Rueckgabe; zeichnet PDF-native Textzeilen.
-# Die Annotation-Box umfasst die gemessene Textbox inklusive Padding.
+# Die Annotation-Box wird separat aus den Fontmetriken und Segmentgrenzen berechnet.
 def _draw_text(
     canvas: Canvas,
     text_plan: _TextRenderPlan,
@@ -805,7 +971,7 @@ def _draw_text(
 
 
 # Input: Canvas, Seitenindex und Annotationen.
-# Output: Keine Rueckgabe; zeichnet rote Umrisse auf die aktuelle Seite.
+# Output: Keine Rueckgabe; zeichnet Value-Umrisse rot und Label-Umrisse blau.
 # Es werden nur Ground-Truth-Quads markiert, nicht die groben Layout-Slots.
 def _draw_annotation_outlines(
     canvas: Canvas,
@@ -818,15 +984,18 @@ def _draw_annotation_outlines(
     canvas.saveState()
     canvas.setStrokeColorRGB(1, 0, 0)
     canvas.setLineWidth(ANNOTATION_STROKE_WIDTH)
-    for quad in _page_annotation_quads(page_index, image_annotations, text_annotations):
+    for quad in _page_value_quads(page_index, image_annotations, text_annotations):
+        _draw_quad_outline(canvas, quad)
+    canvas.setStrokeColorRGB(0, 0, 1)
+    for quad in _page_label_quads(page_index, image_annotations):
         _draw_quad_outline(canvas, quad)
     canvas.restoreState()
 
 
 # Input: Seitenindex und Annotationen.
-# Output: PDF-Quads, die auf dieser Seite liegen.
+# Output: Rote Value-Quads, die auf dieser Seite liegen.
 # Die Zuordnung erfolgt ueber die jeweilige gespeicherte Layout-Platzierung.
-def _page_annotation_quads(
+def _page_value_quads(
     page_index: int,
     image_annotations: list[PdfMakeImageAnnotation],
     text_annotations: list[PdfMakeTextAnnotation],
@@ -834,23 +1003,28 @@ def _page_annotation_quads(
     quads: list[PdfQuad] = []
     for image_annotation in image_annotations:
         if image_annotation.placement.page_index == page_index:
-            quads.extend(_image_annotation_quads(image_annotation))
+            quads.append(image_annotation.pdf_corners)
     for text_annotation in text_annotations:
         if text_annotation.placement.page_index == page_index:
             quads.append(text_annotation.pdf_corners)
     return quads
 
 
-# Input: Eine transformierte Bildannotation.
-# Output: Alle vorhandenen PDF-Quads der Annotation.
-# Haupt-, Prefix- und Suffix-Quads werden in stabiler Reihenfolge fuer Preview
-# und Sidecar-nahe Sichtpruefung bereitgestellt.
-def _image_annotation_quads(annotation: PdfMakeImageAnnotation) -> list[PdfQuad]:
-    quads = [annotation.pdf_corners]
-    if annotation.prefix_pdf_corners is not None:
-        quads.append(annotation.prefix_pdf_corners)
-    if annotation.suffix_pdf_corners is not None:
-        quads.append(annotation.suffix_pdf_corners)
+# Input: Seitenindex und transformierte Bildannotationen.
+# Output: Blaue Label-/Prefix-/Suffix-Quads, die auf dieser Seite liegen.
+# Die roten Value-Quads werden bewusst nicht erneut ausgegeben.
+def _page_label_quads(
+    page_index: int,
+    annotations: list[PdfMakeImageAnnotation],
+) -> list[PdfQuad]:
+    quads: list[PdfQuad] = []
+    for annotation in annotations:
+        if annotation.placement.page_index != page_index:
+            continue
+        if annotation.prefix_pdf_corners is not None:
+            quads.append(annotation.prefix_pdf_corners)
+        if annotation.suffix_pdf_corners is not None:
+            quads.append(annotation.suffix_pdf_corners)
     return quads
 
 
