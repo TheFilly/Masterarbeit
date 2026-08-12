@@ -105,6 +105,17 @@ uv run injection-pipeline --seed 42 --font-family handwriting
 uv run injection-pipeline generate-handwriting --seed 42
 ```
 
+Run the manually inspected cross-function visual-check suite:
+
+```bash
+uv run python tools/visual_checks/pipeline_functionality.py
+```
+
+It writes a new timestamped session below `output/visual-checks/` and covers
+the normal CLI, handwriting, PDF commands, `inject_function`, and `make_pdf`.
+The suite is intentionally not part of pytest; see
+`tools/visual_checks/README.md` for skip options and the covered scenarios.
+
 Use the public Python API for one controlled DICOM/JPG injection:
 
 ```python
