@@ -1,31 +1,35 @@
-# Canonical Domain & Ground-Truth Schema Design (WP-B)
+# Kanonisches Domain- und Ground-Truth-Schema-Design (WP-B)
 
-Status: implemented for the DICOM/JPG core chain and extended for the PDF
-sidecar, updated 2026-07-14. Implements ADR-0005 and the shared ADR-0008
-lineage (`0.2.0-prototype` run records and `0.3.0-pdf-prototype` sidecars).
+Status: für die DICOM/JPG-Kernkette implementiert und auf den PDF-Sidecar
+erweitert, aktualisiert am 2026-07-14. Implementiert ADR-0005 und die gemeinsame
+ADR-0008-Versionslinie (`0.2.0-prototype`-Run-Records und
+`0.3.0-pdf-prototype`-Sidecars).
 
-Source of truth for current behaviour: `ground_truth.build_record()`, the
-planning functions in `planning.py`, annotation construction in
-`engine/injector.py`, the models under `models/`, and the documented artifact
-surface in `docs/dicom-injection.md`.
+Quelle der Wahrheit für das aktuelle Verhalten: `ground_truth.build_record()`,
+die Planungsfunktionen in `planning.py`, der Aufbau der Annotationen in
+`engine/injector.py`, die Modelle unter `models/` und die dokumentierte
+Artefaktoberfläche in `docs/dicom-injection.md`.
 
-## Design constraints
+## Design-Constraints
 
-1. **Byte-compat first.** `model_dump(mode="json")` of the new `RunRecord`
-   must reproduce today's `ground_truth.json` byte-for-byte for the frozen
-   validation runs (key order, `null`s, float formatting). Key order in JSON
-   follows pydantic field declaration order — declare fields in exactly the
-   current emission order.
-2. **`_make_json_safe` is designed out.** `Path`-typed fields serialize to
-   strings natively; tuples become `list[...]`-typed fields. No custom shim.
-3. **Taxonomy-agnostic.** No model hardcodes field names like `patient_name`;
-   identity payloads are keyed dynamically and validated against the WP-C
-   identifier schema at load time, not by model structure.
-4. **One hierarchy for all formats.** DCM, JPG, and PDF reuse the same
-   annotation and record models; format-specific data lives in clearly marked
-   optional substructures.
+1. **Bytekompatibilität zuerst.** `model_dump(mode="json")` des neuen
+   `RunRecord` muss für die eingefrorenen Validierungs-Runs die heutige
+   `ground_truth.json` Byte für Byte reproduzieren (Schlüsselreihenfolge,
+   `null`s, Float-Formatierung). Die Schlüsselreihenfolge in JSON folgt der
+   Deklarationsreihenfolge der pydantic-Felder — Felder exakt in der aktuellen
+   Ausgabereihenfolge deklarieren.
+2. **`_make_json_safe` wird überflüssig.** `Path`-typisierte Felder werden
+   nativ als Strings serialisiert; Tupel werden zu `list[...]`-typisierten
+   Feldern. Kein eigener Shim.
+3. **Taxonomieagnostisch.** Kein Modell hardcodiert Feldnamen wie
+   `patient_name`; Identitäts-Payloads werden dynamisch verschlüsselt und beim
+   Laden gegen das WP-C-Identifier-Schema validiert, nicht durch die
+   Modellstruktur.
+4. **Eine Hierarchie für alle Formate.** DCM, JPG und PDF verwenden dieselben
+   Annotations- und Record-Modelle; formatspezifische Daten liegen in klar
+   markierten optionalen Teilstrukturen.
 
-## Model tree
+## Modellbaum
 
 ```text
 models/
@@ -40,100 +44,102 @@ models/
 └── adapters.py     SourceDocument, InjectedDocument, WrittenArtifacts (WP-F)
 ```
 
-All models: `model_config = ConfigDict(extra="forbid")` unless noted.
+Alle Modelle: `model_config = ConfigDict(extra="forbid"), sofern nicht anders angegeben.
 
-## Implementation status, 2026-07-12
+## Implementierungsstatus, 2026-07-12
 
-Implemented:
+Implementiert:
 
 - `models/geometry.py`, `segments.py`, `identity.py`, `annotations.py`,
-  `dicom.py`, `rendering.py`, `record.py`, and `adapters.py`.
-- `ground_truth.build_record()` constructs a validated `RunRecord`; JSON
-  artifact writing uses `model_dump(mode="json")`.
-- `load_run_record()` accepts `0.2.0-prototype` and rejects unknown versions.
-- Unit and E2E tests cover model validators, record round-trip behavior, and
-  DCM/JPG artifact byte hashes.
+  `dicom.py`, `rendering.py`, `record.py` und `adapters.py`.
+- `ground_truth.build_record()` erzeugt ein validiertes `RunRecord`; das
+  Schreiben der JSON-Artefakte verwendet `model_dump(mode="json")`.
+- `load_run_record()` akzeptiert `0.2.0-prototype` und weist unbekannte Versionen zurück.
+- Unit- und E2E-Tests decken Modell-Validatoren, Record-Round-Trip-Verhalten und
+  Byte-Hashes der DCM/JPG-Artefakte ab.
 
-Open:
+Offen:
 
-- Future emitted DICOM/JPG schema versions and their ADR-0008 changelog
-  entries.
-- Identifier-schema provenance and reproducibility/environment fields in the
-  emitted record.
-- Broader PDF sidecar integration fixtures and any future provenance fields.
+- Künftige ausgegebene DICOM/JPG-Schema-Versionen und ihre ADR-0008-Changelog-
+  Einträge.
+- Identifier-Schema-Provenienz und Reproduzierbarkeits-/Umgebungsfelder im
+  ausgegebenen Record.
+- Breitere PDF-Sidecar-Integrations-Fixtures und künftige Provenienzfelder.
 
-### Geometry (`models/geometry.py`)
+### Geometrie (`models/geometry.py`)
 
-| Model | Fields | Validation |
+| Modell | Felder | Validierung |
 |---|---|---|
-| `ImagePoint` | `x: float`, `y: float` | top-left origin, pixels. Serialized as `{"x": ..., "y": ...}`; matches `engine.geometry._rotated_corners()` output. |
-| `PdfPoint` | `x: float`, `y: float` | bottom-left origin, PDF points. Distinct type per the PDF plan ("Sidecar Schema Direction") — never interchangeable with `ImagePoint`. |
-| `Quad` | `list[ImagePoint]` (annotated type or RootModel) | exactly 4 points, corner order preserved (top-left, top-right, bottom-right, bottom-left before rotation). |
-| `MaskBounds` | `left: int`, `top: int`, `right: int`, `bottom: int`, `width: int`, `height: int` | `width == right - left`, `height == bottom - top` (model validator). |
+| `ImagePoint` | `x: float`, `y: float` | Ursprung oben links, Pixel. Serialisiert als `{"x": ..., "y": ...}`; entspricht der Ausgabe von `engine.geometry._rotated_corners()`. |
+| `PdfPoint` | `x: float`, `y: float` | Ursprung unten links, PDF-Punkte. Eigenständiger Typ gemäß PDF-Plan („Sidecar Schema Direction“) — nie mit `ImagePoint` austauschbar. |
+| `Quad` | `list[ImagePoint]` (annotierter Typ oder RootModel) | Genau 4 Punkte, Reihenfolge der Ecken erhalten (vor der Rotation oben links, oben rechts, unten rechts, unten links). |
+| `MaskBounds` | `left: int`, `top: int`, `right: int`, `bottom: int`, `width: int`, `height: int` | `width == right - left`, `height == bottom - top` (Modell-Validator). |
 
-### Text segments (`models/segments.py`)
+### Textsegmente (`models/segments.py`)
 
 `TextSegment`: `kind: Literal["generic", "pii"]`, `text: str`. List-level
-validation (used by `RenderPlanItem`): concatenated segment texts equal the
-full rendered text, and at least one non-empty `pii` segment exists. The model
-owns this normalization and validation.
+Validierung (verwendet von `RenderPlanItem`): Die zusammengefügten Segmenttexte
+ergeben den vollständigen gerenderten Text, und mindestens ein nicht leeres
+`pii`-Segment ist vorhanden. Das Modell besitzt diese Normalisierung und
+Validierung.
 
-### Identity (`models/identity.py`)
+### Identität (`models/identity.py`)
 
 ```python
 Identity:
     identity_id: str          # selected by identifier_schema.identity_id_field
-    seed: int                 # the seed that produced it
-    fields: dict[str, str]    # field name -> value, keys from the identifier schema
+    seed: int                 # der Seed, der ihn erzeugt hat
+    fields: dict[str, str]    # Feldname -> Wert, Schlüssel aus dem Identifier-Schema
 ```
 
-Rationale: a fixed-attribute `Identity(patient_name=..., ...)` would re-hardcode
-the taxonomy that WP-C externalizes. The identifier schema (WP-C) validates
-which keys must be present; the model only guarantees shape. `identity_id`
-stays a plain string whose *derivation* (today: the `patient_id` field) is a
-schema-level rule (`identity_id_field` in the WP-C schema), not a model rule.
+Begründung: Eine attributfeste `Identity(patient_name=..., ...)` würde die von
+WP-C externalisierte Taxonomie erneut hardcodieren. Das Identifier-Schema (WP-C)
+validiert, welche Schlüssel vorhanden sein müssen; das Modell garantiert nur
+die Form. `identity_id` bleibt ein einfacher String, dessen *Ableitung* (heute:
+das Feld `patient_id`) eine Regel auf Schemaebene
+(`identity_id_field` im WP-C-Schema) und keine Modellregel ist.
 
-### Annotations (`models/annotations.py`)
+### Annotationen (`models/annotations.py`)
 
-`BoxAnnotation` — one visibly rendered PII box, built by
+`BoxAnnotation` — eine sichtbar gerenderte PII-Box, erzeugt durch
 `engine.injector._build_box_annotation()`:
 
-| Field | Type | Today's key |
+| Feld | Typ | Heutiger Schlüssel |
 |---|---|---|
 | `label` | `str` | `label` |
-| `text` | `str` | `text` (the PII part only) |
-| `rendered_text` | `str` | `rendered_text` (prefix + PII) |
-| `region` | `str` | `region` (`top_left` \| `top_right` \| `bottom_left` \| `bottom_right` \| `free`; keep `str`, values come from placement) |
+| `text` | `str` | `text` (nur der PII-Teil) |
+| `rendered_text` | `str` | `rendered_text` (Präfix + PII) |
+| `region` | `str` | `region` (`top_left` \| `top_right` \| `bottom_left` \| `bottom_right` \| `free`; `str` beibehalten, Werte kommen aus der Platzierung) |
 | `corners` | `Quad` | `corners` |
-| `label_corners` | `Quad \| None` | `label_corners` (`null` without prefix) |
+| `label_corners` | `Quad \| None` | `label_corners` (`null` ohne Präfix) |
 | `rotation_degrees` | `int` | `rotation_degrees` |
-| `frame_index` | `int` | `frame_index` (always 0 today) |
+| `frame_index` | `int` | `frame_index` (heute immer 0) |
 | `font_size_pct` | `int` | `font_size_pct` |
 
-`DicomTagAnnotation` — one injected DICOM tag, built by
+`DicomTagAnnotation` — ein injiziertes DICOM-Tag, erzeugt durch
 `planning.build_tag_annotations()`:
 
-| Field | Type | Today's key |
+| Feld | Typ | Heutiger Schlüssel |
 |---|---|---|
 | `label` | `str` | `label` |
-| `tag_address` | `str` | `tag_address` (`"0010,0010"` form; regex-validate `^[0-9A-F]{4},[0-9A-F]{4}$`) |
+| `tag_address` | `str` | `tag_address` (Form `"0010,0010"`; per Regex `^[0-9A-F]{4},[0-9A-F]{4}$` validieren) |
 | `tag_keyword` | `str` | `tag_keyword` |
-| `dicom_vr` | `str` | `dicom_vr` (2 uppercase letters) |
+| `dicom_vr` | `str` | `dicom_vr` (2 Großbuchstaben) |
 | `value` | `str` | `value` |
 | `identity_field` | `str` | `identity_field` |
 | `identity_id` | `str` | `identity_id` |
 | `source_file` | `Path` | `source_file` (serializes to string) |
 | `output_file` | `Path` | `output_file` |
 
-`SpanAnnotation` — reserved for text-span formats (currently emitted as `[]`
-by `ground_truth.build_record()`). Minimal now: `label: str`, `text: str`, `start: int`,
-`end: int`, `identity_field: str`. Marked provisional; PLAN.md Phase 2 owns
-its real design.
+`SpanAnnotation` — für Textspan-Formate reserviert (wird derzeit von
+`ground_truth.build_record()` als `[]` ausgegeben). Aktuell minimal:
+`label: str`, `text: str`, `start: int`, `end: int`, `identity_field: str`.
+Vorläufig; PLAN.md Phase 2 besitzt das endgültige Design.
 
 ### Rendering (`models/rendering.py`)
 
-`RenderPlanItem` — planner output and engine input, built by
-`planning.build_visible_render_plan()` and optionally extended by
+`RenderPlanItem` — Ausgabe des Planners und Eingabe der Engine, erzeugt durch
+`planning.build_visible_render_plan()` und optional erweitert durch
 `engine.handwriting_manifest.apply_handwriting_assets()`:
 
 - `label: str`, `text: str`, `text_segments: list[TextSegment]`,
@@ -141,42 +147,45 @@ its real design.
   `line_index: int`
 - `renderer_type: Literal["font_text", "handwriting_asset"] = "font_text"`
 - `asset_id: str | None = None`, `asset: HandwritingAssetRef | None = None`
-- Engine-added placement fields (`position`, `padding`, `stroke_width`) belong to a
-  derived `PlacedRenderItem`, not to the plan item: planning and placement are
-  different stages with different data.
+- Von der Engine ergänzte Platzierungsfelder (`position`, `padding`,
+  `stroke_width`) gehören zu einem abgeleiteten `PlacedRenderItem`, nicht zum
+  Plan-Element: Planung und Platzierung sind verschiedene Stufen mit
+  unterschiedlichen Daten.
 
-`HandwritingAssetRef` (normalized manifest entry from
+`HandwritingAssetRef` (normalisierter Manifesteintrag aus
 `engine.handwriting_manifest.load_handwriting_manifest()`): `asset_id: str`,
 `text: str`, `identity_field: str`, `ink_color: str | None`,
 `background_mode: str | None`, `image_path: Path`, `mask_path: Path`.
-`extra="allow"` — manifests carry generator-specific keys that must survive
-into `render_metadata`.
+`extra="allow"` — Manifeste enthalten generatorspezifische Schlüssel, die bis
+in `render_metadata` erhalten bleiben müssen.
 
-`AnnotationRenderDetail` — per-annotation `render_metadata` built by the engine:
-`position: {x, y}` (model
-`PixelPosition(x: int, y: int)`), font fields (`font_family`, `font_name`,
+`AnnotationRenderDetail` — von der Engine erzeugtes `render_metadata` pro
+Annotation:
+`position: {x, y}` (Modell
+`PixelPosition(x: int, y: int)`), Font-Felder (`font_family`, `font_name`,
 `font_size`, `padding`, `fill_rgb: list[int]`, `stroke_fill_rgb`,
 `stroke_width`, `background_enabled`, `background_color: list[int] | None`),
 `text_segments: list[TextSegment]`, `geometry_source: str`,
 `mask_coordinate_space: str`, `mask_alpha_threshold: int`,
 `text_mask_bounds / pii_mask_bounds / label_mask_bounds: MaskBounds | None`,
 `text_box_size / rotated_box_size: {width, height}`,
-`rendered_text_corners: Quad`, and for handwriting: `renderer_type`,
+`rendered_text_corners: Quad` und für Handschrift: `renderer_type`,
 `asset_id`, `asset_path: Path`, `mask_path: Path`, `ink_color`,
-`background_mode`. Font-text and handwriting emit different key subsets —
-model as one class with optional fields (simplest byte-compat) and revisit a
-discriminated union after byte-compat is relaxed. Handwriting additionally
-records `selected_ink_color`, `contrast_mode`, `sampled_luminance`,
-`luminance_spread`, and `contrast_decision_reason`; these describe render-time
-appearance and do not alter mask geometry.
+`background_mode`. Font-Text und Handschrift geben unterschiedliche
+Schlüsselmengen aus — als eine Klasse mit optionalen Feldern modellieren
+(einfachste Bytekompatibilität) und eine diskriminierte Union erst nach
+Lockerung der Bytekompatibilität prüfen. Handschrift zeichnet zusätzlich
+`selected_ink_color`, `contrast_mode`, `sampled_luminance`, `luminance_spread`
+und `contrast_decision_reason` auf; diese beschreiben das Erscheinungsbild zur
+Renderzeit und ändern die Maskengeometrie nicht.
 
-`RenderedAnnotation` — the `visible_annotations` entries produced by
-`engine/injector.py`: `label`, `text`, `rendered_text`,
+`RenderedAnnotation` — die von `engine/injector.py` erzeugten Einträge:
+`label`, `text`, `rendered_text`,
 `generic_text`, `pii_text`, `region`, `rotation_degrees`, `corners: Quad`,
 `label_corners: Quad | None`, `render_metadata: AnnotationRenderDetail`.
 
-`EngineRenderMetadata` — the engine-level metadata block returned by
-`engine/injector.py`: `seed: int`, `rotation_degrees: int`,
+`EngineRenderMetadata` — der von `engine/injector.py` zurückgegebene
+Metadatenblock auf Engine-Ebene: `seed: int`, `rotation_degrees: int`,
 `allowed_rotations_degrees: list[int]`, `frame_count: int`,
 `applied_frame_indices: list[int]`, `effective_font_family: str`,
 `effective_font_size_px: int`, `background_enabled: bool`,
@@ -184,41 +193,44 @@ appearance and do not alter mask geometry.
 `renderer_types: list[str]`, `handwriting_assets: list[...]` (id/paths/ink
 subset), `geometry_notes: str`,
 `mask_alpha_threshold: int`, `visible_annotations: list[RenderedAnnotation]`.
-Handwriting runs may also include the requested `handwriting_ink_color` and
-`handwriting_contrast_mode`; these fields are omitted for font-only records.
+Handschrift-Runs können zusätzlich die angeforderten
+`handwriting_ink_color` und `handwriting_contrast_mode` enthalten; diese Felder
+werden bei reinen Font-Records weggelassen.
 
-### DICOM context (`models/dicom.py`)
+### DICOM-Kontext (`models/dicom.py`)
 
-`DicomContext` (from `summarize_dicom`, `loaders/dicom.py:20`): `modality`,
-`sop_instance_uid`, `study_instance_uid`, `series_instance_uid` (all
+`DicomContext` (aus `summarize_dicom`, `loaders/dicom.py:20`): `modality`,
+`sop_instance_uid`, `study_instance_uid`, `series_instance_uid` (alle
 `str | None`), `rows`, `columns`, `samples_per_pixel` (`int | None`),
 `photometric_interpretation: str | None`, `number_of_frames: int | None`,
-`has_pixel_data: bool`. Note: pydicom returns non-str element types
-(`PersonName`, `UID`); the loader must coerce to `str` explicitly — today
-`json.dump` handles `UID` because it subclasses `str`, so coercion is
-behaviour-preserving.
+`has_pixel_data: bool`. Hinweis: pydicom gibt nicht als String typisierte
+Elemente (`PersonName`, `UID`) zurück; der Loader muss explizit in `str`
+umwandeln — heute verarbeitet `json.dump` `UID`, weil es von `str` erbt, daher
+ist die Umwandlung verhaltensneutral.
 
-### Run record (`models/record.py`)
+### Run-Record (`models/record.py`)
 
-`RunMetadata` (keys in emission order, defined in `models/record.py`):
+`RunMetadata` (Schlüssel in Ausgabereihenfolge, definiert in `models/record.py`):
 `rotation_degrees: int`, `placement_mode: str`,
 `pixel_injection_status: str`, `pixel_renderer: str`,
 `visible_identity_fields: list[str]`, `tag_only_identity_fields: list[str]`,
 `source_dicom_context: DicomContext | None = None`,
 `output_dicom_context: DicomContext | None = None`.
-Serialization rule: the two context fields are **omitted when None** (JPG runs
-have no such keys; see `ground_truth.attach_dicom_contexts()`); everything
-else serializes `None` as `null`. Implement with per-field
-`model_serializer`/`exclude_none` handling limited to these two fields.
+Serialisierungsregel: Die beiden Kontextfelder werden bei **`None` weggelassen**
+(JPG-Runs haben diese Schlüssel nicht; siehe
+`ground_truth.attach_dicom_contexts()`); alles andere serialisiert `None` als
+`null`. Mit einer auf diese beiden Felder begrenzten
+`model_serializer`-/`exclude_none`-Behandlung implementieren.
 
 `RecordRenderMetadata` (`models/record.py`): `rotation_degrees: int`,
 `placement_mode: str`, `font_size_pct: int`, `font_family: str`,
 `text_background: str | None`, `visible_render_plan: list[RenderPlanItem]`,
-then the flattened `EngineRenderMetadata` fields. To keep byte compatibility,
-`ground_truth.build_record()` spreads the validated engine block into this
-model *inlines* `EngineRenderMetadata`'s fields after `visible_render_plan`
-(composition via flattened serialization, or plain field duplication —
-implementer's choice, byte output is the contract).
+dann die abgeflachten Felder von `EngineRenderMetadata`. Für Bytekompatibilität
+verteilt `ground_truth.build_record()` den validierten Engine-Block in dieses
+Modell und *inline* die Felder von `EngineRenderMetadata` nach
+`visible_render_plan` (Zusammensetzung über abgeflachte Serialisierung oder
+direkte Feldduplizierung — die Implementierung kann wählen, die Byteausgabe ist
+der Vertrag).
 
 `RunRecord` (field order = emission order, `models/record.py`):
 
@@ -231,58 +243,64 @@ implementer's choice, byte output is the contract).
 | `rotation_degrees` | `int` | |
 | `source_file` | `Path` | |
 | `output_file` | `Path` | |
-| `preview_file` | `Path` | accepts the engine preview path and serializes as a string |
+| `preview_file` | `Path` | akzeptiert den Preview-Pfad der Engine und serialisiert ihn als String |
 | `annotated_preview_file` | `Path` | |
-| `document_type` | `str` | `"dcm"` \| `"jpg"` today; open set for new formats |
+| `document_type` | `str` | heute `"dcm"` \| `"jpg"`; offene Menge für neue Formate |
 | `example_type` | `str` | |
 | `modality` | `str \| None` | `null` for JPG |
 | `identity_id` | `str` | |
-| `span_annotations` | `list[SpanAnnotation]` | `[]` today |
+| `span_annotations` | `list[SpanAnnotation]` | heute `[]` |
 | `box_annotations` | `list[BoxAnnotation]` | |
 | `dicom_tag_annotations` | `list[DicomTagAnnotation]` | `[]` for JPG |
 | `run_metadata` | `RunMetadata` | |
 | `render_metadata` | `RecordRenderMetadata` | |
 
-Every key currently written by `ground_truth.build_record()` is accounted for
-above. Pydantic serialization handles paths and nested typed metadata.
+Jeder derzeit von `ground_truth.build_record()` geschriebene Schlüssel ist oben
+berücksichtigt. Die pydantic-Serialisierung verarbeitet Pfade und verschachtelte
+typisierte Metadaten.
 
-## Versioning (with ADR-0008)
+## Versionierung (mit ADR-0008)
 
-- One lineage, documented in a `docs/architecture/schema-changelog.md` started
-  by the implementer:
-  - `0.2.0-prototype` — current run record (this spec's byte-compat target).
-  - `0.3.0-pdf-prototype` — PDF sidecar for the PDF loader/writer path; its
-    point/quad models come from `models/geometry.py`.
-  - `0.4.0` — first version emitted *by* the pydantic models once byte-compat
-    with `0.2.0-prototype` is deliberately retired (future ADR; not part of
-    this package).
-- `load_run_record(path)` currently validates `0.2.0-prototype` DICOM/JPG
-  `RunRecord` artifacts only. The `0.3.0-pdf-prototype` sidecar is validated
-  directly with `PdfAnnotationRecord.model_validate_json()` by the PDF path;
-  it is not dispatched through `load_run_record()`. Version-specific golden
-  fixtures under `tests/fixtures/schemas/` remain a future requirement for
-  additional published versions. Old `ground_truth.json` files keep parsing
-  forever or their version is explicitly dropped by ADR.
-- Additive change = MINOR bump + new golden file. Breaking change = MAJOR (or
-  pre-1.0: MINOR with migration note) + ADR.
+- Eine Versionslinie, dokumentiert in einer vom Implementierer begonnenen
+  `docs/architecture/schema-changelog.md`:
+  - `0.2.0-prototype` — aktuelles Run-Record (Bytekompatibilitätsziel dieser
+    Spezifikation).
+  - `0.3.0-pdf-prototype` — PDF-Sidecar für den PDF-Loader/Writer-Pfad; seine
+    Punkt-/Quad-Modelle kommen aus `models/geometry.py`.
+  - `0.4.0` — erste von den pydantic-Modellen ausgegebene Version, sobald die
+    Bytekompatibilität mit `0.2.0-prototype` bewusst beendet wird (künftiges
+    ADR; nicht Teil dieses Pakets).
+- `load_run_record(path)` validiert derzeit nur DICOM/JPG-`RunRecord`-Artefakte
+  mit `0.2.0-prototype`. Der `0.3.0-pdf-prototype`-Sidecar wird vom PDF-Pfad
+  direkt mit `PdfAnnotationRecord.model_validate_json()` validiert und nicht
+  über `load_run_record()` verteilt. Versionsspezifische Golden Fixtures unter
+  `tests/fixtures/schemas/` bleiben für weitere veröffentlichte Versionen eine
+  künftige Anforderung. Alte `ground_truth.json`-Dateien bleiben dauerhaft
+  einlesbar, oder ihre Version wird durch ein ADR ausdrücklich verworfen.
+- Additive Änderung = MINOR-Erhöhung plus neue Golden File. Nicht
+  rückwärtskompatible Änderung = MAJOR (oder vor 1.0: MINOR mit Migrationsnotiz)
+  plus ADR.
 
-## Byte-compat notes (golden-test checklist)
+## Hinweise zur Byte-Kompatibilität (Golden-Test-Checkliste)
 
-- `json.dump(record, indent=2)` + trailing `"\n"` for `ground_truth.json`; no
-  trailing newline for `run_manifest.json` (`ground_truth.write_run_artifacts()`,
-  ADR-0004).
-- Corner coordinates are `round(value, 2)` floats — `100.0` must emit as
-  `100.0`, not `100`; keep fields `float`, never `int`-coerce.
-- `label_corners`/`label_mask_bounds` emit `null` (not omitted) when absent.
-- `run_metadata.source_dicom_context`/`output_dicom_context` are *omitted*
-  (not `null`) for JPG runs.
-- Handwriting-asset entries in `visible_render_plan` carry the full normalized
-  asset mapping including absolute paths (today stringified by
-  `_make_json_safe`); `HandwritingAssetRef` with `Path` fields reproduces this.
-- Font name fallback `"PillowDefaultFont"` (`engine/overlay.py`) is part of the
-  surface.
+- `json.dump(record, indent=2)` plus abschließendes `"\n"` für
+  `ground_truth.json`; kein abschließender Zeilenumbruch für
+  `run_manifest.json` (`ground_truth.write_run_artifacts()`, ADR-0004).
+- Eckkoordinaten sind `round(value, 2)`-Floats — `100.0` muss als `100.0`, nicht
+  als `100` ausgegeben werden; Felder als `float` beibehalten, nie in `int`
+  umwandeln.
+- `label_corners`/`label_mask_bounds` geben bei Abwesenheit `null` aus (nicht
+  weglassen).
+- `run_metadata.source_dicom_context`/`output_dicom_context` werden bei JPG-Runs
+  *weggelassen* (nicht als `null` ausgegeben).
+- Handschrift-Asset-Einträge in `visible_render_plan` enthalten die vollständige
+  normalisierte Asset-Zuordnung einschließlich absoluter Pfade (heute durch
+  `_make_json_safe` in Strings umgewandelt); `HandwritingAssetRef` mit
+  `Path`-Feldern reproduziert dies.
+- Der Fallback für den Schriftnamen `"PillowDefaultFont"`
+  (`engine/overlay.py`) ist Teil der Oberfläche.
 
-## Annotated example (abbreviated DCM run)
+## Annotiertes Beispiel (gekürzter DCM-Run)
 
 ```jsonc
 {
@@ -303,11 +321,11 @@ above. Pydantic serialization handles paths and nested typed metadata.
   "box_annotations": [
     {
       "label": "PatientID",
-      "text": "661414",                        // PII part only
+      "text": "661414",                        // nur der PII-Teil
       "rendered_text": "SYNTH-661414",         // prefix + PII
       "region": "top_left",
       "corners": [ {"x": 74.13, "y": 30.0}, ... ],   // Quad of ImagePoint
-      "label_corners": [ ... ],                // null when no prefix
+      "label_corners": [ ... ],                // null ohne Präfix
       "rotation_degrees": 20,
       "frame_index": 0,
       "font_size_pct": 100
@@ -355,28 +373,30 @@ above. Pydantic serialization handles paths and nested typed metadata.
 }
 ```
 
-The JPG variant differs exactly as `docs/dicom-injection.md` documents:
+Die JPG-Variante unterscheidet sich genau wie in `docs/dicom-injection.md`:
 `record_type = "jpg_injection_run"`, `document_type = "jpg"`,
 `modality: null`, `dicom_tag_annotations: []`, no DICOM contexts in
 `run_metadata`.
 
-## Implementation Status
+## Implementierungsstatus
 
-### Implemented 2026-07-12
+### Implementiert am 2026-07-12
 
-- Model modules created and validators covered by unit tests.
-- `models/rendering.py` and `models/record.py` declare the current emission
-  order.
-- E2E tests parse `ground_truth.json` with `load_run_record()` and assert
-  byte-compatible serialization for `ground_truth.json` and `run_manifest.json`.
-- Runner/engine outputs are wired into `BoxAnnotation`, `DicomTagAnnotation`,
-  `DicomContext`, and `RunRecord`; `_make_json_safe` is deleted.
+- Modellmodule erstellt und Validatoren durch Unit-Tests abgedeckt.
+- `models/rendering.py` und `models/record.py` deklarieren die aktuelle
+  Ausgabereihenfolge.
+- E2E-Tests parsen `ground_truth.json` mit `load_run_record()` und prüfen die
+  bytekompatible Serialisierung von `ground_truth.json` und `run_manifest.json`.
+- Runner-/Engine-Ausgaben sind mit `BoxAnnotation`, `DicomTagAnnotation`,
+  `DicomContext` und `RunRecord` verbunden; `_make_json_safe` wurde gelöscht.
 
-### Remaining
+### Verbleibend
 
-- `docs/architecture/schema-changelog.md` records the shared lineage.
-- Future DICOM/JPG provenance fields require a later additive schema bump.
+- `docs/architecture/schema-changelog.md` dokumentiert die gemeinsame
+  Versionslinie.
+- Künftige DICOM/JPG-Provenienzfelder benötigen eine spätere additive
+  Schemaerhöhung.
 
-Definition of done update: the DICOM/JPG `RunRecord` path is implemented and
-strict-typechecked. ADR-0008 still owns future emitted versions and PDF sidecar
-records.
+Abschlusskriterium: Der DICOM/JPG-`RunRecord`-Pfad ist implementiert und strikt
+typgeprüft. ADR-0008 bleibt für künftige ausgegebene Versionen und PDF-Sidecar-
+Records maßgeblich.

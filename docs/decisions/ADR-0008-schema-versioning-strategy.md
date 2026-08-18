@@ -7,69 +7,79 @@ based_on:
   - docs/architecture/domain-model-spec.md
 ---
 
-# ADR-0008: One versioned schema lineage for all ground-truth artifacts
+# ADR-0008: Eine versionierte Schema-Linie für alle Ground-Truth-Artefakte
 
-## Context
+## Kontext
 
-`0.2.0-prototype` is the current DICOM/JPG run-record version. The PDF
-modality introduces `0.3.0-pdf-prototype` for its distinct annotation sidecar;
-it accepts an input PDF plus an injected DICOM and validated JSON annotation.
-Two independently evolving version strings with no shared rules is guaranteed
-drift, so both records remain in one lineage.
+`0.2.0-prototype` ist die aktuelle Version des DICOM/JPG-Run-Records. Die
+PDF-Modalität führt für ihren eigenen Annotation-Sidecar
+`0.3.0-pdf-prototype` ein; sie akzeptiert ein Eingabe-PDF sowie ein injiziertes
+DICOM und eine validierte JSON-Annotation. Zwei unabhängig fortgeschriebene
+Versionszeichenfolgen ohne gemeinsame Regeln würden zwangsläufig auseinander-
+laufen, daher bleiben beide Records in einer gemeinsamen Versionslinie.
 
-## Decision
+## Entscheidung
 
-- **One lineage, two document kinds.** `RunRecord` (per-run ground truth) and
-  `PdfAnnotationRecord` (PDF sidecar) are distinct document kinds distinguished
-  by `record_type`, but share one `schema_version` numbering scheme and one
-  changelog (`docs/architecture/domain-model-spec.md`, "Versioning").
-- **Semver with pre-release tags.** `MAJOR.MINOR.PATCH[-tag]`: MAJOR = breaking
-  reads, MINOR = additive fields, PATCH = documentation/constraint fixes.
-  `-prototype` / `-pdf-prototype` tags mark pre-stability versions; the typed
-  models start at `0.4.0` (first validated version) while *emitting*
-  `0.2.0-prototype` until byte-compat is deliberately broken by a future ADR.
-- **Back-compat by parser, not by freeze.** The models must parse
-  `0.2.0-prototype` and `0.3.0-pdf-prototype` files (permissive read models or
-  explicit migration functions); golden files under `tests/fixtures/schemas/`
-  pin every published version.
+- **Eine Versionslinie, zwei Dokumentarten.** `RunRecord` (Ground Truth pro Run)
+  und `PdfAnnotationRecord` (PDF-Sidecar) sind durch `record_type` unterschiedene
+  Dokumentarten, teilen sich aber eine gemeinsame Nummerierung von
+  `schema_version` und ein gemeinsames Changelog
+  (`docs/architecture/domain-model-spec.md`, „Versioning“).
+- **Semver mit Pre-Release-Tags.** `MAJOR.MINOR.PATCH[-tag]`: MAJOR = nicht
+  rückwärtskompatible Leseänderungen, MINOR = zusätzliche Felder, PATCH =
+  Korrekturen an Dokumentation oder Constraints. Die Tags `-prototype` /
+  `-pdf-prototype` kennzeichnen Versionen vor der Stabilität; die typisierten
+  Modelle beginnen bei `0.4.0` (erste validierte Version), während bis zu einem
+  künftigen ADR weiterhin `0.2.0-prototype` *ausgegeben* wird.
+- **Rückwärtskompatibilität durch den Parser, nicht durch Einfrieren.** Die
+  Modelle müssen Dateien mit `0.2.0-prototype` und `0.3.0-pdf-prototype`
+  einlesen können (permissive Lesemodelle oder explizite Migrationsfunktionen);
+  Golden Files unter `tests/fixtures/schemas/` halten jede veröffentlichte
+  Version fest.
 
-## Alternatives Considered
+## Betrachtete Alternativen
 
-- **Independent versions per artifact kind**: what the PDF plan implies; drifts
-  immediately, and shared submodels (points, boxes) get two version histories.
-- **No versions until stable**: removes drift by removing information; existing
-  artifacts already carry version strings, so the field cannot be dropped.
-- **JSON Schema files as the source of truth**: duplicate of the pydantic
-  models; can be *generated* from the models later if external consumers need
-  them.
+- **Unabhängige Versionen pro Artefaktart**: Das würde der PDF-Plan nahelegen;
+  die Versionen driften sofort auseinander, und gemeinsame Submodelle (Punkte,
+  Boxen) erhielten zwei Versionsgeschichten.
+- **Keine Versionen bis zur Stabilität**: Beseitigt die Abweichung, indem es
+  Informationen beseitigt. Bestehende Artefakte enthalten bereits
+  Versionszeichenfolgen, daher kann das Feld nicht entfallen.
+- **JSON-Schema-Dateien als Quelle der Wahrheit**: Eine Verdopplung der
+  pydantic-Modelle; sie können später bei Bedarf für externe Konsumenten aus
+  den Modellen *generiert* werden.
 
-## Consequences
+## Konsequenzen
 
-- A schema change is: bump version in one place, add a golden file, note the
-  changelog entry. Old artifacts stay parseable.
-- The PDF sidecar reuses shared geometry models from `models/` while keeping
-  page, placement, and PDF-file models under `injection_pipeline/pdf/`.
+- Eine Schemaänderung bedeutet: Version an einer Stelle erhöhen, eine Golden
+  File hinzufügen und einen Changelog-Eintrag ergänzen. Alte Artefakte bleiben
+  einlesbar.
+- Der PDF-Sidecar verwendet gemeinsame Geometriemodelle aus `models/`, während
+  Seiten-, Platzierungs- und PDF-Dateimodelle unter
+  `injection_pipeline/pdf/` verbleiben.
 
-## Implementation Status
+## Implementierungsstatus
 
-Accepted and partially implemented 2026-07-14:
+Am 2026-07-14 angenommen und teilweise implementiert:
 
-- `RunRecord` validates and emits the existing `0.2.0-prototype` DICOM/JPG
-  record.
-- `load_run_record()` accepts only `0.2.0-prototype`; tests pin round-trip
-  behavior.
-- The shared schema changelog is maintained at
-  `docs/architecture/schema-changelog.md`.
+- `RunRecord` validiert und erzeugt weiterhin das bestehende DICOM/JPG-Record
+  `0.2.0-prototype`.
+- `load_run_record()` akzeptiert nur `0.2.0-prototype`; Tests halten das
+  Round-Trip-Verhalten fest.
+- Das gemeinsame Schema-Changelog wird unter
+  `docs/architecture/schema-changelog.md` gepflegt.
 
-Still open:
+Noch offen:
 
-- The emitted DICOM/JPG record has no version-safe slot for identifier-schema
-  provenance or the ADR-0009 `reproducibility` block.
-- `0.3.0-pdf-prototype` sidecar models and PDF loader/writer are implemented
-  under the approved PDF plan; broader operational fixture coverage remains
-  in progress.
+- Das ausgegebene DICOM/JPG-Record hat noch keinen versionssicheren Platz für
+  die Provenienz des Identifier-Schemas oder den `reproducibility`-Block aus
+  ADR-0009.
+- Die Sidecar-Modelle `0.3.0-pdf-prototype` sowie PDF-Loader und -Writer sind
+  gemäß dem freigegebenen PDF-Plan implementiert; eine breitere Abdeckung mit
+  operativen Fixtures ist noch in Arbeit.
 
-## Review Notes
+## Review-Hinweise
 
-Accepted by the project owner on 2026-07-14. Future schema changes require a
-changelog entry; breaking changes require a superseding ADR.
+Vom Projektverantwortlichen am 2026-07-14 angenommen. Künftige
+Schemaänderungen benötigen einen Changelog-Eintrag; nicht rückwärtskompatible
+Änderungen benötigen ein ersetzendes ADR.

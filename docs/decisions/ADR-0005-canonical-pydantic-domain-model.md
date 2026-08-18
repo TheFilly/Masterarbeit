@@ -6,72 +6,75 @@ based_on:
   - docs/architecture/domain-model-spec.md
 ---
 
-# ADR-0005: One canonical pydantic model hierarchy replaces the dict core
+# ADR-0005: Eine kanonische pydantic-Modellhierarchie ersetzt den Dict-Kern
 
-## Context
+## Kontext
 
-Before WP-B, the ground-truth record was hand-assembled as `dict[str, Any]`,
-serialized through a `_make_json_safe` shim, and never validated. Shared stage
-boundaries did not have runtime models. `AGENTS.md` mandates pydantic models at
-shared boundaries.
+Vor WP-B wurde der Ground-Truth-Datensatz als `dict[str, Any]` manuell
+zusammengesetzt, über einen `_make_json_safe`-Shim serialisiert und nie
+validiert. Gemeinsame Stufengrenzen besaßen keine Runtime-Modelle.
+`AGENTS.md` schreibt pydantic-Modelle an gemeinsamen Grenzen vor.
 
-## Decision
+## Entscheidung
 
-Define a single model hierarchy in `src/injection_pipeline/models/` as
-specified in `docs/architecture/domain-model-spec.md`:
+Eine einzelne Modellhierarchie in `src/injection_pipeline/models/` definieren,
+wie in `docs/architecture/domain-model-spec.md` spezifiziert:
 
-- geometry primitives (`ImagePoint`, `PdfPoint`, `MaskBounds`),
+- Geometrieprimitive (`ImagePoint`, `PdfPoint`, `MaskBounds`),
 - `TextSegment`, `Identity`, annotation variants (`BoxAnnotation`,
-  `DicomTagAnnotation`, `SpanAnnotation`), render/run metadata models, and a
-  root `RunRecord` carrying `schema_version`.
+  `DicomTagAnnotation`, `SpanAnnotation`), Render-/Run-Metadatenmodelle und ein
+  Root-`RunRecord` mit `schema_version`.
 
-All cross-module payloads use these models. JSON artifacts are produced via
-`model_dump(mode="json")` with `Path` fields typed as `Path` (pydantic
-serializes them to strings), designing `_make_json_safe` out. The PDF plan's
-`ImagePoint`/`PdfPoint` fold into this hierarchy rather than living in
-`pdf/models.py`.
+Alle modulübergreifenden Payloads verwenden diese Modelle. JSON-Artefakte
+werden über
+`model_dump(mode="json")` erzeugt; `Path`-Felder sind als `Path` typisiert
+(pydantic serialisiert sie als Strings), wodurch `_make_json_safe` entfällt.
+`ImagePoint`/`PdfPoint` aus dem PDF-Plan werden in diese Hierarchie integriert,
+statt in `pdf/models.py` zu liegen.
 
-## Alternatives Considered
+## Betrachtete Alternativen
 
-- **Keep dicts + add JSON Schema validation**: validates output but leaves every
-  internal seam untyped; does not retire the mypy override; two sources of truth
-  (builder code and schema file).
-- **dataclasses + manual validation**: lighter, but re-implements what pydantic
-  gives (validation, JSON-mode serialization, versionable schemas) and
-  contradicts the AGENTS.md stack choice.
-- **TypedDicts**: typing without runtime validation; ground truth for a thesis
-  needs runtime guarantees at the artifact boundary.
+- **Dicts beibehalten + JSON-Schema-Validierung ergänzen**: validiert die
+  Ausgabe, lässt aber jede interne Grenze untypisiert, beseitigt den mypy-
+  Override nicht und erzeugt zwei Wahrheitsquellen (Builder-Code und
+  Schema-Datei).
+- **dataclasses + manuelle Validierung**: leichter, implementiert aber erneut,
+  was pydantic bietet (Validierung, JSON-Mode-Serialisierung, versionierbare
+  Schemas) und widerspricht der Stack-Entscheidung in `AGENTS.md`.
+- **TypedDicts**: Typisierung ohne Runtime-Validierung; Ground Truth für eine
+  Masterarbeit benötigt Runtime-Garantien an der Artefaktgrenze.
 
-## Consequences
+## Konsequenzen
 
-- The record becomes a contract: field typos fail loudly; the golden
-  round-trip test pins the emitted JSON byte-for-byte against the current
-  prototype output.
-- Model fields give `engine/` the concrete types needed to delete the mypy
-  override's dict-related debt (WP-E confirms most debt is PIL/numpy, not
-  dicts — the override can be retired even earlier).
-- Migration constraint: `model_dump` must reproduce the current key order and
-  value formats exactly (see domain-model-spec, "Byte-compat notes").
+- Der Datensatz wird zu einem Vertrag: Tippfehler in Feldern schlagen sichtbar
+  fehl; der Golden-Roundtrip-Test fixiert die ausgegebene JSON-Datei Byte für
+  Byte gegen die aktuelle Prototype-Ausgabe.
+- Modellfelder geben `engine/` die konkreten Typen, um den Dict-bezogenen mypy-
+  Schuldenanteil zu entfernen (WP-E bestätigt, dass die meisten Schulden PIL/
+  numpy und nicht Dicts betreffen – der Override kann sogar früher entfallen).
+- Migrations-Constraint: `model_dump` muss aktuelle Schlüsselreihenfolge und
+  Werteformate exakt reproduzieren (siehe Domain-Model-Spezifikation,
+  „Hinweise zur Byte-Kompatibilität“).
 
-## Implementation Status
+## Implementierungsstatus
 
-Implemented 2026-07-12 for the DICOM/JPG core chain:
+Am 2026-07-12 für die DICOM/JPG-Kernkette implementiert:
 
 - `models/geometry.py`, `segments.py`, `identity.py`, `annotations.py`,
-  `dicom.py`, `rendering.py`, `record.py`, and `adapters.py` define the
-  pydantic boundary models.
-- `ground_truth.build_record()` emits a validated `RunRecord`; `_make_json_safe`
-  is gone.
-- `load_run_record()` parses `0.2.0-prototype` artifacts and the E2E tests
-  assert JSON round-trip byte compatibility for `ground_truth.json` and
+  `dicom.py`, `rendering.py`, `record.py` und `adapters.py` definieren die
+  pydantic-Grenzmodelle.
+- `ground_truth.build_record()` gibt ein validiertes `RunRecord` aus;
+  `_make_json_safe` ist entfernt.
+- `load_run_record()` parst `0.2.0-prototype`-Artefakte, und die E2E-Tests
+  bestätigen JSON-Roundtrip-Byte-Kompatibilität für `ground_truth.json` und
   `run_manifest.json`.
 
-Still open: ADR-0008 has not opened an emitted DICOM/JPG version for additive
-provenance/reproducibility fields. PDF sidecar models are implemented under
-the `0.3.0-pdf-prototype` lineage; broader PDF operational fixture coverage
-remains tracked by the PDF implementation plan.
+Noch offen: ADR-0008 hat noch keine ausgegebene DICOM/JPG-Version für additive
+Provenienz-/Reproduzierbarkeitsfelder geöffnet. PDF-Sidecar-Modelle sind unter
+der Linie `0.3.0-pdf-prototype` implementiert; eine breitere operative PDF-
+Fixture-Abdeckung bleibt im PDF-Implementierungsplan erfasst.
 
-## Review Notes
+## Review-Hinweise
 
-Accepted with the WP-B implementation on 2026-07-12. Future schema-emission
-changes still need the PLAN.md blocker gate.
+Mit der WP-B-Implementierung am 2026-07-12 angenommen. Künftige Änderungen an
+der Schemaausgabe benötigen weiterhin das Blocker-Gate aus `PLAN.md`.

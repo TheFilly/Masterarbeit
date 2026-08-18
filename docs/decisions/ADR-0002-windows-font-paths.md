@@ -5,44 +5,49 @@ based_on:
   - docs/architecture/determinism-audit.md
 ---
 
-# ADR-0002: Fixed Windows font paths for prototype text rendering
+# ADR-0002: Feste Windows-Font-Pfade für Prototype-Text-Rendering
 
-Backfilled 2026-07-06. Records a choice already implemented in code.
+Nachgetragen am 2026-07-06. Hält eine bereits im Code umgesetzte Entscheidung
+fest.
 
-## Context
+## Kontext
 
-Visible pixel injection renders synthetic PII with PIL and needs concrete
-TrueType fonts. The prototype targets a single Windows development machine, and
-rendered glyph geometry (and therefore ground-truth box coordinates and the
-frozen byte-identical validation artifacts) depends on the exact font files.
+Die sichtbare Pixel-Injektion rendert synthetische PII mit PIL und benötigt
+konkrete TrueType-Fonts. Der Prototype zielt auf eine einzelne Windows-
+Entwicklungsmaschine; die gerenderte Glyphengeometrie und damit Ground-Truth-
+Boxkoordinaten und eingefrorene byte-identische Validierungsartefakte hängen
+von den exakten Font-Dateien ab.
 
-## Decision
+## Entscheidung
 
-Font families are a closed set mapped to absolute Windows paths in
-`engine/pixel_injection.py:19-24` (`_FONT_PATHS`: arial, calibri, tahoma,
-consolas under `C:/Windows/Fonts/`). A missing font raises at run time
-(`load_default_font`, `engine/pixel_injection.py:77`). The CLI exposes the same
-closed set (`runner.py:50`, `cli.py:280-289`).
+Font-Familien bilden eine abgeschlossene Menge, die in
+`engine/pixel_injection.py:19-24` auf absolute Windows-Pfade abgebildet wird
+(`_FONT_PATHS`: arial, calibri, tahoma, consolas unter `C:/Windows/Fonts/`).
+Eine fehlende Font löst zur Laufzeit einen Fehler aus (`load_default_font`,
+`engine/pixel_injection.py:77`). Die CLI stellt dieselbe abgeschlossene Menge
+bereit (`runner.py:50`, `cli.py:280-289`).
 
-## Alternatives Considered
+## Betrachtete Alternativen
 
-- **Font discovery via matplotlib/fontconfig**: rejected for the prototype —
-  discovery order is environment-dependent, which would break geometry
-  reproducibility.
-- **Bundling fonts in the repo**: cleanest for portability but has licensing
-  implications (Windows system fonts are not redistributable); deferred.
+- **Font-Erkennung über matplotlib/fontconfig**: für den Prototype abgelehnt –
+  die Erkennungsreihenfolge hängt von der Umgebung ab und würde die
+  Geometrie-Reproduzierbarkeit brechen.
+- **Fonts im Repository bündeln**: für Portabilität am saubersten, aber mit
+  Lizenzfolgen (Windows-Systemfonts dürfen nicht weiterverteilt werden);
+  zurückgestellt.
 
-## Consequences
+## Konsequenzen
 
-- Deterministic rendering on the primary machine; frozen validation artifacts
-  stay comparable.
-- The pipeline is not portable: any non-Windows environment (CI included) fails
-  at font load. Font *file versions* are an unrecorded reproducibility input
-  (see `docs/architecture/determinism-audit.md`, N7).
-- Superseding path: externalize font configuration (WP-C identifier/run config)
-  and record font file hashes in the run record (WP-G). Bundle or pin a freely
-  licensed font (e.g. DejaVu) for CI.
+- Deterministisches Rendering auf der primären Maschine; eingefrorene
+  Validierungsartefakte bleiben vergleichbar.
+- Die Pipeline ist nicht portabel: Jede Nicht-Windows-Umgebung (einschließlich
+  CI) schlägt beim Laden der Font fehl. Font-*Dateiversionen* sind eine nicht
+  aufgezeichnete Reproduzierbarkeitseingabe (siehe
+  `docs/architecture/determinism-audit.md`, N7).
+- Ersetzender Pfad: Font-Konfiguration externalisieren (WP-C-Identifier-/Run-
+  Konfiguration) und Font-Datei-Hashes im Run-Record aufzeichnen (WP-G). Für
+  CI eine frei lizenzierte Font (z. B. DejaVu) bündeln oder festlegen.
 
-## Review Notes
+## Review-Hinweise
 
-Backfilled by WP-H. Revisit before any CI or multi-machine work.
+Durch WP-H nachgetragen. Vor CI- oder Multi-Machine-Arbeiten erneut prüfen.

@@ -1,76 +1,81 @@
-# PDF Template Injection Implementation Plan
+# Implementierungsplan für PDF-Template-Injektion
 
-Status: **implemented** (2026-07-14). PDF is a first-class injection modality.
-It has its own loader and writer, like DICOM and JPG; it is not a post-run
-composer.
+Status: **implementiert** (2026-07-14). PDF ist eine eigenständige
+Injektionsmodalität. Wie DICOM und JPG besitzt sie einen eigenen Loader und
+Writer und ist kein Composer nach dem Run.
 
-The implemented slices are the `inject-pdf`/`compose-pdf` CLI workflow and the
-public Python `make_pdf` composition API. `make_pdf` extends composition to
-multiple already injected images plus multiple PDF text entries in one output
-PDF.
+Implementiert sind der CLI-Workflow `inject-pdf`/`compose-pdf` und die
+öffentliche Python-Kompositions-API `make_pdf`. `make_pdf` erweitert die
+Komposition auf mehrere bereits injizierte Bilder und mehrere PDF-Texteinträge
+in einer Ausgabe-PDF.
 
-## Purpose and input contract
+## Zweck und Eingabevertrag
 
-The PDF path combines three inputs:
+Der PDF-Pfad kombiniert drei Eingaben:
 
-1. an existing PDF template (`--input-pdf`),
-2. an already injected DICOM (`--input-dicom`), and
-3. the DICOM run's JSON ground-truth annotation (`--dicom-annotation`).
+1. ein vorhandenes PDF-Template (`--input-pdf`),
+2. ein bereits injiziertes DICOM (`--input-dicom`) und
+3. die JSON-Ground-Truth-Annotation des DICOM-Runs (`--dicom-annotation`).
 
-The PDF loader validates the template and exposes its page geometry. The DICOM
-loader reads the injected pixel frame and the annotation loader validates the
-corresponding `RunRecord`. The PDF writer places the preview associated with
-the injected DICOM on
-the selected template page, transforms image-space annotations to PDF-space,
-and writes a new PDF plus a PDF annotation sidecar. Neither source file is
-modified. PDF-native free-text/table injection remains out of scope for the
-`inject-pdf` CLI adapter.
+Der PDF-Loader validiert das Template und stellt seine Seitengröße bereit. Der
+DICOM-Loader liest den injizierten Pixel-Frame, und der Annotation-Loader
+validiert den zugehörigen `RunRecord`. Der PDF-Writer platziert die zum
+injizierten DICOM gehörende Preview auf der ausgewählten Template-Seite,
+transformiert Bildraum-Annotationen in den PDF-Raum und schreibt eine neue
+PDF-Datei sowie einen PDF-Annotation-Sidecar. Keine Quelldatei wird verändert.
+PDF-nativer Freitext-/Tabellen-Text bleibt für den `inject-pdf`-CLI-Adapter
+außerhalb des Umfangs.
 
-For `make_pdf`, PDF-native text injection is in scope for that public
-composition path only. The API receives all text values explicitly; the seed
-controls layout, arrangement, page breaks, and image rotation, not text
-content. Normal text is written as PDF-native text.
+Für `make_pdf` ist PDF-native Textinjektion ausschließlich in diesem öffentlichen
+Kompositionspfad Teil des Umfangs. Die API erhält alle Textwerte explizit; der
+Seed steuert Layout, Anordnung, Seitenumbrüche und Bildrotation, nicht den
+Textinhalt. Normaler Text wird als PDF-nativer Text geschrieben.
 
-Handwriting generation is not a PDF concern. `handwritten=True` for direct
-PDF text aborts with a clear error because this API has no safe asset or
-manifest source for direct handwritten text. Already rendered handwriting is
-passed as an injected image plus annotation; the composer consumes it like any
-other image annotation.
+Handschriftgenerierung ist keine PDF-Aufgabe. `handwritten=True` für direkten
+PDF-Text bricht mit einem eindeutigen Fehler ab, weil diese API keine sichere
+Asset- oder Manifestquelle für direkt handgeschriebenen Text besitzt. Bereits
+gerenderte Handschrift wird als injiziertes Bild mit Annotation übergeben; der
+Composer verarbeitet sie wie jede andere Bildannotation.
 
-The adapter boundary remains explicit: PDF-specific models describe template
-pages, placement, and output artifacts; shared `ImagePoint`, `PdfPoint`, and
-`Quad` models describe annotation geometry. The PDF CLI selects the dedicated
-pair and does not add PDF business rules to the DICOM/JPG runner.
+Die Adaptergrenze bleibt explizit: PDF-spezifische Modelle beschreiben
+Template-Seiten, Platzierung und Ausgabe-Artefakte; die gemeinsamen Modelle
+`ImagePoint`, `PdfPoint` und `Quad` beschreiben die Annotationsgeometrie. Die
+PDF-CLI wählt das dedizierte Paar aus und fügt dem DICOM/JPG-Runner keine
+PDF-Geschäftsregeln hinzu.
 
-## Decisions
+## Entscheidungen
 
-- PDF uses a dedicated loader/writer pair for the `inject-pdf` workflow. It is
-  intentionally not registered in the DICOM/JPG single-input registry because
-  PDF injection requires a PDF, an injected DICOM, and a ground-truth file.
-- `make_pdf` reuses the PDF-specific loader/writer boundary and shared
-  geometry models where practical, while owning separate composition models
-  because it accepts multiple images and text specs instead of one DICOM run.
-- `reportlab` creates the injected layer and `pypdf` merges it with the input
-  template. Both are approved runtime dependencies.
-- The default placement is `top_left`; `top_right` and an explicit supported
-  slot override can be selected for the target template.
-- Template coordinates use PDF points and a bottom-left origin. Image
-  coordinates use pixels and a top-left origin. The coordinate types are not
-  interchangeable.
-- Aspect-fit scales the DICOM image down when necessary and centers a smaller
-  image at native size; it never upscales. Annotations map against the actual
-  placement rectangle, not the configured slot.
-- The output root is `output/pdf/<run_id>/<template-stem>-<slot>/`. Source PDF,
-  DICOM, and DICOM ground truth remain untouched.
-- PDF output is deterministic for identical inputs, configuration, and seed;
-  fixed metadata is used where the PDF backend permits it.
-- ADR-0008 is accepted. The PDF sidecar uses the shared schema lineage and
-  version `0.3.0-pdf-prototype`.
+- PDF verwendet ein dediziertes Loader-/Writer-Paar für den `inject-pdf`-
+  Workflow. Es ist absichtlich nicht in der DICOM/JPG-Single-Input-Registry
+  registriert, weil PDF-Injektion eine PDF, ein injiziertes DICOM und eine
+  Ground-Truth-Datei benötigt.
+- `make_pdf` verwendet nach Möglichkeit die PDF-spezifische Loader-/Writer-
+  Grenze und gemeinsame Geometriemodelle, besitzt aber eigene
+  Kompositionsmodelle, weil es mehrere Bilder und Textspezifikationen statt
+  eines DICOM-Runs akzeptiert.
+- `reportlab` erzeugt die injizierte Ebene und `pypdf` führt sie mit dem
+  Eingabe-Template zusammen. Beide sind freigegebene Runtime-Abhängigkeiten.
+- Die Standardplatzierung ist `top_left`; `top_right` und ein expliziter
+  unterstützter Slot-Override können für das Ziel-Template gewählt werden.
+- Template-Koordinaten verwenden PDF-Punkte und einen Ursprung unten links.
+  Bildkoordinaten verwenden Pixel und einen Ursprung oben links. Die
+  Koordinatentypen sind nicht austauschbar.
+- Aspect-Fit verkleinert das DICOM-Bild bei Bedarf und zentriert ein kleineres
+  Bild in nativer Größe; es vergrößert nie. Annotationen werden auf das
+  tatsächliche Platzierungsrechteck, nicht auf den konfigurierten Slot,
+  abgebildet.
+- Der Ausgabe-Stamm ist `output/pdf/<run_id>/<template-stem>-<slot>/`.
+  Quell-PDF, DICOM und DICOM-Ground-Truth bleiben unverändert.
+- PDF-Ausgabe ist bei identischen Eingaben, Konfiguration und Seed
+  deterministisch; soweit das PDF-Backend dies erlaubt, werden feste Metadaten
+  verwendet.
+- ADR-0008 ist angenommen. Der PDF-Sidecar verwendet die gemeinsame Schema-
+  Linie und die Version `0.3.0-pdf-prototype`.
 
-## Public `make_pdf` API
+## Öffentliche `make_pdf`-API
 
-The public import mirrors `inject_function` and exports the input and artifact
-models:
+Der öffentliche Import entspricht `inject_function` und exportiert die
+Eingabe- und Artefaktmodelle:
 
 ```python
 from injection_pipeline import (
@@ -82,7 +87,7 @@ from injection_pipeline import (
 )
 ```
 
-The public signature is:
+Die öffentliche Signatur lautet:
 
 ```python
 def make_pdf(
@@ -95,7 +100,7 @@ def make_pdf(
 ) -> PdfMakeArtifacts: ...
 ```
 
-Example:
+Beispiel:
 
 ```python
 artifacts = make_pdf(
@@ -134,30 +139,32 @@ artifacts = make_pdf(
 )
 ```
 
-All main inputs are required. `images` is a list of already injected image
-files plus their annotations. Existing `BoxAnnotation`-style dictionaries are
-accepted for compatibility: `label` maps to `category`, `text` maps to
-`value`, and `corners` maps to `image_corners`; legacy prefix and suffix
-corners are preserved when available. `texts` is a list of direct PDF text
-entries with the same meaning as `inject_function`'s `category`, `value`,
-`prefix`, `suffix`, and `handwritten`, excluding an output path. `pdf` is the
-template PDF, and `output_dir` receives the generated artifacts.
+Alle Haupteingaben sind erforderlich. `images` ist eine Liste bereits
+injizierter Bilddateien mit ihren Annotationen. Zur Kompatibilität werden
+Dictionaries im Stil von `BoxAnnotation` akzeptiert: `label` wird auf
+`category`, `text` auf `value` und `corners` auf `image_corners` abgebildet;
+Legacy-Präfix- und -Suffix-Ecken bleiben erhalten, sofern vorhanden. `texts`
+ist eine Liste direkter PDF-Texteinträge mit derselben Bedeutung wie
+`category`, `value`, `prefix`, `suffix` und `handwritten` von `inject_function`,
+jedoch ohne Ausgabepfad. `pdf` ist das Template, `output_dir` erhält die
+erzeugten Artefakte.
 
-The composer places all images and texts without overlap. It varies layout by
-seed, including beside-each-other and stacked arrangements, seedable small
-image rotations, and added pages when the current page cannot fit the
-remaining items. It aborts on malformed input, invalid annotations, impossible
-placements, unsupported PDF operations, or `handwritten=True` for direct PDF
-text. Already rendered handwriting belongs in `images`.
+Der Composer platziert alle Bilder und Texte ohne Überlappung. Er variiert das
+Layout anhand des Seeds, einschließlich nebeneinanderliegender und gestapelter
+Anordnungen, seedbarer kleiner Bildrotationen und zusätzlicher Seiten, wenn die
+aktuelle Seite die verbleibenden Elemente nicht aufnehmen kann. Bei fehlerhafter
+Eingabe, ungültigen Annotationen, unmöglichen Platzierungen, nicht
+unterstützten PDF-Operationen oder `handwritten=True` für direkten PDF-Text
+bricht er ab. Bereits gerenderte Handschrift gehört in `images`.
 
-The return value is a `PdfMakeArtifacts` object exposing the generated PDF, the
-visibly annotated PDF, the JSON sidecar, and final placement metadata. The
-sidecar records transformed image annotations, PDF-native text annotations,
-page indices, rotations, and the seed/layout metadata needed to reproduce the
-layout. Image annotations include main quads and optional prefix/suffix quads
-when the source annotation provides them.
+Der Rückgabewert ist ein `PdfMakeArtifacts`-Objekt mit erzeugter PDF, sichtbar
+annotierter PDF, JSON-Sidecar und finalen Platzierungsmetadaten. Der Sidecar
+speichert transformierte Bildannotation, PDF-native Textannotation,
+Seitenindizes, Rotationen sowie Seed-/Layout-Metadaten zur Reproduktion. Die
+Bildannotation enthalten Haupt-Quads und optionale Präfix-/Suffix-Quads, wenn
+die Quellannotation diese liefert.
 
-`make_pdf` writes these files directly under `output_dir`:
+`make_pdf` schreibt diese Dateien direkt unter `output_dir`:
 
 ```text
 pdf_make.pdf
@@ -165,9 +172,9 @@ pdf_make_annotated.pdf
 pdf_make_annotations.json
 ```
 
-## `inject-pdf` output artifacts
+## Ausgabe-Artefakte von `inject-pdf`
 
-Each `inject-pdf`/`compose-pdf` invocation writes:
+Jeder Aufruf von `inject-pdf`/`compose-pdf` schreibt:
 
 ```text
 output/pdf/<run_id>/<template-stem>-<slot>/
@@ -176,105 +183,113 @@ output/pdf/<run_id>/<template-stem>-<slot>/
 |-- pdf_annotations.json
 ```
 
-`pdf_injected.pdf` is the template with the preview from the injected DICOM.
-`pdf_injected_annotated.pdf` adds visible transformed annotation outlines.
-`pdf_annotations.json` contains the transformed PDF ground truth and source
-linkage. The sidecar records all input paths and selected layout.
+`pdf_injected.pdf` ist das Template mit der Preview des injizierten DICOM.
+`pdf_injected_annotated.pdf` ergänzt sichtbare, transformierte
+Annotationsumrisse. `pdf_annotations.json` enthält die transformierte PDF-
+Ground-Truth und Quellenverknüpfung. Der Sidecar speichert alle Eingabepfade
+und das gewählte Layout.
 
-## Sidecar schema (`0.3.0-pdf-prototype`)
+## Sidecar-Schema (`0.3.0-pdf-prototype`)
 
-The sidecar uses `record_type = "pdf_injection_run"` in the single ADR-0008
-lineage. It
-contains:
+Der Sidecar verwendet in der einzigen ADR-0008-Linie
+`record_type = "pdf_injection_run"`. Er enthält:
 
-- source PDF, DICOM, and DICOM ground-truth paths, plus the required source run
-  identity fields (`source_run_id`, `source_seed`, and
+- Pfade von Quell-PDF, DICOM und DICOM-Ground-Truth sowie die erforderlichen
+  Identitätsfelder des Quell-Runs (`source_run_id`, `source_seed` und
   `source_schema_version`),
-- template identifier, selected slot, page index, page size, and placement
-  rectangle,
-- source image dimensions and the image-to-PDF coordinate-space metadata,
-- one transformed four-corner annotation for every source DICOM box, and
-- references to the generated PDF and sidecar files.
+- Template-Identifier, ausgewählter Slot, Seitenindex, Seitengröße und
+  Platzierungsrechteck,
+- Quellbilddimensionen und Metadaten des Bild-zu-PDF-Koordinatenraums,
+- eine transformierte Vier-Ecken-Annotation für jede DICOM-Quellbox und
+- Verweise auf die erzeugte PDF und die Sidecar-Dateien.
 
-The sidecar must preserve source annotation order and corner order. Loading a
-malformed DICOM annotation fails through the canonical `RunRecord` validator;
-the PDF writer does not duplicate JSON validation logic.
+Der Sidecar muss Reihenfolge der Quellannotation und Eckenreihenfolge erhalten.
+Das Laden einer fehlerhaften DICOM-Annotation schlägt über den kanonischen
+`RunRecord`-Validator fehl; der PDF-Writer dupliziert keine JSON-
+Validierungslogik.
 
-## Coordinate mapping
+## Koordinatenabbildung
 
-For an image point `(x, y)` in pixels and its post-aspect-fit placement
-rectangle `(left, bottom, width, height)` in PDF points:
+Für einen Bildpunkt `(x, y)` in Pixeln und sein Platzierungsrechteck
+`(left, bottom, width, height)` nach Aspect-Fit in PDF-Punkten gilt:
 
 ```text
 pdf_x = left + (x / image_width_px) * width
 pdf_y = bottom + height - (y / image_height_px) * height
 ```
 
-The mapping is applied corner by corner, including rotated polygons. A slot
-outside the target page, a missing source image, or an annotation outside the
-source image bounds is a clear configuration/validation error.
+Die Abbildung wird Ecke für Ecke angewendet, auch bei rotierten Polygonen. Ein
+Slot außerhalb der Zielseite, ein fehlendes Quellbild oder eine Annotation
+außerhalb der Quellbildgrenzen ist ein eindeutiger Konfigurations-/Validierungs-
+fehler.
 
-## Work packages
+## Arbeitspakete
 
-### WP-PDF-1 — dependencies and models
+### WP-PDF-1 — Abhängigkeiten und Modelle
 
-Add `reportlab` and `pypdf`; update the lock file. Add PDF-specific pydantic
-models for source inputs, page/slot geometry, placement, output artifacts, and
-the `0.3.0-pdf-prototype` sidecar. Reuse shared geometry models.
+`reportlab` und `pypdf` hinzufügen und die Lock-Datei aktualisieren. PDF-
+spezifische pydantic-Modelle für Quelleingaben, Seiten-/Slot-Geometrie,
+Platzierung, Ausgabe-Artefakte und den Sidecar `0.3.0-pdf-prototype`
+hinzufügen. Gemeinsame Geometriemodelle wiederverwenden.
 
-### WP-PDF-2 — PDF and DICOM loading
+### WP-PDF-2 — PDF- und DICOM-Laden
 
-Implement the PDF loader as the dedicated PDF workflow adapter. It must reject
-unreadable or empty PDFs and expose page size/count. Reuse the existing DICOM
-loader for the injected DICOM and load its `ground_truth.json` through
-`load_run_record`.
+Den PDF-Loader als dedizierten PDF-Workflow-Adapter implementieren. Er muss
+unlesbare oder leere PDFs zurückweisen und Seitengröße/-anzahl bereitstellen.
+Den vorhandenen DICOM-Loader für das injizierte DICOM wiederverwenden und sein
+`ground_truth.json` über `load_run_record` laden.
 
-### WP-PDF-3 — placement and coordinate transformation
+### WP-PDF-3 — Platzierung und Koordinatentransformation
 
-Implement slot resolution, page-bound checks, aspect-fit placement, and the
-image-to-PDF mapping. Cover non-square images, aspect mismatch, native-size
-centering, and rotated quads with unit tests.
+Slot-Auflösung, Seitenbegrenzungsprüfungen, Aspect-Fit-Platzierung und die
+Bild-zu-PDF-Abbildung implementieren. Nichtquadratische Bilder,
+Seitenverhältnisabweichungen, Zentrierung in nativer Größe und rotierte Quads
+mit Unit-Tests abdecken.
 
-### WP-PDF-4 — PDF writing
+### WP-PDF-4 — PDF-Schreiben
 
-Create the reportlab overlay, merge it onto the selected input-PDF page with
-`pypdf`, and emit the PDF sidecar. Preserve all input pages and PDF metadata
-unless the writer must replace volatile producer fields for determinism.
+Das reportlab-Overlay erzeugen, es mit `pypdf` auf der ausgewählten Eingabe-
+PDF-Seite zusammenführen und den PDF-Sidecar ausgeben. Alle Eingabeseiten und
+PDF-Metadaten erhalten, außer wenn der Writer für Determinismus flüchtige
+Producer-Felder ersetzen muss.
 
-### WP-PDF-5 — CLI and integration
+### WP-PDF-5 — CLI und Integration
 
-Add `inject-pdf` (with the `compose-pdf` alias) requiring `--input-pdf`,
-`--input-dicom`, and `--dicom-annotation`, with optional `--output-dir`,
-`--slot`, and `--page-index`. Existing DICOM/JPG CLI behaviour remains
-unchanged. Print generated PDF and sidecar paths. The adapter entry points are
-`PdfLoader.load` and `PdfWriterAdapter.write`.
+`inject-pdf` (mit dem Alias `compose-pdf`) ergänzen; erforderlich sind
+`--input-pdf`, `--input-dicom` und `--dicom-annotation`, optional
+`--output-dir`, `--slot` und `--page-index`. Das bestehende DICOM/JPG-CLI-Verhalten bleibt
+unverändert. Erzeugte PDF- und Sidecar-Pfade ausgeben. Die Adapter-Einstiege sind
+`PdfLoader.load` und `PdfWriterAdapter.write`.
 
-### WP-PDF-6 — tests, fixture, and local validation
+### WP-PDF-6 — Tests, Fixture und lokale Validierung
 
-Use synthetic committed fixtures for unit/integration tests. Additionally run
-one local smoke test with a DICOM from `DicomData/Dicom-Files`, write its
-injected result and annotation under `DicomData/InjectedDicom`, and use the
-existing PDF under `DicomData/pdf`. Local generated data is ignored and is not
-committed.
+Synthetische versionierte Fixtures für Unit-/Integrationstests verwenden.
+Zusätzlich einen lokalen Smoke-Test mit einem DICOM aus
+`DicomData/Dicom-Files` ausführen, Ergebnis und Annotation unter
+`DicomData/InjectedDicom` schreiben und die vorhandene PDF unter
+`DicomData/pdf` verwenden. Lokal erzeugte Daten werden ignoriert und nicht
+versioniert.
 
-### WP-PDF-7 — documentation and provenance
+### WP-PDF-7 — Dokumentation und Provenienz
 
-Update the adapter contract, target architecture, DICOM operational guide,
-and schema/domain documentation. Add the ADR-0008 schema changelog and mark
-the decision accepted.
+Adapter-Vertrag, Zielarchitektur, DICOM-Betriebsleitfaden sowie Schema-/Domain-
+Dokumentation aktualisieren. Das ADR-0008-Schema-Änderungsprotokoll ergänzen
+und die Entscheidung als angenommen markieren.
 
-## Required tests and gates
+## Erforderliche Tests und Gates
 
-- PDF loader rejects missing, unreadable, and empty inputs.
-- DICOM and annotation linkage is validated before writing.
-- All source PDF pages are preserved in the output.
-- Aspect mismatch maps corners inside the drawn image, not merely inside the
-  configured slot.
-- Top-left and bottom-right image points map to the corresponding placement
-  corners; y-axis inversion is covered.
-- Rotated polygons preserve point order.
-- Slot/page bounds and missing-preview failures are clear.
-- Output PDF and sidecar are non-empty and sidecar validation succeeds.
-- Repeating a run with identical inputs produces identical sidecar content and
-  deterministic PDF bytes where supported.
-- Existing DICOM/JPG unit, integration, ruff, and mypy gates remain green.
+- Der PDF-Loader weist fehlende, unlesbare und leere Eingaben zurück.
+- Die Verknüpfung von DICOM und Annotation wird vor dem Schreiben validiert.
+- Alle PDF-Quellseiten bleiben in der Ausgabe erhalten.
+- Eine Seitenverhältnisabweichung bildet Ecken innerhalb des gezeichneten
+  Bildes ab, nicht nur innerhalb des konfigurierten Slots.
+- Bildpunkte oben links und unten rechts werden auf die entsprechenden
+  Platzierungsecken abgebildet; die Invertierung der y-Achse wird abgedeckt.
+- Rotierte Polygone behalten die Punktreihenfolge.
+- Slot-/Seitengrenzen und Fehler wegen fehlender Previews sind eindeutig.
+- Ausgabe-PDF und Sidecar sind nicht leer, und die Sidecar-Validierung ist
+  erfolgreich.
+- Wiederholte Läufe mit identischen Eingaben erzeugen identischen Sidecar-
+  Inhalt und, soweit unterstützt, deterministische PDF-Bytes.
+- Bestehende DICOM/JPG-Unit-, Integrations-, ruff- und mypy-Gates bleiben
+  erfolgreich.

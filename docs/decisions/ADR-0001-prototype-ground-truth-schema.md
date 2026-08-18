@@ -5,50 +5,56 @@ based_on:
   - docs/dicom-injection.md
 ---
 
-# ADR-0001: Prototype ground-truth schema `0.2.0-prototype` as a hand-built JSON record
+# ADR-0001: Prototype-Ground-Truth-Schema `0.2.0-prototype` als manuell erzeugter JSON-Datensatz
 
-Backfilled 2026-07-06. Records a choice already implemented in code.
+Nachgetragen am 2026-07-06. Hält eine bereits im Code umgesetzte Entscheidung
+fest.
 
-## Context
+## Kontext
 
-The migrated DICOM/JPG pipeline needed a ground-truth artifact before the
-format-agnostic document model (PLAN.md Phase 2) existed. `PLAN.md` planned a
-JSONL ground-truth format; the prototype shipped earlier than that design work.
+Die migrierte DICOM/JPG-Pipeline benötigte ein Ground-Truth-Artefakt, bevor das
+formatagnostische Dokumentmodell (`PLAN.md`, Phase 2) existierte. `PLAN.md`
+plante ein JSONL-Ground-Truth-Format; der Prototype wurde vor dieser
+Designarbeit ausgeliefert.
 
-## Decision
+## Entscheidung
 
-The prototype established one JSON object per run with
-`schema_version = "0.2.0-prototype"`. At adoption it was assembled by hand and
-had no validating model; `docs/dicom-injection.md` records the field surface.
+Der Prototype etablierte ein JSON-Objekt pro Run mit
+`schema_version = "0.2.0-prototype"`. Bei der Übernahme wurde es manuell
+zusammengesetzt und besaß kein validierendes Modell;
+`docs/dicom-injection.md` dokumentiert die Felder.
 
-## Alternatives Considered
+## Betrachtete Alternativen
 
-- **JSONL per-annotation records** (the PLAN.md direction): deferred; a single
-  per-run JSON object was simpler while the annotation shapes were still
-  changing.
-- **pydantic models from the start**: deferred to keep the prototype migration
-  byte-identical with the pre-package prototype output.
+- **JSONL-Datensätze pro Annotation** (Richtung von `PLAN.md`): zurückgestellt;
+  ein einzelnes JSON-Objekt pro Run war einfacher, solange sich die
+  Annotationsformen noch änderten.
+- **pydantic-Modelle von Anfang an**: zurückgestellt, damit die Prototype-
+  Migration byte-identisch mit der Ausgabe vor dem Package bleibt.
 
-## Consequences
+## Konsequenzen
 
-- The original builder was fast to iterate and preserved migration byte
-  identity.
-- Before ADR-0005, a key typo could silently change the schema and consumers
-  had no validated contract beyond the documented example.
-- The PDF plan introduces a second, differently-versioned sidecar schema
-  (`0.3.0-pdf-prototype`), guaranteeing drift without a unifying strategy.
-- Superseding path: WP-B (`docs/architecture/domain-model-spec.md`) designs the
-  typed replacement; ADR-0008 defines how versions relate. This ADR stays
-  `accepted` as the record of the emitted prototype-format baseline.
+- Der ursprüngliche Builder ließ sich schnell iterieren und bewahrte die
+  Byte-Identität der Migration.
+- Vor ADR-0005 konnte ein Tippfehler in einem Schlüssel das Schema unbemerkt
+  ändern; Verbrauchern stand außer dem dokumentierten Beispiel kein
+  validierter Vertrag zur Verfügung.
+- Der PDF-Plan führt einen zweiten, anders versionierten Sidecar ein
+  (`0.3.0-pdf-prototype`), was ohne vereinheitlichende Strategie unweigerlich
+  zu Abweichungen führt.
+- Ersetzender Pfad: WP-B (`docs/architecture/domain-model-spec.md`) entwirft
+  den typisierten Ersatz; ADR-0008 definiert den Versionszusammenhang. Dieses
+  ADR bleibt als Baseline des ausgegebenen Prototype-Formats `accepted`.
 
-## Implementation Status
+## Implementierungsstatus
 
-The hand-built builder was replaced on 2026-07-12 by
-`ground_truth.build_record()` and the validated `RunRecord` from ADR-0005.
-The pipeline still parses and emits the `0.2.0-prototype` artifact contract, so
-this ADR remains the historical baseline for that published version.
+Der manuell erstellte Builder wurde am 2026-07-12 durch
+`ground_truth.build_record()` und das validierte `RunRecord` aus ADR-0005
+ersetzt. Die Pipeline parst und erzeugt weiterhin den Artefaktvertrag
+`0.2.0-prototype`; daher bleibt dieses ADR die historische Baseline für diese
+veröffentlichte Version.
 
-## Review Notes
+## Review-Hinweise
 
-Backfilled by WP-H; the decision was implicit in the prototype migration
-(commits `0be8818` and earlier).
+Durch WP-H nachgetragen; die Entscheidung war in der Prototype-Migration
+(Commit `0be8818` und frühere) implizit enthalten.

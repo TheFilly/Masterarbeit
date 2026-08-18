@@ -6,71 +6,74 @@ based_on:
   - docs/architecture/adapter-contract.md
 ---
 
-# ADR-0006: Loader/Writer protocols make every document format a peer
+# ADR-0006: Loader-/Writer-Protokolle behandeln jedes Dokumentformat gleichrangig
 
-## Context
+## Kontext
 
-Before WP-F, DICOM had adapter helpers while JPG load/save lived in the
-orchestrator. Each new injected source format required another branch in
-`runner.run`. PDF now follows the same first-class modality principle.
+Vor WP-F besaß DICOM Adapter-Hilfsfunktionen, während JPG-Laden/Speichern im
+Orchestrator lag. Jedes neue injizierte Quellformat erforderte einen weiteren
+Zweig in `runner.run`. PDF folgt nun demselben Prinzip einer gleichrangigen
+Modalität.
 
-## Decision
+## Entscheidung
 
-Define `DocumentLoader` and `DocumentWriter` as `typing.Protocol`s (structural,
-no forced inheritance) in `models/adapters.py`, per
-`docs/architecture/adapter-contract.md`:
+`DocumentLoader` und `DocumentWriter` werden gemäß
+`docs/architecture/adapter-contract.md` als strukturelle `typing.Protocol`s
+(ohne erzwungene Vererbung) in `models/adapters.py` definiert:
 
-- `DocumentLoader.load(path) -> SourceDocument` where `SourceDocument` carries
-  the render frame(s) plus an optional format context (e.g. the pydicom
-  dataset).
+- `DocumentLoader.load(path) -> SourceDocument`, wobei `SourceDocument` die
+  Render-Frames plus einen optionalen Formatkontext (z. B. das pydicom-
+  Dataset) enthält.
 - `DocumentWriter.write(document: InjectedDocument, output_path: Path) -> None`.
-- A small registry maps file extensions / format ids to adapter pairs; the
-  orchestrator looks up, never branches on format.
+- Eine kleine Registry ordnet Dateiendungen bzw. Format-IDs Adapterpaaren zu;
+  der Orchestrator löst sie auf und verzweigt nie nach Format.
 
- DICOM and JPG conform first; PDF uses a dedicated loader/writer operation. It
-loads a PDF template, consumes an injected DICOM plus validated JSON annotation,
-and writes a new PDF and sidecar without mutating sources.
+ DICOM und JPG werden zuerst konform umgesetzt; PDF verwendet eine eigene
+Loader/Writer-Operation. Sie lädt ein PDF-Template, verarbeitet ein injiziertes
+DICOM samt validierter JSON-Annotation und schreibt ein neues PDF und einen
+Sidecar, ohne Quellen zu verändern.
 
-## Alternatives Considered
+## Betrachtete Alternativen
 
-- **ABC base classes**: equivalent power, but Protocols keep adapters free of
-  inheritance coupling and are easier to test with fakes; matches "explicit
-  models at seams" without a class hierarchy.
-- **Keep per-format branches in the runner**: cheapest now; third format makes
-  the orchestrator the permanent integration bottleneck and contradicts the
-  AGENTS.md adapter principle.
-- **Plugin entry points (importlib.metadata)**: overkill for an in-repo format
-  set; the registry can grow into this later without contract changes.
+- **ABC-Basisklassen**: Gleichwertige Möglichkeiten, aber Protocols halten
+  Adapter frei von Vererbungskopplung und sind mit Fakes leichter zu testen;
+  entspricht „explizite Modelle an Grenzen“ ohne Klassenhierarchie.
+- **Formatzweige im Runner beibehalten**: zunächst am günstigsten; ein drittes
+  Format macht den Orchestrator zum dauerhaften Integrationsengpass und
+  widerspricht dem Adapterprinzip aus `AGENTS.md`.
+- **Plugin-Einstiegspunkte (importlib.metadata)**: für die Formatmenge im
+  Repository überdimensioniert; die Registry kann später ohne Vertragsänderung
+  dorthin wachsen.
 
-## Consequences
+## Konsequenzen
 
-- Adding a format = one loader, one writer, one registry entry, zero runner
-  edits.
-- JPG handling leaves the orchestrator (behaviour-preserving move; bytes
-  unchanged).
-- The DICOM pixel writeback (`_write_pixel_array`) moves behind the DICOM
-  writer boundary, where its transfer-syntax rewrite is a documented format
-  concern instead of engine incidental behaviour.
+- Ein Format hinzufügen = ein Loader, ein Writer, ein Registry-Eintrag, keine
+  Änderungen am Runner.
+- JPG-Verarbeitung verlässt den Orchestrator (verhaltenswahrende Verschiebung;
+  Bytes unverändert).
+- Das DICOM-Pixel-Schreiben (`_write_pixel_array`) wird hinter die DICOM-Writer-
+  Grenze verschoben, wo die Transfer-Syntax-Umschreibung ein dokumentiertes
+  Formatproblem statt zufälligem Engine-Verhalten ist.
 
-## Implementation Status
+## Implementierungsstatus
 
-Implemented 2026-07-12 for DICOM and JPG:
+Am 2026-07-12 für DICOM und JPG implementiert:
 
-- `models/adapters.py` defines `SourceDocument`, `InjectedDocument`,
-  `DocumentLoader`, `DocumentWriter`, and the concrete
-  `write(InjectedDocument, output_path) -> None` contract.
-- `loaders/registry.py` resolves DICOM/JPG adapters by extension; `runner.py`
-  uses the registry instead of a format branch.
-- `loaders/dicom.py`, `writers/dicom.py`, `loaders/jpg.py`, and
-  `writers/jpg.py` implement the contract. DICOM pixel writeback lives in the
-  DICOM writer.
+- `models/adapters.py` definiert `SourceDocument`, `InjectedDocument`,
+  `DocumentLoader`, `DocumentWriter` und den konkreten Vertrag
+  `write(InjectedDocument, output_path) -> None`.
+- `loaders/registry.py` löst DICOM/JPG-Adapter nach Endung auf; `runner.py`
+  verwendet die Registry statt eines Format-Zweigs.
+- `loaders/dicom.py`, `writers/dicom.py`, `loaders/jpg.py` und `writers/jpg.py`
+  implementieren den Vertrag. DICOM-Pixel-Schreiben liegt im DICOM-Writer.
 
-PDF implementation is complete as a dedicated workflow pair (`PdfLoader` and
-`PdfWriterAdapter`); broader operational fixture coverage remains tracked by
+Die PDF-Implementierung ist als eigenes Workflow-Paar (`PdfLoader` und
+`PdfWriterAdapter`) vollständig; breitere operative Fixture-Abdeckung wird in
 `docs/pdf-template-injection-plan.md`.
 
-## Review Notes
+## Review-Hinweise
 
-Accepted with the WP-F DICOM/JPG implementation on 2026-07-12; PDF extension
-approved by the project owner on 2026-07-14 under ADR-0008 schema version
+Mit der WP-F-DICOM/JPG-Implementierung am 2026-07-12 angenommen; die PDF-
+Erweiterung wurde am 2026-07-14 vom Projektverantwortlichen unter der
+ADR-0008-Schema-Version
 `0.3.0-pdf-prototype`.

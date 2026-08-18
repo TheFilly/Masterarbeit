@@ -1,139 +1,153 @@
-# `pixel_injection.py` Decomposition & Typing-Debt Retirement (WP-E)
+# Zerlegung von `pixel_injection.py` und Abbau der Typing-Schulden (WP-E)
 
-Status: core decomposition completed 2026-07-12. Two non-blocking items remain:
-internal renderer payload typing and the compatibility-shim decision.
+Status: Kernzerlegung am 2026-07-12 abgeschlossen. Zwei nicht blockierende
+Punkte bleiben: Typisierung der internen Renderer-Payloads und die Entscheidung
+zum Kompatibilitäts-Shim.
 
-## Headline finding: the typing debt is smaller than advertised
+## Kernergebnis: Die Typing-Schulden sind kleiner als behauptet
 
-The `pyproject.toml` TODO says typing waits for "the document model replacing
-dict payloads" (phase-2). Measured reality: running strict mypy on the module
-*without* the override produces **exactly 13 errors, none of which involve the
-dict payloads**. All 13 are PIL/numpy typing issues fixable today,
-byte-identically, without WP-B. The override can be retired *before* the
-decomposition or the domain model. (Verified 2026-07-06 with the repo's mypy
-against `main`.)
+Das TODO in `pyproject.toml` sagt, dass die Typisierung auf „das Dokumentmodell
+als Ersatz für Dict-Payloads“ (Phase 2) wartet. Die gemessene Realität: Striktes
+mypy auf dem Modul erzeugt *ohne* den Override **genau 13 Fehler, von denen
+keiner die Dict-Payloads betrifft**. Alle 13 sind heute behebbare
+PIL-/numpy-Typisierungsprobleme, ohne Änderung der Bytes und ohne WP-B. Der
+Override kann *vor* der Zerlegung oder dem Domainmodell entfernt werden.
+(Verifiziert am 2026-07-06 mit dem mypy des Repositories gegen `main`.)
 
-## Implementation status, 2026-07-12
+## Implementierungsstatus, 2026-07-12
 
-Implemented:
+Implementiert:
 
-- `pyproject.toml` no longer has a `tool.mypy.overrides` block for the engine.
-- Engine responsibilities live in `frames.py`, `fonts.py`, `geometry.py`,
-  `segments.py`, `overlay.py`, `handwriting.py`, `placement.py`, and
+- `pyproject.toml` enthält keinen `tool.mypy.overrides`-Block für die Engine mehr.
+- Die Zuständigkeiten der Engine liegen in `frames.py`, `fonts.py`, `geometry.py`,
+  `segments.py`, `overlay.py`, `handwriting.py`, `placement.py` und
   `injector.py`.
-- `pixel_injection.py` re-exports the legacy surface for compatibility.
-- `_write_pixel_array` lives in `writers/dicom.py`.
-- The dead public helpers `build_visible_text_annotations` and
-  `render_annotations_for_dataset` are gone.
+- `pixel_injection.py` exportiert die Legacy-Oberfläche aus Kompatibilitätsgründen
+  erneut.
+- `_write_pixel_array` liegt in `writers/dicom.py`.
+- Die toten öffentlichen Hilfsfunktionen `build_visible_text_annotations` und
+  `render_annotations_for_dataset` sind entfernt.
 
-Open:
+Offen:
 
-- `dict[str, Any]` renderer payloads remain in internal engine seams; replacing
-  them with smaller internal models can wait for a behavior-preserving cleanup.
+- `dict[str, Any]`-Renderer-Payloads bleiben an einigen internen Engine-Grenzen;
+  ihre Ersetzung durch kleinere interne Modelle kann auf eine
+  verhaltensneutrale Bereinigung warten.
 
-## Typing-debt inventory (complete)
+## Inventar der Typing-Schulden (vollständig)
 
-| # | Line(s) | Error code | Cause | Fix (behaviour-neutral) |
+| # | Zeile(n) | Fehlercode | Ursache | Korrektur (verhaltensneutral) |
 |---|---|---|---|---|
-| 1 | 44, 48 | `no-any-return` | `pixel_array[0]` / `pixel_array` returns `Any` after ndarray indexing in `extract_preview_frame` | wrap returns in `np.asarray(...)` (already the input idiom at line 42) |
-| 2 | 65 | `no-any-return` | `np.clip(...).astype(np.uint8)` inferred `Any` in `normalize_to_uint8` | annotate intermediate as `npt.NDArray[np.uint8]` or wrap in `np.asarray(..., dtype=np.uint8)` |
-| 3 | 546, 562, 572, 573 | `arg-type` | `Image.new("...", (base_width, base_height))` — sizes inferred `int \| float` because `font.getbbox` stubs return floats and `max(1, right - left)` propagates them (`_prepare_annotation_overlay`) | coerce once at the source: `text_width = max(1, int(right - left))`, `text_height = max(1, int(bottom - top))` (lines 540-541); values are already whole numbers for both font classes |
-| 4 | 587, 588, 589, 591, 662, 663 | `attr-defined` | `Image.BICUBIC` — removed from Pillow stubs; runtime alias of `Image.Resampling.BICUBIC` | replace all six occurrences with `Image.Resampling.BICUBIC` (identical enum value; resampling output unchanged) |
+| 1 | 44, 48 | `no-any-return` | `pixel_array[0]` / `pixel_array` gibt nach dem ndarray-Indexing in `extract_preview_frame` `Any` zurück | Rückgaben in `np.asarray(...)` einschließen (bereits das Eingabeidiom in Zeile 42) |
+| 2 | 65 | `no-any-return` | `np.clip(...).astype(np.uint8)` wird in `normalize_to_uint8` als `Any` abgeleitet | Zwischenwert als `npt.NDArray[np.uint8]` annotieren oder in `np.asarray(..., dtype=np.uint8)` einschließen |
+| 3 | 546, 562, 572, 573 | `arg-type` | `Image.new("...", (base_width, base_height))` — Größen werden als `int \| float` abgeleitet, weil `font.getbbox`-Stubs Floats zurückgeben und `max(1, right - left)` sie weiterträgt (`_prepare_annotation_overlay`) | Einmal an der Quelle umwandeln: `text_width = max(1, int(right - left))`, `text_height = max(1, int(bottom - top))` (Zeilen 540–541); beide Schriftklassen liefern bereits ganzzahlige Werte |
+| 4 | 587, 588, 589, 591, 662, 663 | `attr-defined` | `Image.BICUBIC` — aus den Pillow-Stubs entfernt; Laufzeitalias von `Image.Resampling.BICUBIC` | Alle sechs Vorkommen durch `Image.Resampling.BICUBIC` ersetzen (identischer Enum-Wert; Resampling-Ausgabe unverändert) |
 
-Retirement is a 3-line-cluster patch + deleting the `[[tool.mypy.overrides]]`
-block. Add a regression guard: CI fails if any new per-module override
-appears.
+Die Entfernung besteht aus einem Patch für drei Zeilencluster plus dem Löschen
+des `[[tool.mypy.overrides]]`-Blocks. Eine Regression-Sicherung ergänzt: Die CI
+schlägt fehl, wenn ein neuer modulbezogener Override erscheint.
 
-Note on fix 3: `text_origin = (padding - left, padding - top)` (line 544) also
-becomes float-typed from the same source; PIL accepts float text origins, and
-mypy does not flag it — coercing `left/top` to `int` in the same place keeps
-origin arithmetic exactly as today (getbbox returns whole numbers for
-truetype fonts at integer sizes; assert-cast rather than round to make any
-future non-integer case loud).
+Hinweis zu Korrektur 3: `text_origin = (padding - left, padding - top)
+(Zeile 544)` wird aus derselben Quelle ebenfalls als Float typisiert; PIL
+akzeptiert Float-Textursprünge und mypy markiert dies nicht — die Umwandlung von
+`left/top` in `int` an derselben Stelle erhält die Ursprungsarithmetik exakt wie
+heute (getbbox liefert für TrueType-Schriften bei ganzzahligen Größen ganze
+Zahlen; Assertion-Cast statt Rundung, damit ein künftiger nicht ganzzahliger
+Fall sichtbar fehlschlägt).
 
-## Current function inventory → module split
+## Aktuelles Funktionsinventar → Modulaufteilung
 
-Six concerns share the file today. Proposed split under `engine/`:
+Sechs Zuständigkeiten teilen sich heute die Datei. Vorgeschlagene Aufteilung
+unter `engine/`:
 
-| New module | Functions (current line) | Concern |
+| Neues Modul | Funktionen (aktuelle Zeile) | Zuständigkeit |
 |---|---|---|
-| `frames.py` | `extract_preview_frame` (41), `normalize_to_uint8` (53), `frame_to_image` (69), `save_preview_image` (186) | frame extraction & image conversion |
-| `fonts.py` | `_FONT_PATHS` (19), `load_default_font` (77), `_resolve_font_size_px` (32), `_DEFAULT_FONT_SIZE_PX` (17) | font resolution (WP-C/config later externalizes paths; ADR-0002) |
-| `geometry.py` | `_validate_rotation` (853) + `ALLOWED_ROTATIONS_DEGREES` (15), `_coerce_position` (843), `_estimate_rotated_size` (788), `_rotated_corners` (865), `_mask_bounds_to_corners` (1048), `_thresholded_mask_bounds` (1086) + `_MASK_ALPHA_THRESHOLD` (28), `_require_mask_bounds` (1020), `_serialize_mask_bounds` (1031) | rotated-corner math & mask bounds |
-| `segments.py` | `_normalize_text_segments` (907), `_draw_segment_masks` (935), `_split_prefix_and_pii_text` (984), `_resolve_segment_draw_bounds` (1002) | PII/generic segment handling |
-| `overlay.py` | `_prepare_annotation_overlay` (509), `_render_single_annotation` (388), `render_visible_annotations` (144) | font-text overlay rendering |
-| `handwriting.py` | `_prepare_handwriting_asset_overlay` (648), `_render_handwriting_annotation` (453) | handwriting-asset overlay rendering |
-| `placement.py` | `_materialize_positions` (707), `_VALID_PLACEMENT_MODES` (18) | seeded position selection |
-| `injector.py` | `inject_visible_text` (196), `inject_visible_text_into_image` (243), `_inject_visible_text_into_frame` (280), `_render_frame_with_annotations` (488), `_build_box_annotation` (1067), `_TEXT_BACKGROUND_COLORS` (25) | orchestration facade the runner calls |
-| `writers/dicom.py` (move out of engine) | `_write_pixel_array` (803) | DICOM pixel writeback is a *writer* concern: it rewrites transfer syntax, photometric interpretation, and frame metadata — format conformance, not rendering (aligns with ADR-0006; the DICOM writer owns dataset mutation for persistence) |
-| deleted | `build_visible_text_annotations` (99), `render_annotations_for_dataset` (169) | dead API duplicating prefix taxonomy |
+| `frames.py` | `extract_preview_frame` (41), `normalize_to_uint8` (53), `frame_to_image` (69), `save_preview_image` (186) | Frame-Extraktion und Bildkonvertierung |
+| `fonts.py` | `_FONT_PATHS` (19), `load_default_font` (77), `_resolve_font_size_px` (32), `_DEFAULT_FONT_SIZE_PX` (17) | Schriftauflösung (WP-C/config externalisiert Pfade später; ADR-0002) |
+| `geometry.py` | `_validate_rotation` (853) + `ALLOWED_ROTATIONS_DEGREES` (15), `_coerce_position` (843), `_estimate_rotated_size` (788), `_rotated_corners` (865), `_mask_bounds_to_corners` (1048), `_thresholded_mask_bounds` (1086) + `_MASK_ALPHA_THRESHOLD` (28), `_require_mask_bounds` (1020), `_serialize_mask_bounds` (1031) | Mathematik für rotierte Ecken und Maskengrenzen |
+| `segments.py` | `_normalize_text_segments` (907), `_draw_segment_masks` (935), `_split_prefix_and_pii_text` (984), `_resolve_segment_draw_bounds` (1002) | Verarbeitung von PII-/generischen Segmenten |
+| `overlay.py` | `_prepare_annotation_overlay` (509), `_render_single_annotation` (388), `render_visible_annotations` (144) | Font-Text-Overlay-Rendering |
+| `handwriting.py` | `_prepare_handwriting_asset_overlay` (648), `_render_handwriting_annotation` (453) | Handschrift-Asset-Overlay-Rendering |
+| `placement.py` | `_materialize_positions` (707), `_VALID_PLACEMENT_MODES` (18) | geseedete Positionsauswahl |
+| `injector.py` | `inject_visible_text` (196), `inject_visible_text_into_image` (243), `_inject_visible_text_into_frame` (280), `_render_frame_with_annotations` (488), `_build_box_annotation` (1067), `_TEXT_BACKGROUND_COLORS` (25) | Orchestrierungsfassade, die der Runner aufruft |
+| `writers/dicom.py` (aus der Engine verschieben) | `_write_pixel_array` (803) | DICOM-Pixel-Schreiben ist eine *Writer*-Zuständigkeit: Es schreibt Transfer-Syntax, photometrische Interpretation und Frame-Metadaten um — Formatkonformität, nicht Rendering (entspricht ADR-0006; der DICOM-Writer besitzt die Datasetänderung zur Speicherung) |
+| gelöscht | `build_visible_text_annotations` (99), `render_annotations_for_dataset` (169) | tote API, die die Präfixtaxonomie duplizierte |
 
-Import direction (no cycles):
+Importsrichtung (keine Zyklen):
 `injector → placement → overlay/handwriting → segments → geometry/fonts/frames`.
-`overlay` and `handwriting` both depend on `geometry` + `segments`;
-`placement` calls `overlay._prepare_annotation_overlay` for sizing — that
-cross-dependency is intrinsic (placement must measure what rendering will
-draw, per the comment at line 703-706) and stays explicit.
+`overlay` und `handwriting` hängen beide von `geometry` + `segments` ab;
+`placement` ruft zur Größenbestimmung `overlay._prepare_annotation_overlay` auf.
+Diese Querverbindung ist inhärent (die Platzierung muss gemäß dem Kommentar in
+Zeile 703–706 messen, was das Rendering zeichnet) und bleibt explizit.
 
-Circular-dependency hazard: `_prepare_annotation_overlay` dispatches to
-`_prepare_handwriting_asset_overlay` when `renderer_type == "handwriting_asset"`
-(line 516). Invert it: the *caller* (`_render_single_annotation`,
-`_materialize_positions`) dispatches on `renderer_type` to the right module,
-so `overlay` never imports `handwriting`. Behaviour identical — the dispatch
-happens one frame earlier.
+Gefahr einer zirkulären Abhängigkeit: `_prepare_annotation_overlay` verzweigt zu
+`_prepare_handwriting_asset_overlay`, wenn `renderer_type == "handwriting_asset"`
+(Zeile 516). Umkehren: Der *Aufrufer* (`_render_single_annotation`,
+`_materialize_positions`) verzweigt anhand von `renderer_type` in das passende
+Modul, sodass `overlay` `handwriting` nie importiert. Das Verhalten bleibt
+identisch — die Verzweigung erfolgt einen Frame früher.
 
-## Sequencing
+## Reihenfolge
 
-1. **Retire the override first** (independent of everything): apply the 13
-   fixes, delete the `pyproject.toml` block, run byte-identity harness
-   (WP-D step 0) — resampling enum and int coercions must not change a pixel.
-2. Move `geometry.py` + `fonts.py` + `frames.py` (leaf modules, no in-repo
-   dependents besides the engine itself); keep re-exports in
-   `pixel_injection.py`.
-3. Move `segments.py`, then `overlay.py` + `handwriting.py` (with the
-   dispatch inversion), then `placement.py`.
-4. Move the facade into `injector.py`; `pixel_injection.py` becomes a
-   re-export shim; update `tests/unit/test_pixel_injection_corners.py:14-21`
-   and `tests/unit/test_handwriting_asset_rendering.py:8-11` imports; delete
-   the shim once `engine/__init__.py` exports the public surface.
-5. Move `_write_pixel_array` into the DICOM writer when WP-F lands (it is the
-   only engine function touching pydicom datasets besides the facade).
-6. Delete the dead API (`build_visible_text_annotations`,
-   `render_annotations_for_dataset`) and its `engine/__init__.py` exports.
+1. **Zuerst den Override entfernen** (unabhängig von allem): die 13 Korrekturen
+   anwenden, den `pyproject.toml`-Block löschen und den Byte-Identitäts-Harness
+   (WP-D, Schritt 0) ausführen — Resampling-Enum und Int-Umwandlungen dürfen
+   kein Pixel ändern.
+2. `geometry.py` + `fonts.py` + `frames.py` verschieben (Blattmodule ohne
+   Abhängige im Repository außer der Engine selbst); Re-Exports in
+   `pixel_injection.py` beibehalten.
+3. `segments.py` und danach `overlay.py` + `handwriting.py` (mit der Umkehrung
+   der Verzweigung) verschieben, anschließend `placement.py`.
+4. Die Fassade nach `injector.py` verschieben; `pixel_injection.py` wird ein
+   Re-Export-Shim; Imports in
+   `tests/unit/test_pixel_injection_corners.py:14-21` und
+   `tests/unit/test_handwriting_asset_rendering.py:8-11` aktualisieren; den
+   Shim löschen, sobald `engine/__init__.py` die öffentliche Oberfläche exportiert.
+5. `_write_pixel_array` bei Umsetzung von WP-F in den DICOM-Writer verschieben
+   (dies ist neben der Fassade die einzige Engine-Funktion, die pydicom-
+   Datasets berührt).
+6. Die tote API (`build_visible_text_annotations`,
+   `render_annotations_for_dataset`) und ihre `engine/__init__.py`-Exports
+   löschen.
 
-Each step: pytest green + byte-identity harness. Steps 1-4 need no WP-B
-types; when WP-B lands, `dict[str, Any]` parameters
-(`annotation`, `visible_injections`, overlay payload) upgrade to
-`RenderPlanItem` / `PlacedRenderItem` / `RenderedAnnotation` — the overlay
-payload dict (lines 595-642) is the best candidate for a small internal
-`OverlaySpec` model since it crosses the overlay→render seam.
+Jeder Schritt: pytest erfolgreich plus Byte-Identitäts-Harness. Schritte 1–4
+benötigen keine WP-B-Typen; sobald WP-B umgesetzt ist, werden `dict[str, Any]`-
+Parameter
+(`annotation`, `visible_injections`, Overlay-Payload) zu
+`RenderPlanItem` / `PlacedRenderItem` / `RenderedAnnotation` aufwerten — das
+Overlay-Payload-Dict (Zeilen 595–642) ist der beste Kandidat für ein kleines
+internes `OverlaySpec`-Modell, da es die Overlay-→Render-Grenze überschreitet.
 
-## Testability payoff
+## Gewinn für die Testbarkeit
 
-- `geometry.py` and `segments.py` become pure-function modules — property
-  tests (corner order under all five rotations, segment reconstruction) get
-  trivial.
-- `placement.py` isolates the only RNG consumer in the engine, making the
-  WP-G "named stream" change a one-module diff.
-- `injector.py` is the only module the runner (later: adapters) may import.
+- `geometry.py` und `segments.py` werden Module mit reinen Funktionen —
+  Property-Tests (Eckenreihenfolge bei allen fünf Rotationen,
+  Segmentrekonstruktion) werden trivial.
+- `placement.py` isoliert den einzigen RNG-Konsumenten der Engine, wodurch die
+  WP-G-Änderung zum „named stream“ auf ein Modul begrenzt wird.
+- `injector.py` ist das einzige Modul, das der Runner (später: die Adapter)
+  importieren darf.
 
-## Implementation Status
+## Implementierungsstatus
 
-### Implemented 2026-07-12
+### Implementiert am 2026-07-12
 
-- Typing fixes landed and the mypy override was deleted.
-- Engine modules were split in the order above; `pixel_injection.py` remains as
-  a compatibility export shim.
-- Handwriting dispatch no longer creates an `overlay` to `handwriting` import.
-- Dead public helpers were removed after repo-wide reference checks.
-- `_write_pixel_array` moved into the DICOM writer during WP-F.
+- Typisierungskorrekturen wurden übernommen und der mypy-Override gelöscht.
+- Engine-Module wurden in der oben genannten Reihenfolge aufgeteilt;
+  `pixel_injection.py` bleibt als Kompatibilitäts-Export-Shim bestehen.
+- Die Handschrift-Verzweigung erzeugt keinen Import von `overlay` nach
+  `handwriting` mehr.
+- Tote öffentliche Hilfsfunktionen wurden nach einer repositoryweiten
+  Referenzprüfung entfernt.
+- `_write_pixel_array` wurde während WP-F in den DICOM-Writer verschoben.
 
-### Remaining
+### Verbleibend
 
-- Internal renderer payloads still use `dict[str, Any]` in a few engine seams.
-- Keeping or deleting the `pixel_injection.py` compatibility shim needs a later
-  compatibility decision.
+- Interne Renderer-Payloads verwenden an einigen Engine-Grenzen weiterhin
+  `dict[str, Any]`.
+- Das Beibehalten oder Löschen des Kompatibilitäts-Shims `pixel_injection.py`
+  benötigt eine spätere Kompatibilitätsentscheidung.
 
-Definition of done update: strict mypy runs without per-module overrides, the
-engine has cohesive modules, and the committed E2E harness covers byte-stable
-DCM/JPG output.
+Abschlusskriterium: Striktes mypy läuft ohne modulbezogene Overrides, die Engine
+besitzt zusammenhängende Module und der eingecheckte E2E-Harness deckt
+byte-stabile DCM/JPG-Ausgabe ab.

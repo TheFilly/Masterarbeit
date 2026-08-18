@@ -1,83 +1,87 @@
-# Target Architecture Blueprint (WP-A)
+# Zielarchitektur-Blueprint (WP-A)
 
-Status: active blueprint, updated 2026-07-14.
-Anchor document for the architecture-alignment packages in
-`docs/fable-work-packages.md`. WP-B..WP-G landed for the DICOM/JPG core chain;
-PDF adapter integration is implemented; version-safe provenance emission remains open.
+Status: aktiver Blueprint, aktualisiert am 2026-07-14.
+Referenzdokument für die Architekturabgleich-Pakete in
+`docs/fable-work-packages.md`. WP-B..WP-G wurden für die DICOM/JPG-Kernkette
+umgesetzt; die PDF-Adapterintegration ist implementiert, die versionssichere
+Provenienz-Ausgabe bleibt offen.
 
-Load-bearing choices are recorded as ADRs:
+Architekturentscheidungen mit tragender Bedeutung sind in ADRs festgehalten:
 
-- ADR-0005 - canonical pydantic domain model: accepted, implemented for
-  DICOM/JPG with shared geometry reused by PDF.
-- ADR-0006 - format adapter contract: accepted, implemented for DICOM/JPG
-  and the dedicated PDF loader/writer workflow.
-- ADR-0007 - identifier-schema externalization: accepted, implemented for the
-  prototype schema.
-- ADR-0008 - schema versioning strategy: accepted; `0.2.0-prototype` remains
-  the DICOM/JPG record and `0.3.0-pdf-prototype` is the PDF sidecar version.
-- ADR-0009 - determinism contract: accepted; seeds and clocks implemented,
-  environment provenance open.
+- ADR-0005 - kanonisches pydantic-Domainmodell: angenommen, für DICOM/JPG
+  implementiert; gemeinsame Geometrie wird für PDF wiederverwendet.
+- ADR-0006 - Format-Adapter-Vertrag: angenommen, für DICOM/JPG und den
+  dedizierten PDF-Loader/Writer-Workflow implementiert.
+- ADR-0007 - Externalisierung des Identifier-Schemas: angenommen, für das
+  Prototype-Schema implementiert.
+- ADR-0008 - Strategie zur Schema-Versionierung: angenommen;
+  `0.2.0-prototype` bleibt das DICOM/JPG-Record und
+  `0.3.0-pdf-prototype` die PDF-Sidecar-Version.
+- ADR-0009 - Determinismusvertrag: angenommen; Seeds und Uhren implementiert,
+  Umgebungsprovenienz offen.
 
-The migration invariant holds throughout: existing DCM/JPG runs stay
-byte-identical with an injected run timestamp unless an ADR approves a change
-(`docs/dicom-injection.md`, Validation State).
+Die Migrationsinvariante gilt durchgehend: Bestehende DCM/JPG-Runs bleiben bei
+injiziertem Zeitstempel byteidentisch, sofern nicht ein ADR eine Änderung
+genehmigt (`docs/dicom-injection.md`, Validierungsstatus).
 
-## Implementation snapshot, 2026-07-14
+## Implementierungsstand, 2026-07-14
 
-Implemented:
+Implementiert:
 
-- Pydantic models cover geometry, identity, annotations, rendering metadata,
-  DICOM context, adapter payloads, and `RunRecord`.
-- `configs/identifier_schemas/dicom-prototype.json` externalizes the five
-  prototype fields, generation recipes, DICOM routes, visible routes, prefixes,
-  and deterministic `reference_date`.
-- `runner.py` sequences stages through input resolution, identifier schema
-  loading, identity generation, planning, adapter loading/writing, engine
-  rendering, preview generation, and typed record writing.
-- `engine/pixel_injection.py` is a compatibility export shim over split engine
-  modules; DICOM pixel writeback moved to `writers/dicom.py`.
-- `loaders/registry.py` resolves DCM/JPG adapters. JPG no longer loads or saves
-  inline in the runner.
-- WP-I E2E tests generate synthetic DCM/JPG fixtures, run the pipeline with a
-  fixed timestamp, and compare artifact hashes. CI runs ruff, mypy, and pytest.
+- Pydantic-Modelle decken Geometrie, Identität, Annotationen, Render-Metadaten,
+  DICOM-Kontext, Adapter-Payloads und `RunRecord` ab.
+- `configs/identifier_schemas/dicom-prototype.json` externalisiert die fünf
+  Prototype-Felder, Generierungsrezepte, DICOM-Routen, sichtbaren Routen,
+  Präfixe und das deterministische `reference_date`.
+- `runner.py` reiht Stufen für Input-Auflösung, Laden des Identifier-Schemas,
+  Identitätsgenerierung, Planung, Adapter-Laden/Schreiben, Engine-Rendering,
+  Preview-Erzeugung und typisiertes Record-Schreiben aneinander.
+- `engine/pixel_injection.py` ist ein Kompatibilitäts-Export-Shim über die
+  aufgeteilten Engine-Module; DICOM-Pixel-Schreiben wurde nach
+  `writers/dicom.py` verschoben.
+- `loaders/registry.py` löst DCM/JPG-Adapter auf. JPG wird nicht mehr inline im
+  Runner geladen oder gespeichert.
+- WP-I-E2E-Tests erzeugen synthetische DCM/JPG-Fixtures, führen die Pipeline mit
+  festem Zeitstempel aus und vergleichen Artefakt-Hashes. Die CI führt ruff,
+  mypy und pytest aus.
 
-Open:
+Offen:
 
-- Emission of identifier-schema provenance and reproducibility/environment
-  fields for future DICOM/JPG schema versions.
-- Broader PDF operational fixture validation. The
-  implemented path accepts a template PDF plus an injected DICOM and its JSON
-  annotation; it is not a post-run composer.
-- Validators/DICOM conformance policy, batch mode, manifest split, and output
-  hygiene packages listed in `docs/fable-work-packages.md`.
-- ScrabbleGAN real-model generation and the integrated handwriting asset
-  provider/cache are implemented. ADR-0010 and complete
-  environment/provenance gates remain open.
+- Ausgabe von Identifier-Schema-Provenienz und Reproduzierbarkeits-/Umgebungs-
+  feldern für künftige DICOM/JPG-Schema-Versionen.
+- Breitere operative PDF-Fixture-Validierung. Der implementierte Pfad akzeptiert
+  ein PDF-Template samt injiziertem DICOM und dessen JSON-Annotation; er ist
+  kein Post-Run-Composer.
+- Validatoren-/DICOM-Konformitätsrichtlinie, Batch-Modus, Manifestaufteilung und
+  Output-Hygiene-Pakete aus `docs/fable-work-packages.md`.
+- ScrabbleGAN-Echtmodellgenerierung und integrierter Handschrift-Asset-
+  Provider/Cache sind implementiert. ADR-0010 und vollständige
+  Umgebungs-/Provenienz-Gates bleiben offen.
 
-## Before / after
+## Vorher / nachher
 
-Original flow before WP-B..WP-G: one module owned almost everything, and every
-seam passed `dict[str, Any]`:
+Ursprünglicher Ablauf vor WP-B..WP-G: Ein Modul besaß fast die gesamte Logik,
+und jede Grenze übergab `dict[str, Any]`:
 
 ```text
 cli.py ──argparse.Namespace──> runner.py (~708 lines)
-                                 ├─ input resolution (seeded default)
-                                 ├─ run-id / output paths (injectable clock)
-                                 ├─ identity via identity/generator.py (dicts)
-                                 ├─ tag map + render plan (hardcoded taxonomy)
-                                 ├─ handwriting manifest load/parse/apply
+                                 ├─ Input-Auflösung (geseedeter Standard)
+                                 ├─ Run-ID / Ausgabepfade (injizierbare Uhr)
+                                 ├─ Identität über identity/generator.py (dicts)
+                                 ├─ Tag-Map + Render-Plan (hartcodierte Taxonomie)
+                                 ├─ Handschrift-Manifest laden/parsen/anwenden
                                  ├─ if dcm: loaders/dicom → engine/dicom_tags
                                  │          → engine/pixel_injection (1097 ln)
                                  │          → writers/dicom
-                                 ├─ if jpg: PIL open/save inline
+                                 ├─ bei JPG: PIL direkt öffnen/speichern
                                  ├─ writers/preview (annotated preview)
                                  └─ _build_record dict → ground_truth.json
                                                         + run_manifest.json (copy)
-models/ validators/ config/ : empty
+models/ validators/ config/ : leer
 ```
 
-Implemented DICOM/JPG core flow: explicit stages with one orchestrator that
-currently receives parsed CLI options:
+Implementierter DICOM/JPG-Kernablauf: explizite Stufen mit einem Orchestrator,
+der derzeit geparste CLI-Optionen erhält:
 
 ```text
 cli.py ──> argparse.Namespace + options.py defaults
@@ -87,109 +91,120 @@ cli.py ──> argparse.Namespace + options.py defaults
              │  Path + document_type
              ▼
         Loader (per format, loaders/)              [ADR-0006]
-             │  SourceDocument (typed: frame(s) + format context)
+             │  SourceDocument (typisiert: frame(s) + Formatkontext)
              ▼
-        IdentityProvider (identity/, schema-driven) 
+        IdentityProvider (identity/, schema-gesteuert)
              │  Identity                            [ADR-0007]
              ▼
-        HandwritingAssetProvider (implemented, handwriting mode only)
-             │  cache hit or generated image/mask/manifest under
+        HandwritingAssetProvider (implementiert, nur Handschriftmodus)
+             │  Cache-Hit oder erzeugtes Bild/Mask/Manifest unter
              │  DicomData/HandwritingAssets/
              ▼
         InjectionPlanner (planning.py)
-             │  InjectionPlan = TagPlan + VisibleRenderPlan (typed)
+             │  InjectionPlan = TagPlan + VisibleRenderPlan (typisiert)
              ▼
         Engine (engine/: tags, rendering, geometry, handwriting)
              │  InjectedDocument + BoxAnnotation/TagAnnotation lists
              ▼
         Writer (per format, writers/)              [ADR-0006]
-             │  output file + previews
+             │  Ausgabedatei + Previews
              ▼
         GroundTruthBuilder (ground_truth.py + models/) [ADR-0005, ADR-0008]
              │  RunRecord (validated pydantic)
 ```
 
-`RunConfig` and the validator/report stage are target components, not current
-implementation. Their design remains in WP-O and WP-K respectively.
+`RunConfig` und die Validator-/Report-Stufe sind Zielkomponenten, nicht Teil der
+aktuellen Implementierung. Ihr Design bleibt in WP-O beziehungsweise WP-K.
 
-Typed data crossing each seam is specified in
-`docs/architecture/domain-model-spec.md` (WP-B). The adapter seam is specified
+Typisierte Daten, die jede Grenze überschreiten, sind spezifiziert in
+`docs/architecture/domain-model-spec.md` (WP-B). Die Adapter-Grenze ist spezifiziert
 in `docs/architecture/adapter-contract.md` (WP-F).
 
-## Component map
+## Komponentenübersicht
 
-The table below preserves the 2026-07-06 gap analysis. Use the implementation
-snapshot above for the 2026-07-14 code state.
+Die folgende Tabelle bewahrt die Gap-Analyse vom 2026-07-06. Für den Code-Stand
+vom 2026-07-14 ist der obige Implementierungssnapshot maßgeblich.
 
-| Component | Today | Target | Fate |
+| Komponente | Heute | Ziel | Weiteres Schicksal |
 |---|---|---|---|
-| `cli.py` | argparse + interactive prompts; imports runner privates (`cli.py:10-17`) | unchanged role; builds a `RunConfig` and passes it to the orchestrator; imports only public names | stays, re-pointed |
-| `runner.py` | god-module (~708 lines, all stages) | thin orchestrator that sequences typed stage modules | split completed (WP-D) |
-| `models/` | empty docstring | canonical domain model + `RunRecord` (`domain-model-spec.md`, WP-B) | created |
-| `config/` | empty docstring | loaders for run config and the external identifier schema (`identifier-schema-spec.md`, WP-C) | created |
-| `configs/` | `.gitkeep` | identifier schema file(s) + PDF template configs | created |
-| `identity/generator.py` | Faker with hardcoded fields/prefixes | schema-driven `IdentityProvider` reading field recipes from config | rewired (WP-C) |
-| `engine/pixel_injection.py` | 1097 lines, six concerns, mypy override | split into frames / fonts / geometry / segments / overlay / handwriting / placement / injector (`pixel-injection-decomposition.md`, WP-E) | splits |
-| `engine/dicom_tags.py` | 13-line tag setter | stays; gains typed `TagPlan` input | stays |
-| `loaders/dicom.py`, `writers/dicom.py` | ad-hoc helpers | first implementations of the Loader/Writer contract (WP-F) | stays, conforms |
-| JPG handling | inline in `runner.py:638,651` | `loaders/jpg.py` + `writers/jpg.py` per contract | created (WP-F) |
-| PDF path | dedicated loader/writer and sidecar implemented (`loaders/pdf.py`, `writers/pdf.py`, `pdf/`) | `pdf/` loader/writer pair; shared geometry models from WP-B and PDF-specific page/sidecar models | implemented in PDF implementation pass |
-| `writers/preview.py` | matplotlib previews + own CLI, hardcoded default path | preview writer with required input and opt-in display | stays, cleaned |
-| `validators/` | empty docstring | schema round-trip validation, annotation-geometry checks, format validity | created (post-WP-B; PLAN.md Phase 4) |
-| handwriting manifest logic | in `runner.py:59-168` | `engine/handwriting_manifest.py` (load/parse/apply), typed asset model | moves (WP-D) |
-| handwriting generation/cache | integrated provider/cache with isolated runtime | isolated ScrabbleGAN asset provider shared by injection and standalone seed command; cache lookup after identity generation | implemented; ADR-0010 and full gates remain open |
-| dead engine API (`build_visible_text_annotations`, `render_annotations_for_dataset`) | exported, uncalled, duplicates prefix taxonomy | deleted | removed |
+| `cli.py` | argparse + interaktive Prompts; importiert Runner-Privates (`cli.py:10-17`) | unveränderte Rolle; baut `RunConfig` und übergibt es an den Orchestrator; importiert nur öffentliche Namen | bleibt, neu ausgerichtet |
+| `runner.py` | God-Modul (~708 Zeilen, alle Stufen) | schlanker Orchestrator, der typisierte Stufenmodule reiht | aufgeteilt (WP-D) |
+| `models/` | leeres Docstring | kanonisches Domainmodell + `RunRecord` (`domain-model-spec.md`, WP-B) | erstellt |
+| `config/` | leeres Docstring | Loader für Run-Konfiguration und externes Identifier-Schema (`identifier-schema-spec.md`, WP-C) | erstellt |
+| `configs/` | `.gitkeep` | Identifier-Schema-Datei(en) + PDF-Template-Konfigurationen | erstellt |
+| `identity/generator.py` | Faker mit hardcodierten Feldern/Präfixen | schema-gesteuerter `IdentityProvider`, der Feldrezepte aus der Konfiguration liest | neu verdrahtet (WP-C) |
+| `engine/pixel_injection.py` | 1097 Zeilen, sechs Zuständigkeiten, mypy-Override | Aufteilung in frames / fonts / geometry / segments / overlay / handwriting / placement / injector (`pixel-injection-decomposition.md`, WP-E) | Aufteilung |
+| `engine/dicom_tags.py` | 13-zeiliger Tag-Setter | bleibt; erhält typisierte `TagPlan`-Eingabe | bleibt |
+| `loaders/dicom.py`, `writers/dicom.py` | Ad-hoc-Hilfsfunktionen | erste Implementierungen des Loader/Writer-Vertrags (WP-F) | bleibt, konform |
+| JPG-Verarbeitung | inline in `runner.py:638,651` | `loaders/jpg.py` + `writers/jpg.py` gemäß Vertrag | erstellt (WP-F) |
+| PDF-Pfad | dedizierter Loader/Writer und Sidecar implementiert (`loaders/pdf.py`, `writers/pdf.py`, `pdf/`) | `pdf/`-Loader/Writer-Paar; gemeinsame Geometriemodelle aus WP-B und PDF-spezifische Seiten-/Sidecar-Modelle | im PDF-Implementierungslauf implementiert |
+| `writers/preview.py` | matplotlib-Previews + eigene CLI, hardcodierter Standardpfad | Preview-Writer mit erforderlichem Input und opt-in-Anzeige | bleibt, bereinigt |
+| `validators/` | leeres Docstring | Schema-Round-Trip-Validierung, Annotation-/Geometrieprüfungen, Formatgültigkeit | erstellt (nach WP-B; PLAN.md Phase 4) |
+| Handschrift-Manifestlogik | in `runner.py:59-168` | `engine/handwriting_manifest.py` (Laden/Parsen/Anwenden), typisiertes Asset-Modell | verschoben (WP-D) |
+| Handschriftgenerierung/-cache | integrierter Provider/Cache mit isolierter Runtime | isolierter ScrabbleGAN-Asset-Provider, gemeinsam von Injektion und eigenständigem Seed-Befehl verwendet; Cache-Suche nach Identitätsgenerierung | implementiert; ADR-0010 und vollständige Gates bleiben offen |
+| Tote Engine-API (`build_visible_text_annotations`, `render_annotations_for_dataset`) | exportiert, unaufgerufen, dupliziert Präfixtaxonomie | gelöscht | entfernt |
 
-## Boundaries and rules
+## Grenzen und Regeln
 
-1. **Orchestrator owns sequencing only.** No business rule (which fields exist,
-   where they render, how they serialize) lives in `runner.py` after WP-C/WP-D.
-2. **Every seam is a pydantic model.** `dict[str, Any]` payloads are legal only
-   inside a single module, never across module boundaries (ADR-0005).
-3. **Formats are peers.** Adding a format touches `loaders/`, `writers/`, a
-   registration entry — not the orchestrator body (ADR-0006).
-4. **Taxonomy enters exactly once**, at config load, as an identifier schema
-   consumed by identity generation and injection planning (ADR-0007).
-5. **One schema lineage.** All ground-truth-style artifacts (run record, PDF
-   sidecar) version under a single strategy (ADR-0008).
-6. **Each modality owns its adapter.** PDF loads a template and writes a new
-   PDF using the injected DICOM and validated JSON annotation; it does not
-   mutate or depend on source-run output directories.
-7. **Determinism is a contract**, not a habit: every random draw comes from a
-   named, seeded, recorded stream; clocks are injectable (ADR-0009).
-8. **Legacy handwriting runtime stays isolated.** The main pipeline consumes a
-   typed/local asset-provider boundary and may invoke the isolated generator,
-   but ScrabbleGAN's Python/PyTorch environment is not added to the Python
-   3.13 project.
-9. **Cache identity must be explicit.** A handwriting asset may be reused only
-   when its cache identity matches the selected seed, generated text, schema,
-   generator/checkpoint, and any other parameters approved by the final WP-J
-   contract.
+1. **Der Orchestrator steuert nur die Reihenfolge.** Nach WP-C/WP-D liegt keine
+   Geschäftsregel (welche Felder existieren, wo sie gerendert werden, wie sie
+   serialisiert werden) in `runner.py`.
+2. **Jede Grenze ist ein pydantic-Modell.** `dict[str, Any]`-Payloads sind nur
+   innerhalb eines einzelnen Moduls zulässig, nie über Modulgrenzen hinweg
+   (ADR-0005).
+3. **Formate sind gleichrangig.** Das Hinzufügen eines Formats berührt
+   `loaders/`, `writers/` und einen Registrierungseintrag — nicht den Körper
+   des Orchestrators (ADR-0006).
+4. **Die Taxonomie wird genau einmal eingebracht**, beim Laden der Konfiguration
+   als Identifier-Schema, das von Identitätsgenerierung und Injektionsplanung
+   verwendet wird (ADR-0007).
+5. **Eine Schema-Versionslinie.** Alle Ground-Truth-artigen Artefakte
+   (Run-Record, PDF-Sidecar) werden nach einer gemeinsamen Strategie versioniert
+   (ADR-0008).
+6. **Jede Modalität besitzt ihren Adapter.** PDF lädt ein Template und schreibt
+   mit dem injizierten DICOM und der validierten JSON-Annotation ein neues PDF;
+   es verändert keine Quell-Run-Ausgabeverzeichnisse und hängt nicht von ihnen
+   ab.
+7. **Determinismus ist ein Vertrag**, keine Gewohnheit: Jeder Zufallszugriff
+   stammt aus einem benannten, geseedeten und aufgezeichneten Stream; Uhren sind
+   injizierbar (ADR-0009).
+8. **Die Legacy-Handschrift-Runtime bleibt isoliert.** Die Hauptpipeline
+   verwendet eine typisierte/lokale Asset-Provider-Grenze und darf den
+   isolierten Generator aufrufen, aber die Python-/PyTorch-Umgebung von
+   ScrabbleGAN wird nicht zum Python-3.13-Projekt hinzugefügt.
+9. **Die Cache-Identität muss explizit sein.** Ein Handschrift-Asset darf nur
+   wiederverwendet werden, wenn seine Cache-Identität mit dem ausgewählten Seed,
+   dem erzeugten Text, dem Schema, Generator/Checkpoint und allen weiteren vom
+   finalen WP-J-Vertrag genehmigten Parametern übereinstimmt.
 
-## Implementation Status
+## Implementierungsstatus
 
-WP-A is not implemented directly; it gates the other packages.
+WP-A wird nicht direkt implementiert, sondern bildet das Gate für die anderen
+Pakete.
 
-### Implemented 2026-07-12
+### Implementiert am 2026-07-12
 
-- ADR-0005, ADR-0006, ADR-0007, and ADR-0009 accepted.
-- WP-B DICOM/JPG model layer and RunRecord round-trip tests.
-- WP-C identifier schema loader, default schema file, schema-driven
-  identity generation, and schema-driven planning.
-- WP-D runner split and WP-E engine split for the DICOM/JPG core path.
-- WP-F DICOM/JPG adapters and registry.
-- PDF loader/writer adapters, sidecar models, and `inject-pdf` CLI operation
-  under `0.3.0-pdf-prototype`.
-- WP-G seeded input selection, injectable clock, stable seed derivation, and
-  deterministic `reference_date`.
-- WP-H documentation-reality cleanup and WP-R preview/identity hygiene.
+- ADR-0005, ADR-0006, ADR-0007 und ADR-0009 angenommen.
+- WP-B-DICOM/JPG-Modellschicht und RunRecord-Round-Trip-Tests.
+- WP-C-Identifier-Schema-Loader, Standardschema-Datei, schema-gesteuerte
+  Identitätsgenerierung und schema-gesteuerte Planung.
+- WP-D-Runner-Aufteilung und WP-E-Engine-Aufteilung für den DICOM/JPG-Kernpfad.
+- WP-F-DICOM/JPG-Adapter und Registry.
+- PDF-Loader/Writer-Adapter, Sidecar-Modelle und `inject-pdf`-CLI-Operation
+  unter `0.3.0-pdf-prototype`.
+- WP-G-geseedete Input-Auswahl, injizierbare Uhr, stabile Seed-Ableitung und
+  deterministisches `reference_date`.
+- WP-H-Bereinigung der Dokumentationsrealität und WP-R-Preview-/Identitäts-
+  Hygiene.
 
-### Remaining
+### Verbleibend
 
-- Broader PDF operational fixture validation (unit and CLI coverage exists;
-  full modality integration fixtures remain open).
-- Recorded environment/provenance fields for a future DICOM/JPG schema bump.
+- Breitere operative PDF-Fixture-Validierung (Unit- und CLI-Abdeckung existiert;
+  vollständige Modalitäts-Integrations-Fixtures bleiben offen).
+- Aufgezeichnete Umgebungs-/Provenienzfelder für eine künftige DICOM/JPG-
+  Schemaerhöhung.
 
-Definition of done for the blueprint itself: every module in `src/` appears in
-the component map with a fate; all five ADRs exist with options considered;
-each downstream package references this document without contradicting it.
+Abschlusskriterium für den Blueprint: Jedes Modul in `src/` erscheint mit einem
+Schicksal in der Komponentenkarte; alle fünf ADRs existieren mit betrachteten
+Optionen; jedes nachgelagerte Paket referenziert dieses Dokument, ohne ihm zu
+widersprechen.

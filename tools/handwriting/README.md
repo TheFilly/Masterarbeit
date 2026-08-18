@@ -1,19 +1,21 @@
-# Handwriting Tools
+# Handschrift-Tools
 
-This directory contains isolated tooling for handwriting assets used by the
-injection workflow.
+Dieses Verzeichnis enthält isolierte Tools für Handschrift-Assets, die vom
+Injektions-Workflow verwendet werden.
 
-Generated images, masks, manifests, checkpoints, logs, and third-party source
-belong under `DicomData/HandwritingAssets/` or another ignored local path. Do
-not commit them.
+Erzeugte Bilder, Masken, Manifeste, Checkpoints, Logs und Quellcode von
+Drittanbietern
+gehören unter `DicomData/HandwritingAssets/` oder einen anderen ignorierten
+lokalen Pfad. Sie dürfen nicht versioniert werden.
 
-The ScrabbleGAN subtool now has the host-side provider/cache contract used by
-`--font-family handwriting` and the standalone
-`uv run injection-pipeline generate-handwriting --seed <seed>` command. It
-still keeps the legacy generator runtime outside the Python 3.13 environment.
+Das ScrabbleGAN-Subtool besitzt nun den vom Host verwendeten Provider-/Cache-
+Vertrag für `--font-family handwriting` und den eigenständigen Befehl
+`uv run injection-pipeline generate-handwriting --seed <seed>`. Die Legacy-
+Generator-Runtime bleibt weiterhin außerhalb der Python-3.13-Umgebung.
 
-The real Docker/upstream checkpoint path was verified locally on 2026-07-15
-with the official Amazon source checkout, the IAM English options sidecar, and
-the local `latest_net_G.pth` checkpoint. Missing checkpoint, options sidecar,
-`.git_commit`/Git checkout metadata, or generator runtime is a hard error;
-there is no fallback to a normal font renderer.
+Der reale Docker-/Upstream-Checkpoint-Pfad wurde am 2026-07-15 lokal mit dem
+offiziellen Amazon-Source-Checkout, dem englischen IAM-Options-Sidecar und dem
+lokalen Checkpoint `latest_net_G.pth` verifiziert. Ein fehlender Checkpoint,
+Options-Sidecar, `.git_commit`-/Git-Checkout-Metadatum oder eine fehlende
+Generator-Runtime ist ein harter Fehler; es gibt keinen Fallback auf einen
+normalen Font-Renderer.

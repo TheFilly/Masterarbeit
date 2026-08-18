@@ -1,26 +1,27 @@
-# DICOM/JPG/PDF Injection Pipeline
+# DICOM/JPG/PDF-Injection-Pipeline
 
-Operational documentation for the migrated DICOM/JPG injection paths and the
-PDF adapter in
-`src/injection_pipeline/`. The implementation preserves the prototype contract:
-schema-driven DICOM tag injection, visible pixel injection, and
-`ground_truth.json` schema `0.2.0-prototype`.
+Betriebsdokumentation für die migrierten DICOM/JPG-Injektionspfade und den
+PDF-Adapter in `src/injection_pipeline/`. Die Implementierung erhält den
+Prototype-Vertrag: schema-gesteuerte DICOM-Tag-Injektion, sichtbare
+Pixel-Injektion und das Schema `0.2.0-prototype` von `ground_truth.json`.
 
-## Scope
+## Umfang
 
-- DICOM path: schema-defined tag injection plus visible pixel injection.
-- JPG path: visible pixel injection only.
-- Ground truth: prototype JSON file, schema `0.2.0-prototype`.
-- Current architecture: pydantic run models, an external identifier schema,
-  split runner/engine stages, and registered DCM/JPG loader/writer adapters.
-- PDF path: a PDF template plus an already injected DICOM and its JSON
-  annotation are loaded by the PDF adapter; a new PDF and PDF annotation
-  sidecar are written. The input files remain unchanged.
-- Existing CLI scope: PDF-native free-text/table injection remains out of
-  scope for `inject-pdf`; the `make_pdf` API below covers PDF-native text
-  composition. De-identification remains out of scope.
+- DICOM-Pfad: schema-definierte Tag-Injektion plus sichtbare Pixel-Injektion.
+- JPG-Pfad: ausschließlich sichtbare Pixel-Injektion.
+- Ground Truth: Prototype-JSON-Datei mit dem Schema `0.2.0-prototype`.
+- Aktuelle Architektur: pydantic-Run-Modelle, ein externes Identifier-Schema,
+  getrennte Runner-/Engine-Stufen sowie registrierte DCM/JPG-Loader-/Writer-
+  Adapter.
+- PDF-Pfad: Der PDF-Adapter lädt ein PDF-Template sowie ein bereits injiziertes
+  DICOM und dessen JSON-Annotation; eine neue PDF-Datei und ein PDF-Annotation-
+  Sidecar werden geschrieben. Die Eingabedateien bleiben unverändert.
+- Umfang der bestehenden CLI: PDF-nativer Freitext-/Tabellen-Text bleibt für
+  `inject-pdf` außerhalb des Umfangs; die folgende `make_pdf`-API deckt
+  PDF-native Textkomposition ab. De-Identifikation bleibt außerhalb des
+  Umfangs.
 
-## Run
+## Ausführung
 
 ```bash
 uv run injection-pipeline
@@ -36,24 +37,25 @@ uv run injection-pipeline generate-handwriting --seed 42
 uv run injection-pipeline inject-pdf --input-pdf DicomData/pdf/Briefmarken.1Stk.17.03.2026_1345.pdf --input-dicom DicomData/InjectedDicom/<run-id>/<source-stem>_injected.dcm --dicom-annotation DicomData/InjectedDicom/<run-id>/ground_truth.json
 ```
 
-`uv run python -m injection_pipeline ...` is equivalent. With no CLI arguments,
-the command starts interactive mode. If at least one CLI argument is set and
-`--input` is missing, the command chooses a local default file from sorted
-`DicomData/Dicom-Files` and `DicomData/images` candidates using the seeded
-`input_selection` stream. Pass `--input` to replay the resolved file directly.
-Pass `--run-timestamp` to make the run directory name deterministic. The
-`--font-family handwriting` mode generates the Faker identity first,
-looks up the corresponding asset bundle, generates missing assets through the
-isolated ScrabbleGAN tooling, and then injects the assets. The standalone
-`generate-handwriting --seed` command performs the same asset generation and
-persistence without requiring an input document. Exact option names and the
-cache identity are defined in `docs/scrabblegan-implementation-plan.md`.
+`uv run python -m injection_pipeline ...` ist gleichbedeutend. Ohne CLI-
+Argumente startet der Befehl den interaktiven Modus. Wenn mindestens ein CLI-
+Argument gesetzt ist und `--input` fehlt, wählt der Befehl mithilfe des
+seed-basierten Streams `input_selection` eine lokale Standarddatei aus den
+sortierten Kandidaten in `DicomData/Dicom-Files` und `DicomData/images`.
+Mit `--input` kann die aufgelöste Datei direkt erneut verwendet werden.
+`--run-timestamp` macht den Namen des Run-Verzeichnisses deterministisch. Der
+Der Modus `--font-family handwriting` erzeugt zunächst die Faker-Identität,
+sucht das zugehörige Asset-Bundle, erzeugt fehlende Assets über die isolierten
+ScrabbleGAN-Tools und injiziert anschließend die Assets. Der eigenständige
+Befehl `generate-handwriting --seed` führt dieselbe Asset-Erzeugung und
+Persistierung ohne Eingabedokument aus. Die exakten Optionsnamen und die
+Cache-Identität sind in `docs/scrabblegan-implementation-plan.md` definiert.
 
-## Public Python API
+## Öffentliche Python-API
 
-The DICOM/JPG pipeline also exposes a narrow Python API for callers that want
-to perform exactly one controlled injection while letting the pipeline choose
-the source file and layout details:
+Die DICOM/JPG-Pipeline stellt außerdem eine schlanke Python-API für Aufrufer
+bereit, die genau eine kontrollierte Injektion ausführen und dabei die Auswahl
+von Quelldatei und Layoutdetails der Pipeline überlassen möchten:
 
 ```python
 from injection_pipeline import inject_function
@@ -69,7 +71,7 @@ injected_path, ground_truth_path = inject_function(
 )
 ```
 
-Exact signature:
+Exakte Signatur:
 
 ```python
 from os import PathLike
@@ -95,16 +97,16 @@ def inject_function(
 ) -> tuple[Path, Path]: ...
 ```
 
-Parameters:
+Parameter:
 
-| Parameter | Description |
+| Parameter | Beschreibung |
 |---|---|
 | `category` | Freier Kategoriename als String. Der Wert erscheint in `ground_truth.json`. Native DICOM-Routen werden nur verwendet, wenn der Name case-insensitive eindeutig zu einem Identifier-Schema-Feldnamen oder einem DICOM-Keyword passt, zum Beispiel `patient_id` oder `PatientID`. Ambigue Kategorie-Labels wie `identifier` bleiben sichtbar/pixelbasiert. JPG schreibt nie DICOM-Tags. |
 | `value` | PII-Wert als String, zum Beispiel `"95"`. |
-| `prefix` | Nicht-PII-Text vor dem Wert. Leerzeichen muessen explizit im String stehen. |
-| `suffix` | Nicht-PII-Text nach dem Wert. Leerzeichen muessen explizit im String stehen. |
-| `handwritten` | `True` nutzt die Handwriting-Pipeline fuer den kompletten sichtbaren Text `prefix + value + suffix`; `False` nutzt den normalen Renderer. |
-| `documentType` | Dokumenttyp, case-insensitive. Erlaubt sind `dcm` und `jpg`; `dcm` waehlt aus `DicomData/Dicom-Files`, `jpg` aus `DicomData/images` mit `.jpg` oder `.jpeg`. |
+| `prefix` | Nicht-PII-Text vor dem Wert. Leerzeichen müssen explizit im String stehen. |
+| `suffix` | Nicht-PII-Text nach dem Wert. Leerzeichen müssen explizit im String stehen. |
+| `handwritten` | `True` nutzt die Handwriting-Pipeline für den kompletten sichtbaren Text `prefix + value + suffix`; `False` nutzt den normalen Renderer. |
+| `documentType` | Dokumenttyp, case-insensitive. Erlaubt sind `dcm` und `jpg`; `dcm` wählt aus `DicomData/Dicom-Files`, `jpg` aus `DicomData/images` mit `.jpg` oder `.jpeg`. |
 | `output_dir` | Optionales Exportverzeichnis. Wenn gesetzt, werden das injizierte Dokument und `ground_truth.json` dorthin kopiert. Andere vorhandene Dateien in diesem Ordner werden nicht bereinigt. |
 | `handwriting_ink_color` | `auto`, `black`, `gray` oder `white`; gilt für Handschrift. |
 | `handwriting_contrast_mode` | `none` oder `halo`; gilt für Handschrift. |
@@ -113,45 +115,48 @@ Parameters:
 | `rotation_degrees` | Optionaler expliziter Winkel aus `0`, `20`, `90`, `180`, `270`. |
 | `run_timestamp` | Optionaler Timestamp für reproduzierbare Run-IDs. |
 
-The visible text is rendered as `prefix + value + suffix`; the API does not add
-spaces or separators. The call creates only this one injection. The source
-document is selected randomly from the local default candidates when
-`input_path` is omitted. Rotation remains random when neither `seed` nor
-`rotation_degrees` is supplied. Passing the optional deterministic parameters
-enables replay without changing the legacy defaults.
-Invalid parameters, unsupported document types, missing default input folders,
-or missing candidate files raise `ValueError`.
+Der sichtbare Text wird als `prefix + value + suffix` gerendert; die API fügt
+keine Leerzeichen oder Trennzeichen hinzu. Der Aufruf erzeugt genau diese eine
+Injektion. Wenn `input_path` fehlt, wird das Quelldokument zufällig aus den
+lokalen Standardkandidaten gewählt. Die Rotation bleibt zufällig, wenn weder
+`seed` noch `rotation_degrees` angegeben ist. Die optionalen deterministischen
+Parameter ermöglichen eine Wiederholung, ohne die Legacy-Standards zu ändern.
+Ungültige Parameter, nicht unterstützte Dokumenttypen, fehlende
+Standard-Eingabeordner oder fehlende Kandidatendateien lösen `ValueError` aus.
 
-`handwritten=True` requires the same runtime setup as the CLI handwriting mode:
-the ScrabbleGAN source checkout/copy, generator checkpoint, options sidecar,
-and Docker image or compatible runtime override must be available. Missing
-handwriting prerequisites fail the run instead of falling back to a normal
-font.
+`handwritten=True` benötigt dieselbe Runtime-Einrichtung wie der CLI-
+Handschriftmodus: ScrabbleGAN-Source-Checkout/-Kopie, Generator-Checkpoint,
+Options-Sidecar und Docker-Image oder ein kompatibler Runtime-Override müssen
+verfügbar sein. Fehlende Handschriftvoraussetzungen lassen den Run
+fehlschlagen, statt auf eine normale Font zurückzufallen.
 
-Every API call still writes the full run directory below `output/<run-id>/`:
+Jeder API-Aufruf schreibt weiterhin das vollständige Run-Verzeichnis unter
+`output/<run-id>`:
 
 ```text
 output/<run-id>/
-|-- <source-stem>_injected.dcm  # or *_injected.jpg
+|-- <source-stem>_injected.dcm  # oder *_injected.jpg
 |-- ground_truth.json
 |-- preview.png
 |-- preview_annotated.png
 `-- run_manifest.json
 ```
 
-When `output_dir` is provided, the function additionally exports only the
-injected document and `ground_truth.json` to that directory. This is copy-only
-semantics: existing unrelated files in `output_dir` are left in place. The
-return value is the tuple `(injected_path, ground_truth_path)`, so callers can
-load the artifacts without scanning either directory.
+Wenn `output_dir` angegeben ist, exportiert die Funktion zusätzlich nur das
+injizierte Dokument und `ground_truth.json` in dieses Verzeichnis. Das ist eine
+reine Kopieroperation: Vorhandene, nicht zugehörige Dateien in `output_dir`
+bleiben erhalten. Der Rückgabewert ist das Tupel
+`(injected_path, ground_truth_path)`, sodass Aufrufer die Artefakte ohne eine
+Verzeichnissuche laden können.
 
 ### `make_pdf` API
 
-`make_pdf` is the public Python API for composing several already injected
-images and several PDF text injections into one PDF. It is separate from
-`inject_function`: `inject_function` creates one DICOM/JPG injection, while
-`make_pdf` receives already injected image artifacts and PDF text specs and
-writes a composed PDF plus annotations.
+`make_pdf` ist die öffentliche Python-API, die mehrere bereits injizierte
+Bilder und mehrere PDF-Textinjektionen zu einer PDF-Datei zusammensetzt. Sie
+ist von `inject_function` getrennt: `inject_function` erzeugt eine einzelne
+DICOM/JPG-Injektion, während `make_pdf` bereits injizierte Bildartefakte und
+PDF-Textspezifikationen erhält und eine kompositions-PDF samt Annotationen
+schreibt.
 
 ```python
 from injection_pipeline import (
@@ -198,7 +203,7 @@ artifacts = make_pdf(
 )
 ```
 
-The exported signature is:
+Die exportierte Signatur lautet:
 
 ```python
 def make_pdf(
@@ -211,95 +216,99 @@ def make_pdf(
 ) -> PdfMakeArtifacts: ...
 ```
 
-Parameters:
+Parameter:
 
-| Parameter | Description |
+| Parameter | Beschreibung |
 |---|---|
-| `images` | Required list of already injected images plus their image-space annotations. The composer embeds the images and maps each annotation to final PDF page coordinates. `BoxAnnotation`-style dictionaries are accepted: `label` -> `category`, `text` -> `value`, and `corners` -> `image_corners`; legacy prefix and suffix corners are preserved when available. |
-| `texts` | Required list of PDF text injections. Each entry uses the same meaning as `inject_function`'s `category`, `value`, `prefix`, `suffix`, and `handwritten`, but has no output path. |
-| `pdf` | Required input PDF template. Source pages are preserved and additional pages may be appended when needed. |
-| `output_dir` | Required directory for the generated PDF, annotated PDF, and annotation sidecar. |
-| `seed` | Optional reproducibility seed for automatic placement, page breaks, and image rotation. It does not generate or change text contents. |
+| `images` | Erforderliche Liste bereits injizierter Bilder mit Bildraum-Annotationen. Der Composer bindet die Bilder ein und bildet jede Annotation auf finale PDF-Seitenkoordinaten ab. Dictionaries im Stil von `BoxAnnotation` werden akzeptiert: `label` -> `category`, `text` -> `value` und `corners` -> `image_corners`; Legacy-Präfix- und -Suffix-Ecken bleiben erhalten, sofern vorhanden. |
+| `texts` | Erforderliche Liste von PDF-Textinjektionen. Jeder Eintrag hat dieselbe Bedeutung wie `category`, `value`, `prefix`, `suffix` und `handwritten` von `inject_function`, jedoch keinen Ausgabepfad. |
+| `pdf` | Erforderliches PDF-Eingabe-Template. Quellseiten bleiben erhalten; bei Bedarf können zusätzliche Seiten angehängt werden. |
+| `output_dir` | Erforderliches Verzeichnis für erzeugte PDF, annotierte PDF und Annotation-Sidecar. |
+| `seed` | Optionaler Reproduzierbarkeits-Seed für automatische Platzierung, Seitenumbrüche und Bildrotation. Er erzeugt oder verändert keine Textinhalte. |
 
-Normal text entries are rendered as PDF-native text. `handwritten=True` for
-direct PDF text aborts with a clear error because the API has no safe
-handwriting asset or manifest source for that case. Already rendered
-handwriting is passed as an image plus annotation. The layout engine avoids
-overlap between image and text placements, mixes beside-each-other and stacked
-arrangements, and rotates images by a seedable small angle where selected by
-the layout. If the current page cannot fit the remaining items, the composer
-appends another page. Invalid inputs, malformed annotations, impossible
-placements, or unsupported handwriting requests abort with a clear error.
+Normale Texteinträge werden als PDF-nativer Text gerendert. `handwritten=True`
+für direkten PDF-Text bricht mit einem eindeutigen Fehler ab, weil die API für
+diesen Fall keine sichere Handschrift-Asset- oder Manifestquelle besitzt.
+Bereits gerenderte Handschrift wird als Bild mit Annotation übergeben. Die
+Layout-Engine vermeidet Überlappungen zwischen Bild- und Textplatzierungen,
+kombiniert nebeneinanderliegende und gestapelte Anordnungen und rotiert Bilder
+um einen seedbaren kleinen Winkel, sofern das Layout dies auswählt. Wenn die
+aktuelle Seite die verbleibenden Elemente nicht aufnehmen kann, hängt der
+Composer eine weitere Seite an. Ungültige Eingaben, fehlerhafte Annotationen,
+unmögliche Platzierungen oder nicht unterstützte Handschriftanfragen brechen
+mit einem eindeutigen Fehler ab.
 
-The return object is `PdfMakeArtifacts`. It exposes the generated clean PDF,
-the visibly annotated PDF, the JSON sidecar, and the final placement metadata.
-The files are written as `pdf_make.pdf`, `pdf_make_annotated.pdf`, and
-`pdf_make_annotations.json` under `output_dir`. The sidecar records source
-image annotations after transformation into PDF coordinates, PDF-native text
-annotations, page indices, rotations, and the seed/layout metadata needed for
-reproduction. Image annotations include main quads and optional prefix/suffix
-quads when the source annotation provides them.
+Das Rückgabeobjekt ist `PdfMakeArtifacts`. Es stellt die erzeugte unveränderte
+PDF, die sichtbar annotierte PDF, den JSON-Sidecar und die finalen
+Platzierungsmetadaten bereit. Die Dateien werden als `pdf_make.pdf`,
+`pdf_make_annotated.pdf` und `pdf_make_annotations.json` unter `output_dir`
+geschrieben. Der Sidecar speichert Quellbild-Annotationen nach der
+Transformation in PDF-Koordinaten, PDF-native Textannotation, Seitenindizes,
+Rotationen sowie die für die Reproduktion benötigten Seed-/Layout-Metadaten.
+Bildannotation enthalten Haupt-Quads und optionale Präfix-/Suffix-Quads,
+sofern die Quellannotation diese liefert.
 
-## Parameters
+## Parameter
 
 | Parameter | Default | Description |
 |---|---|---|
-| `--seed` | `42` | Seed for identity and layout choices |
-| `--input` | random local default | DICOM or JPG source path |
-| `--output-dir` | `output` | Root output directory |
-| `--identifier-schema` | `configs/identifier_schemas/dicom-prototype.json` | External identifier schema JSON |
-| `--rotation-angle` | `0` | One of `0`, `20`, `90`, `180`, `270` |
-| `--font-size-pct` | `100` | Font size percentage, minimum `1` |
-| `--placement-mode` | `corners` | `corners` or `free` |
+| `--seed` | `42` | Seed für Identitäts- und Layoutentscheidungen |
+| `--input` | zufälliger lokaler Standard | DICOM- oder JPG-Quellpfad |
+| `--output-dir` | `output` | Ausgabe-Stammverzeichnis |
+| `--identifier-schema` | `configs/identifier_schemas/dicom-prototype.json` | Externes Identifier-Schema als JSON |
+| `--rotation-angle` | `0` | Einer aus `0`, `20`, `90`, `180`, `270` |
+| `--font-size-pct` | `100` | Font-Größe in Prozent, mindestens `1` |
+| `--placement-mode` | `corners` | `corners` oder `free` |
 | `--font-family` | `arial` | `arial`, `calibri`, `tahoma`, `consolas`, `handwriting` |
-| `--text-background` | none | Optional `white` background |
-| `--handwriting-ink-color` | `auto` | `auto`, `black`, `gray`, `white`; render-time handwriting color |
-| `--handwriting-contrast-mode` | `none` | `none` or `halo`; auto can enable a halo when needed |
-| `--show-label-boxes` | `n` | Draw generic prefix boxes in blue |
-| `--run-timestamp` | current time | Optional ISO-8601 timestamp used in `run_id` |
-| `--handwriting-manifest` | none | Explicit JSON or JSONL handwriting manifest (compatibility path) |
-| `--handwriting-asset` | none | Repeatable explicit `identity_field=asset_id` mapping (compatibility path) |
-| `--handwriting-asset-root` | `DicomData/HandwritingAssets` | Persistent cache root for generated assets |
-| `--handwriting-checkpoint` | `DicomData/HandwritingAssets/scrabblegan/checkpoints/latest_net_G.pth` | ScrabbleGAN generator checkpoint |
-| `--handwriting-checkpoint-sha256` | auto-hash local file | Expected checkpoint SHA-256 |
-| `--handwriting-options-json` | checkpoint-adjacent sidecar | Optional options sidecar; otherwise `options.json`, `test_opt.json`, `train_opt.json`, `test_opt.txt`, or `train_opt.txt` next to the checkpoint |
-| `--handwriting-source-dir` | `DicomData/HandwritingAssets/scrabblegan/source` | Official Amazon source checkout or source copy |
-| `--handwriting-upstream-commit` | source `.git_commit` or Git HEAD | Pinned upstream commit recorded in manifests |
-| `--handwriting-runtime-command` | automatic Docker runtime | Optional host-side runtime override; default starts the configured Docker image |
-| `--handwriting-container-image` | `injection-scrabblegan` | Docker image used on cache misses |
-| `--handwriting-generator-command` | built-in `generate_single.py` wrapper | Optional single-text generator command template |
+| `--text-background` | none | Optionaler `white`-Hintergrund |
+| `--handwriting-ink-color` | `auto` | `auto`, `black`, `gray`, `white`; Handschriftfarbe beim Rendern |
+| `--handwriting-contrast-mode` | `none` | `none` oder `halo`; `auto` kann bei Bedarf einen Halo aktivieren |
+| `--show-label-boxes` | `n` | Generische Präfix-Boxen blau zeichnen |
+| `--run-timestamp` | aktuelle Zeit | Optionaler ISO-8601-Zeitstempel für `run_id` |
+| `--handwriting-manifest` | none | Explizites JSON- oder JSONL-Handschrift-Manifest (Kompatibilitätspfad) |
+| `--handwriting-asset` | none | Wiederholbare explizite Zuordnung `identity_field=asset_id` (Kompatibilitätspfad) |
+| `--handwriting-asset-root` | `DicomData/HandwritingAssets` | Persistenter Cache-Stamm für erzeugte Assets |
+| `--handwriting-checkpoint` | `DicomData/HandwritingAssets/scrabblegan/checkpoints/latest_net_G.pth` | ScrabbleGAN-Generator-Checkpoint |
+| `--handwriting-checkpoint-sha256` | Hash der lokalen Datei | Erwarteter Checkpoint-SHA-256 |
+| `--handwriting-options-json` | Sidecar neben dem Checkpoint | Optionaler Options-Sidecar; andernfalls `options.json`, `test_opt.json`, `train_opt.json`, `test_opt.txt` oder `train_opt.txt` neben dem Checkpoint |
+| `--handwriting-source-dir` | `DicomData/HandwritingAssets/scrabblegan/source` | Offizieller Amazon-Source-Checkout oder eine Source-Kopie |
+| `--handwriting-upstream-commit` | Source `.git_commit` oder Git HEAD | Festgelegter Upstream-Commit in Manifesten |
+| `--handwriting-runtime-command` | automatische Docker-Runtime | Optionaler Runtime-Override auf dem Host; standardmäßig wird das konfigurierte Docker-Image gestartet |
+| `--handwriting-container-image` | `injection-scrabblegan` | Docker-Image bei Cache-Misses |
+| `--handwriting-generator-command` | eingebauter `generate_single.py`-Wrapper | Optionales Befehls-Template für den Single-Text-Generator |
 
-In interactive mode, the seed prompt is followed immediately by one common
-font-family/renderer choice, then input/schema and the remaining rotation,
-size, placement, background, label-box, and timestamp parameters follow that
-choice. Normal font choices keep the existing Pillow path; `handwriting`
-selects automatic asset lookup/generation for the visible fields
-`patient_name`, `patient_id`, and `accession_number`.
+Im interaktiven Modus folgt auf die Seed-Abfrage unmittelbar eine gemeinsame
+Font-/Renderer-Auswahl. Danach werden Eingabe/Schema sowie die übrigen
+Parameter für Rotation, Größe, Platzierung, Hintergrund, Label-Box und
+Zeitstempel abgefragt. Normale Font-Auswahlen behalten den bestehenden
+Pillow-Pfad; `handwriting` wählt automatische Asset-Suche/-Generierung für die
+sichtbaren Felder `patient_name`, `patient_id` und `accession_number`.
 
-## Identifier Schema and Determinism
+## Identifier-Schema und Determinismus
 
-The default schema lives at `configs/identifier_schemas/dicom-prototype.json`.
-It defines the five prototype identity fields, Faker recipes, DICOM routes,
-visible-pixel routes, synthetic prefixes, and visible line order. `--identifier-schema`
-can point at another schema file; the E2E suite includes a two-field toy schema
-run to prove this path does not require code changes.
+Das Standardschema liegt unter `configs/identifier_schemas/dicom-prototype.json`.
+Es definiert die fünf Prototype-Identitätsfelder, Faker-Rezepte, DICOM-Routen,
+Routen für sichtbare Pixel, synthetische Präfixe und die Reihenfolge sichtbarer
+Zeilen. `--identifier-schema` kann auf eine andere Schemadatei zeigen; die
+E2E-Suite enthält einen Lauf mit einem Zwei-Felder-Spielzeugschema, um zu
+belegen, dass dieser Pfad keine Codeänderungen erfordert.
 
-The schema fixes `generator.reference_date = "2026-07-10"` with
-`reference_date_policy = "faker-date_of_birth-reference-v1"`. Date-sensitive
-Faker recipes use that date instead of the execution day, so `PatientBirthDate`
-stays stable for a fixed seed.
+Das Schema fixiert `generator.reference_date = "2026-07-10"` mit
+`reference_date_policy = "faker-date_of_birth-reference-v1"`. Datumsabhängige
+Faker-Rezepte verwenden dieses Datum statt des Ausführungstags, sodass
+`PatientBirthDate` bei einem festen Seed stabil bleibt.
 
-Randomness uses the run seed plus named streams where the prototype contract
-allows it:
+Zufallsentscheidungen verwenden den Run-Seed und benannte Streams, soweit der
+Prototype-Vertrag dies zulässt:
 
-- `identity_a`: direct Faker seeding with `--seed`
-- default input choice: derived `input_selection` stream over sorted candidates
-- placement: grandfathered raw seed for byte compatibility
-- run clock: current time unless `--run-timestamp` is set
+- `identity_a`: direktes Faker-Seeding mit `--seed`
+- Default-Input-Auswahl: abgeleiteter `input_selection`-Stream über sortierte Kandidaten
+- Platzierung: übernommener Raw-Seed für Bytekompatibilität
+- Run-Uhr: aktuelle Zeit, sofern `--run-timestamp` nicht gesetzt ist
 
-## Outputs
+## Ausgaben
 
-Runs are written under the configured output root:
+Runs werden unter dem konfigurierten Ausgabe-Stammverzeichnis geschrieben:
 
 ```text
 output/
@@ -311,30 +320,34 @@ output/
     `-- run_manifest.json
 ```
 
-JPG runs use the same structure and write `*_injected.jpg`. Existing older
-prototype output folders remain unchanged as local validation artifacts.
+JPG-Runs verwenden dieselbe Struktur und schreiben `*_injected.jpg`. Bestehende
+ältere Prototype-Ausgabeordner bleiben als lokale Validierungsartefakte
+unverändert.
 
-The runner loads the source through `loaders/registry.py`, which resolves DICOM
-and JPG adapters by extension. DICOM writes through `writers/dicom.py`; JPG
-writes through `writers/jpg.py`. Adding another injected source format should
-use a loader/writer pair and registry entry, not a new runner branch.
+Der Runner lädt die Quelle über `loaders/registry.py`, das DICOM- und JPG-
+Adapter anhand der Dateiendung auflöst. DICOM wird über `writers/dicom.py`, JPG
+über `writers/jpg.py` geschrieben. Ein weiteres injiziertes Quellformat soll
+ein Loader-/Writer-Paar und einen Registry-Eintrag verwenden, nicht einen
+neuen Runner-Zweig.
 
-The current DICOM writer contract accepts only little-endian `uint8` input with
-`MONOCHROME2` or `RGB` photometry. Unsupported 16-bit, big-endian, and other
-photometric representations fail before an output directory is created. For
-Multi-Frame-DICOM, only Frame 0 is currently injected and recorded; injection
-of all frames is reserved for a future explicit policy.
+Der aktuelle DICOM-Writer-Vertrag akzeptiert nur little-endian-`uint8`-Eingaben
+mit `MONOCHROME2`- oder `RGB`-Photometrie. Nicht unterstützte 16-Bit-,
+Big-Endian- und andere photometrische Repräsentationen schlagen fehl, bevor
+ein Ausgabeordner erzeugt wird. Bei Multi-Frame-DICOM wird derzeit nur Frame 0
+injiziert und aufgezeichnet; die Injektion aller Frames bleibt einer künftigen
+expliziten Richtlinie vorbehalten.
 
-## PDF injection
+## PDF-Injektion
 
-The PDF command requires three inputs: `--input-pdf`, `--input-dicom`, and
-`--dicom-annotation`. Optional flags are `--output-dir`, `--slot`, and
-`--page-index`. `compose-pdf` is retained as an equivalent command alias.
-The PDF loader validates template pages; the DICOM annotation is parsed by the
-canonical `RunRecord` loader. The PDF writer resolves the `preview_file` named
-by that `RunRecord` (relative paths are resolved beside the annotation), embeds
-that preview associated with the injected DICOM frame, transforms image-space
-annotation corners to PDF points, and writes:
+Der PDF-Befehl benötigt drei Eingaben: `--input-pdf`, `--input-dicom` und
+`--dicom-annotation`. Optionale Flags sind `--output-dir`, `--slot` und
+`--page-index`. `compose-pdf` bleibt als gleichwertiger Befehlsalias erhalten.
+Der PDF-Loader validiert Template-Seiten; die DICOM-Annotation wird vom
+kanonischen `RunRecord`-Loader geparst. Der PDF-Writer löst die vom
+`RunRecord` benannte `preview_file` auf (relative Pfade werden neben der
+Annotation aufgelöst), bindet die zugehörige Preview des injizierten DICOM-
+Frames ein, transformiert Bildraum-Annotations-Ecken in PDF-Punkte und
+schreibt:
 
 ```text
 output/pdf/<run_id>/<template-stem>-<slot>/
@@ -343,20 +356,23 @@ output/pdf/<run_id>/<template-stem>-<slot>/
 |-- pdf_annotations.json
 ```
 
-The sidecar uses schema `0.3.0-pdf-prototype` in the ADR-0008 lineage. PDF
-points use a bottom-left origin and image points use a top-left pixel origin;
-aspect-fit mapping uses the actual placement rectangle. Source PDF, DICOM, and
-JSON files are never overwritten.
+Der Sidecar verwendet das Schema `0.3.0-pdf-prototype` aus der ADR-0008-Linie.
+PDF-Punkte verwenden einen Ursprung unten links, Bildpunkte einen Pixelursprung
+oben links; das Aspect-Fit-Mapping verwendet das tatsächliche
+Platzierungsrechteck. Quell-PDF, DICOM und JSON-Dateien werden nie
+überschrieben.
 
-This existing CLI remains the DICOM-to-PDF adapter. The public `make_pdf` API
-extends the PDF composition use case to multiple already injected images plus
-direct PDF-native text entries in a single output PDF. Already rendered
-handwriting is included through image inputs and their annotations.
+Diese bestehende CLI bleibt der DICOM-zu-PDF-Adapter. Die öffentliche
+`make_pdf`-API erweitert den PDF-Kompositionsfall auf mehrere bereits
+injizierte Bilder plus direkte PDF-native Texteinträge in einer Ausgabe-PDF.
+Bereits gerenderte Handschrift wird über Bildeingaben und deren Annotationen
+eingebunden.
 
 ## Ground Truth
 
-`ground_truth.json` uses schema `0.2.0-prototype`. The pipeline builds it as a
-pydantic `RunRecord` and serializes it with `model_dump(mode="json")`:
+`ground_truth.json` verwendet das Schema `0.2.0-prototype`. Die Pipeline baut
+es als pydantic-`RunRecord` auf und serialisiert es mit
+`model_dump(mode="json")`:
 
 ```json
 {
@@ -373,135 +389,144 @@ pydantic `RunRecord` and serializes it with `model_dump(mode="json")`:
 }
 ```
 
-For JPG runs:
+Für JPG-Runs gilt:
 
 - `record_type = "jpg_injection_run"`
 - `document_type = "jpg"`
 - `dicom_tag_annotations = []`
-- DICOM context fields are absent from `run_metadata`
+- DICOM-Kontextfelder fehlen in `run_metadata`
 
-Visible annotations include final rotated `corners`. `text` is the injected
-PII value, while `rendered_text` is the complete visible string. The JSON keeps
-the compatible `label` and `label_corners` fields and adds `category`,
-`prefix`, `suffix`, `prefix_corners`, and `suffix_corners`. For generic
-prefixes such as `SYNTH-` and `ACC-`, `label_corners` and `prefix_corners`
-store the prefix box; fields without prefixes use `null`. DICOM tag
-annotations include `category` when the tag comes from a schema field.
+Sichtbare Annotationen enthalten die final rotierten `corners`. `text` ist der
+injizierte PII-Wert, während `rendered_text` die vollständige sichtbare
+Zeichenkette ist. Das JSON behält
+die kompatiblen Felder `label` und `label_corners` und ergänzt `category`,
+`prefix`, `suffix`, `prefix_corners` und `suffix_corners`. Für generische
+Präfixe wie `SYNTH-` und `ACC-` speichern `label_corners` und `prefix_corners`
+die Präfix-Box; Felder ohne Präfix verwenden `null`. DICOM-Tag-Annotationen
+enthalten `category`, wenn das Tag aus einem Schemafeld stammt.
 
 `render_metadata` records:
 
 - `geometry_source = "mask_bbox_after_final_rotation"`
 - `mask_alpha_threshold`
-- text, PII, label, and rendered-text mask bounds
-- prefix and suffix mask bounds when those segments exist
-- for handwriting assets: `renderer_type = "handwriting_asset"`, `asset_id`,
-  `asset_path`, `mask_path`, `ink_color`, `background_mode`, and
+- Maskengrenzen für Text, PII, Label und gerenderten Text
+- Präfix- und Suffix-Maskengrenzen, wenn diese Segmente vorhanden sind
+- für Handschrift-Assets: `renderer_type = "handwriting_asset"`, `asset_id`,
+  `asset_path`, `mask_path`, `ink_color`, `background_mode` und
   `geometry_source = "transformed_ink_mask"`
 
-`run_manifest.json` currently contains the same record as `ground_truth.json`.
-`ground_truth.json` keeps the prototype trailing newline; `run_manifest.json`
-does not. ADR-0004 records this compatibility detail.
+`run_manifest.json` enthält derzeit denselben Record wie `ground_truth.json`.
+`ground_truth.json` behält den abschließenden Prototype-Zeilenumbruch;
+`run_manifest.json` nicht. ADR-0004 dokumentiert dieses Kompatibilitätsdetail.
 
-## Handwriting Assets
+## Handschrift-Assets
 
-Generated handwriting assets live under `DicomData/HandwritingAssets/` and stay
-out of git. The pipeline accepts JSON manifests with an `assets` list and JSONL
-manifests with one asset per line. The integrated handwriting mode uses the
-same manifest contract as the explicit compatibility path, but adds a cache
-lookup after Faker identity generation. If the cache does not contain a
-compatible asset for a selected identity value, the isolated ScrabbleGAN
-runtime starts automatically, creates the image and mask, writes the manifest,
-and the runner uses that asset immediately. If the runtime, checkpoint, options
-sidecar, `.git_commit`/Git checkout metadata, or generator command is missing,
-the run fails; it does not fall back to a normal font.
+Erzeugte Handschrift-Assets liegen unter `DicomData/HandwritingAssets/` und
+werden nicht in Git aufgenommen. Die Pipeline akzeptiert JSON-Manifeste mit
+einer `assets`-Liste und JSONL-Manifeste mit einem Asset pro Zeile. Der
+integrierte Handschriftmodus verwendet denselben Manifest-Vertrag wie der
+explizite Kompatibilitätspfad und ergänzt nach der Faker-Identitätsgenerierung
+eine Cache-Suche. Enthält der Cache kein kompatibles Asset für einen gewählten
+Identitätswert, startet die isolierte ScrabbleGAN-Runtime automatisch, erzeugt
+Bild und Maske, schreibt das Manifest und der Runner verwendet das Asset sofort.
+Fehlen Runtime, Checkpoint, Options-Sidecar, `.git_commit`-/Git-Checkout-
+Metadaten oder Generatorbefehl, schlägt der Run fehl; ein Fallback auf eine
+normale Font erfolgt nicht.
 
-Each asset needs:
+Jedes Asset benötigt:
 
-- PNG image path
-- ink mask path
+- PNG-Bildpfad
+- Tintenmaskenpfad
 - stable `asset_id`
 - `text`
-- `identity_field` or `field`
-- `ink_color`: `black`, `gray`, or `white`
-- `background_mode` or `background`: `transparent` or `white`
-- checkpoint SHA-256, ScrabbleGAN commit, generator manifest hash, and
+- `identity_field` oder `field`
+- `ink_color`: `black`, `gray` oder `white`
+- `background_mode` oder `background`: `transparent` oder `white`
+- Checkpoint-SHA-256, ScrabbleGAN-Commit, Generator-Manifest-Hash und
   `generator_options_sha256`/`options_sha256` metadata for cache identity
 
-The generator's image color and background are legacy presentation metadata.
-The current renderer treats the separate mask as canonical and reconstructs
-the visible ink at render time, so changing the render color does not require
-a second generated asset or cache entry. The selected color, actual contrast
-mode, luminance statistics, and decision reason are recorded in annotation
-metadata.
+Die Bildfarbe und der Hintergrund des Generators sind Legacy-
+Präsentationsmetadaten. Der aktuelle Renderer behandelt die separate Maske als
+kanonisch und rekonstruiert die sichtbare Tinte beim Rendern. Eine Änderung der
+Renderfarbe benötigt daher weder ein zweites Asset noch einen weiteren
+Cache-Eintrag. Gewählte Farbe, tatsächlicher Kontrastmodus,
+Luminanzstatistiken und Entscheidungsgrund werden in den
+Annotationsmetadaten aufgezeichnet.
 
-When `renderer_type = "handwriting_asset"`, the pipeline records the full
-visible handwritten text as `rendered_text` and keeps the PII value, prefix,
-and suffix as separate annotation fields. Segment boxes are derived from the
-asset ink mask so the full handwritten sentence is not silently labelled as
-PII.
+Wenn `renderer_type = "handwriting_asset"` gilt, zeichnet die Pipeline den
+vollständigen sichtbaren Handschrifttext als `rendered_text` auf und hält
+PII-Wert, Präfix und Suffix als getrennte Annotationsfelder. Segment-Boxen
+werden aus der Asset-Tintenmaske abgeleitet, damit der vollständige
+Handschriftsatz nicht stillschweigend als PII markiert wird.
 
-### Dynamic handwriting appearance
+### Dynamisches Handschrift-Erscheinungsbild
 
-The handwriting PNG and its separate L-mask are treated as shape data. During
-the final render pass, the pipeline samples only valid pixels below the final
-rotated mask in the display-mapped RGB frame. Median luminance below `128`
-selects white ink; luminance at or above `128` selects black ink. A p10-p90
-spread above `96`, selected contrast below `64`, or fewer than eight valid
-samples activates a two-pixel halo. If no samples are available, the
-deterministic fallback is white ink with a black halo.
+Das Handschrift-PNG und seine separate L-Maske werden als Formdaten behandelt.
+Im finalen Render-Pass sampelt die Pipeline nur gültige Pixel unterhalb der
+final rotierten Maske im display-gemappten RGB-Frame. Eine mittlere Luminanz
+unter `128` wählt weiße Tinte, eine Luminanz ab `128` schwarze Tinte. Eine
+p10-p90-Spanne über `96`, ein gewählter Kontrast unter `64` oder weniger als
+acht gültige Samples aktivieren einen Zwei-Pixel-Halo. Wenn keine Samples
+verfügbar sind, ist weiße Tinte mit schwarzem Halo der deterministische
+Fallback.
 
-`--handwriting-ink-color black|gray|white` overrides automatic color choice.
-`--handwriting-contrast-mode halo` always requests the halo, while `none`
-allows automatic mode to add it only when needed. Halo pixels are not part of
-the ground-truth ink mask or segment geometry. Legacy manifests remain
-readable; their stored `ink_color` and `background` fields are retained as
-provenance rather than controlling the new render-time color.
+`--handwriting-ink-color black|gray|white` überschreibt die automatische
+Farbwahl. `--handwriting-contrast-mode halo` fordert den Halo immer an, während
+`none` dem Automatikmodus erlaubt, ihn nur bei Bedarf hinzuzufügen. Halo-Pixel
+sind nicht Teil der Ground-Truth-Tintenmaske oder Segmentgeometrie. Legacy-
+Manifeste bleiben lesbar; ihre gespeicherten Felder `ink_color` und `background`
+werden als Provenienz beibehalten und steuern nicht mehr die Renderfarbe.
 
-The ScrabbleGAN tooling has the host-side provider/cache path, automatic Docker
-runtime wiring, fake renderer validation, option-sidecar hashing, and hard
-prerequisite checks. The real Docker/upstream checkpoint path was verified on
-2026-07-15 with three generated assets, manifest validation, cache reuse, and a
-full DICOM injection; see `tools/handwriting/scrabblegan/UPSTREAM_REVIEW.md`.
+Die ScrabbleGAN-Tools besitzen den Provider-/Cache-Pfad auf dem Host, die
+automatische Docker-Runtime-Verdrahtung, Fake-Renderer-Validierung,
+Options-Sidecar-Hashing und harte Voraussetzungstests. Der reale
+Docker-/Upstream-Checkpoint-Pfad wurde am 2026-07-15 mit drei erzeugten Assets,
+Manifest-Validierung, Cache-Wiederverwendung und einer vollständigen DICOM-
+Injektion verifiziert; siehe
+`tools/handwriting/scrabblegan/UPSTREAM_REVIEW.md`.
 
-## Local Gates
+## Lokale Gates
 
-The committed E2E harness generates synthetic DCM/JPG fixtures, runs the
-pipeline with seed `42`, rotation `20`, default schema, fixed timestamp
-`2026-07-10T12:00:00`, and a deterministic test font, then compares artifact
-hashes for:
+Der versionierte E2E-Harness erzeugt synthetische DCM/JPG-Fixtures, führt die
+Pipeline mit Seed `42`, Rotation `20`, Standardschema, festem Zeitstempel
+`2026-07-10T12:00:00` und einer deterministischen Test-Font aus und vergleicht
+anschließend die Artefakt-Hashes für:
 
-- injected document
+- injiziertes Dokument
 - `ground_truth.json`
 - `run_manifest.json`
 - `preview.png`
 - `preview_annotated.png`
 
-CI installs `fonts-liberation2` (the Linux `arial` fallback font Pillow needs
-for tests that do not pin a fixture font), then runs
+CI installiert `fonts-liberation2` (die Linux-Fallback-Font für `arial`, die
+Pillow für Tests ohne festgelegte Fixture-Font benötigt) und führt anschließend
 `uv sync --locked --all-extras`, `uv run ruff check src/ tests/`,
-`uv run mypy src/`, and `uv run pytest tests/ -x` on push and pull request.
+`uv run mypy src/` und `uv run pytest tests/ -x` bei Push und Pull Request.
 
-## Validation State
+## Validierungsstand
 
-No local `prototypes/dicom/output_validation_*` reference set is currently
-present. Regression validation therefore uses the committed synthetic DCM/JPG
-fixtures and full-artifact hashes in `tests/integration/test_end_to_end.py`.
+Derzeit ist kein lokaler Referenzsatz unter
+`prototypes/dicom/output_validation_*` vorhanden. Die
+Regressionsvalidierung verwendet daher die versionierten synthetischen DCM/JPG-
+Fixtures und vollständigen Artefakt-Hashes in
+`tests/integration/test_end_to_end.py`.
 
-The E2E harness passes a fixed timestamp and compares complete artifact bytes,
-including `ground_truth.json` and `run_manifest.json`. The DCM/JPG output
-hashes changed once because `PatientBirthDate` used the schema reference date
-instead of Faker's execution day, and again on 2026-07-14 because
-`date_of_birth` stopped calling Faker's own `date_of_birth()`/`date_time_ad()`
-(their internal OS branch made the birth date, and therefore these hashes,
-differ between Windows and Linux for the same seed — see
+Der E2E-Harness übergibt einen festen Zeitstempel und vergleicht vollständige
+Artefakt-Bytes einschließlich `ground_truth.json` und `run_manifest.json`. Die
+DCM/JPG-Ausgabe-Hashes änderten sich zunächst, weil `PatientBirthDate` das
+Schema-Referenzdatum statt des Faker-Ausführungstags verwendete, und erneut am
+2026-07-14, weil `date_of_birth` nicht mehr die eigenen
+Faker-Methoden `date_of_birth()`/`date_time_ad()` aufruft. Deren interner
+OS-Zweig erzeugte für denselben Seed unter Windows und Linux unterschiedliche
+Geburtsdaten und damit unterschiedliche Hashes (siehe
 `docs/architecture/determinism-audit.md` N14). `ground_truth.json`,
-`run_manifest.json`, and both preview PNGs are pinned to the bytes produced on
-CI (ubuntu-latest): their rendered content is byte-identical across platforms,
-but the raw file bytes are not (JSON embeds `os.linesep`; PNGs are re-encoded
-by a platform-specific Pillow/matplotlib build). See
+`run_manifest.json` und beide Preview-PNGs sind auf die von CI (ubuntu-latest)
+erzeugten Bytes festgelegt: Der gerenderte Inhalt ist plattformübergreifend
+byte-identisch, die Rohdatei-Bytes sind es jedoch nicht (`os.linesep` im JSON;
+PNG-Neukodierung durch plattformspezifische Pillow-/matplotlib-Builds). Siehe
 `docs/architecture/determinism-audit.md` N8/N9.
 
-As of 2026-07-15, 44 focused handwriting tests pass, `uv run ruff check
-src/ tests/` passes, and `uv run mypy src/` passes. The complete frozen-hash
-test remains locally red only for the known Windows JSON/PNG byte differences;
-the DCM/JPG pixel artifacts remain identical.
+Stand 2026-07-15 bestehen 44 fokussierte Handschrift-Tests, `uv run ruff check
+src/ tests/` und `uv run mypy src/` sind erfolgreich. Der vollständige
+Frozen-Hash-Test bleibt lokal nur wegen der bekannten Windows-JSON-/PNG-
+Byteunterschiede rot; die DCM/JPG-Pixelartefakte bleiben identisch.

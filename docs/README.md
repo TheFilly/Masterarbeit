@@ -1,24 +1,35 @@
-# Documentation
+# Dokumentation
 
-`docs/` stores architecture notes, decisions, operational documentation, and
-status material. Keep raw notes out of `PLAN.md`; promote stable choices into
-decisions.
+`docs/` enthält Architektur- und Entscheidungsnotizen, Betriebsdokumentation
+und Statusmaterial. Rohnotizen gehören nicht in `PLAN.md`; stabile
+Entscheidungen werden in Entscheidungen überführt.
 
-## Directories
+## Sprache
 
-- `decisions/`: accepted or proposed architecture and scope decisions.
-- `architecture/`: current specifications, active audits, and implementation
-  status. Completed one-off handoff plans are removed after their durable
-  decisions and results are captured elsewhere.
-- `archive/`: superseded material. Do not cite it as current evidence.
+Die Dokumentationssprache des Repositorys ist Deutsch. Freitext,
+Überschriften und erklärende Beschreibungen werden auf Deutsch geschrieben.
+Fachbegriffe, API-Bezeichner, CLI-Optionen, Code, Dateinamen, Pfade,
+Ordnernamen und externe Eigennamen bleiben unverändert.
 
-## Reading Order
+## Verzeichnisse
 
-1. Read the relevant architecture or operational doc.
-2. Read linked ADRs in `docs/decisions/`.
-3. Open only directly linked code, tests, or archived context.
-4. Treat `docs/archive/` as historical context unless a current doc cites it.
+- `decisions/`: angenommene oder vorgeschlagene Architektur- und
+  Bereichsentscheidungen.
+- `architecture/`: aktuelle Spezifikationen, aktive Audits und
+  Implementierungsstatus. Abgeschlossene einmalige Übergabepläne werden
+  entfernt, sobald ihre dauerhaften Entscheidungen und Ergebnisse an anderer
+  Stelle festgehalten sind.
+- `archive/`: überholtes Material. Dieses Verzeichnis darf nicht als aktuelle
+  Evidenz zitiert werden.
 
-Accepted decisions outrank design notes. If an architecture note and an ADR
-disagree, update the note or write a superseding ADR instead of blending both
-states.
+## Lesereihenfolge
+
+1. Die relevante Architektur- oder Betriebsdokumentation lesen.
+2. Verknüpfte ADRs in `docs/decisions/` lesen.
+3. Nur direkt verknüpften Code, Tests oder archivierten Kontext öffnen.
+4. `docs/archive/` als historischen Kontext behandeln, sofern eine aktuelle
+   Dokumentationsdatei nicht darauf verweist.
+
+Angenommene Entscheidungen haben Vorrang vor Designnotizen. Wenn eine
+Architekturnotiz und ein ADR widersprechen, wird die Notiz aktualisiert oder
+ein ersetzendes ADR geschrieben; die beiden Zustände werden nicht vermischt.

@@ -1,80 +1,88 @@
-# Reproducibility & Determinism Audit (WP-G)
+# Audit zu Reproduzierbarkeit und Determinismus (WP-G)
 
-Status: seed and clock remediation completed 2026-07-12; environment provenance
-remains open behind ADR-0008. This audit is the basis for ADR-0009 and covers
-randomness, clocks, and environment dependencies in `src/injection_pipeline/`.
+Status: Seed- und Uhrzeitanpassungen am 2026-07-12 abgeschlossen;
+Umgebungs-Provenienz bleibt hinter ADR-0008 offen. Dieses Audit ist die Basis
+für ADR-0009 und umfasst Zufallsquellen, Uhren und Umgebungsabhängigkeiten in
+`src/injection_pipeline/`.
 
-Verdicts: **violation** breaks the principle, **intended** is documented
-prototype behavior, **honoured** is seeded or deterministic, **environment** is
-a reproducibility input outside random draws.
+Bewertungen: **violation** verletzt das Prinzip, **intended** ist
+dokumentiertes Prototype-Verhalten, **honoured** ist seed-basiert oder
+deterministisch, **environment** ist eine Reproduzierbarkeitseingabe außerhalb
+der Zufallsentscheidungen.
 
-## Inventory
+## Inventar
 
-| # | Source | Location | Verdict | Remedy / status |
+| # | Quelle | Ort | Bewertung | Maßnahme / Status |
 |---|---|---|---|---|
-| N1 | Default-input selection | `inputs.py` | **honoured** | Fixed in WP-G. `select_seeded_default_input()` sorts candidates and draws with `random.Random(derive_seed(seed, "input_selection"))`. |
-| N2 | Wall-clock timestamp in `run_id` | `runner.py`, `cli.py` | **honoured** | Fixed in WP-G. `run(args, now=...)` accepts an injected clock; CLI exposes `--run-timestamp` as ISO-8601. |
-| N3 | Faker identity generation | `identity/generator.py` | **honoured** | Kept direct `Faker.seed_instance(seed)` semantics for `identity_a`; field order remains load-bearing. Faker package and locale data still belong in future environment provenance. See N14 for a platform-specific exception found in the DOB recipe. |
-| N4 | Unused second identity | `runner.py` | **removed** | WP-R removed `identity_b` generation and its stdout-only output on 2026-07-13. |
-| N5 | Placement RNG | `engine/pixel_injection.py`, `engine/injector.py` | **honoured** | Grandfathered by ADR-0009 as `"placement/raw-seed"`. Migrating to `derive_seed()` would move pixels and needs a future byte-compat ADR. |
-| N6 | Directory iteration order | `inputs.py` | **honoured** | Candidate collection and seeded selection both sort by lowercase path string. |
-| N7 | Font files | `engine/fonts.py`, pixel rendering | **environment** | Font path and file hash still need RunRecord provenance after ADR-0008 opens a compatible emitted version. `_FONT_PATHS["arial"]` candidate list depends on system fonts being present on the runner; 2026-07-14 added `/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf` (no "2") because Ubuntu's `fonts-liberation2` apt package is a transitional dummy that installs Liberation v1 at the old path (Debian's `fonts-liberation2` genuinely installs to `liberation2/`, which is why a Debian-based container passed this locally before the real `ubuntu-latest` run caught it). CI now also installs `fonts-liberation2` via apt before running tests, since some unit tests resolve `arial` without pinning a fixture font. |
-| N8 | Pillow rendering & resampling | pixel rendering and JPG encode | **honoured** (layout engine); **environment** (rest) | `load_default_font()` pins `layout_engine=ImageFont.Layout.BASIC` as a defensive fix (2026-07-14): Pillow otherwise auto-selects `RAQM` shaping whenever the installed wheel bundles `libraqm`, a per-platform-wheel property, not a Pillow-version property. Verified via a Windows-vs-Linux (Docker) A/B comparison on 2026-07-14 that rendered `box_annotations`/mask bounds and the injected `synthetic_injected.{dcm,jpg}` bytes are already byte-identical across platforms with this pin; N14 was the actual cause of the E2E record-hash break, not glyph shaping. Remaining resampling/version provenance still waits for ADR-0008. |
-| N9 | matplotlib previews | `writers/preview.py` | **environment** | Rendered pixels verified byte-identical across Windows/Linux (2026-07-14, pixel diff = 0), but the PNG container bytes are not: platform-specific Pillow/matplotlib Agg builds re-encode identical pixels to different compressed bytes. E2E binary reference hashes for `preview.png`/`preview_annotated.png` are pinned to the CI (ubuntu-latest) encoding for this reason. Library-version provenance still waits for ADR-0008. |
-| N10 | Library versions as inputs | run environment | **environment** | Still open. ADR-0008 has no conflict-free emitted RunRecord version for additive `reproducibility` fields. |
-| N11 | numpy randomness | `src/` | **honoured** | No `np.random` use in the package. |
-| N12 | pydicom write path | `writers/dicom.py` | **honoured** | Deterministic for fixed input and pydicom. SOPInstanceUID reuse remains out of determinism scope. |
-| N13 | Interactive input prompts | `cli.py` | **intended** | Human choices land in `args`; interactive mode now also accepts optional `run-timestamp`. |
-| N14 | Faker `date_of_birth()` calendar day | `identity/recipes.py` | **honoured** | The identifier schema carries `generator.reference_date = "2026-07-10"` plus `reference_date_policy`; DOB generation no longer reads the system date. Fixed again 2026-07-14: the recipe called `fake.date_time_ad()`, whose `_rand_seconds` helper (`faker/providers/date_time/__init__.py`) branches on `platform.system()` itself — `randint` (int seconds) on Windows, `uniform` (float seconds) elsewhere — consuming the seeded RNG stream differently per OS and yielding a different birth date for the same seed. This was the actual cause of the Windows-vs-Linux E2E record-hash mismatch (all other identity fields and box geometry were already platform-stable). The recipe now draws `fake.random.randint()` directly instead of delegating to `fake.date_time_ad()`, matching Faker's former Windows-only behavior on every platform. `identity_id`-independent unit coverage (`test_date_of_birth_matches_reference_day_faker_path_and_ignores_execution_day`) was updated to cross-check against the same platform-independent primitives instead of `fake.date_of_birth()`, which still carries the OS branch and can no longer serve as a cross-platform reference. |
+| N1 | Default-Input-Auswahl | `inputs.py` | **honoured** | In WP-G behoben. `select_seeded_default_input()` sortiert die Kandidaten und zieht mit `random.Random(derive_seed(seed, "input_selection"))`. |
+| N2 | Zeitstempel aus der Wanduhr in `run_id` | `runner.py`, `cli.py` | **honoured** | In WP-G behoben. `run(args, now=...)` akzeptiert eine injizierte Uhr; die CLI stellt `--run-timestamp` als ISO-8601 bereit. |
+| N3 | Faker-Identitätsgenerierung | `identity/generator.py` | **honoured** | Die direkte Semantik von `Faker.seed_instance(seed)` für `identity_a` bleibt erhalten; die Feldreihenfolge ist maßgeblich. Faker-Paket und Locale-Daten gehören weiterhin in eine künftige Umgebungsprovenienz. Siehe N14 für eine plattformspezifische Ausnahme im DOB-Rezept. |
+| N4 | Ungenutzte zweite Identität | `runner.py` | **removed** | WP-R entfernte am 2026-07-13 die Generierung von `identity_b` und deren ausschließliche stdout-Ausgabe. |
+| N5 | Platzierungs-RNG | `engine/pixel_injection.py`, `engine/injector.py` | **honoured** | Durch ADR-0009 als `"placement/raw-seed"` übernommen. Eine Migration zu `derive_seed()` würde Pixel verschieben und benötigt ein künftiges Byte-Kompatibilitäts-ADR. |
+| N6 | Reihenfolge der Verzeichnisiteration | `inputs.py` | **honoured** | Sowohl die Kandidatensammlung als auch die geseedete Auswahl sortieren nach der kleingeschriebenen Pfadzeichenfolge. |
+| N7 | Schriftdateien | `engine/fonts.py`, Pixel-Rendering | **environment** | Schriftpfad und Datei-Hash benötigen weiterhin RunRecord-Provenienz, sobald ADR-0008 eine kompatible ausgegebene Version ermöglicht. Die Kandidatenliste `_FONT_PATHS["arial"]` hängt davon ab, dass die Systemschriften auf dem Runner vorhanden sind; am 2026-07-14 wurde `/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf` (ohne „2“) ergänzt, weil Ubuntus `fonts-liberation2`-apt-Paket ein Übergangs-Platzhalter ist, der Liberation v1 am alten Pfad installiert (Debians `fonts-liberation2` installiert tatsächlich nach `liberation2/`; deshalb bestand zuvor ein Debian-basierter Container lokal, bevor der echte `ubuntu-latest`-Run das Problem aufdeckte). Die CI installiert `fonts-liberation2` nun ebenfalls per apt, bevor Tests ausgeführt werden, da einige Unit-Tests `arial` ohne festgelegte Fixture-Schrift auflösen. |
+| N8 | Pillow-Rendering und Resampling | Pixel-Rendering und JPG-Kodierung | **honoured** (Layout-Engine); **environment** (Rest) | `load_default_font()` setzt als defensive Korrektur `layout_engine=ImageFont.Layout.BASIC` fest (2026-07-14): Pillow wählt sonst automatisch `RAQM`-Shaping, wenn das installierte Wheel `libraqm` enthält; das ist eine Eigenschaft des Plattform-Wheels, nicht der Pillow-Version. Ein Windows-Linux-A/B-Vergleich (Docker) am 2026-07-14 bestätigte, dass gerenderte `box_annotations`/Maskengrenzen und die Bytes von `synthetic_injected.{dcm,jpg}` mit dieser Festlegung bereits plattformübergreifend byteidentisch sind; N14 und nicht das Glyphen-Shaping verursachte den E2E-Record-Hash-Bruch. Die verbleibende Provenienz von Resampling und Versionen wartet weiterhin auf ADR-0008. |
+| N9 | matplotlib-Previews | `writers/preview.py` | **environment** | Die gerenderten Pixel sind unter Windows/Linux byteidentisch (2026-07-14, Pixeldifferenz = 0), die PNG-Containerbytes jedoch nicht: Plattformspezifische Pillow-/matplotlib-Agg-Builds kodieren identische Pixel mit unterschiedlichen komprimierten Bytes neu. E2E-Binärreferenz-Hashes für `preview.png`/`preview_annotated.png` sind deshalb auf die CI-Kodierung (`ubuntu-latest`) festgelegt. Die Bibliotheksversions-Provenienz wartet weiterhin auf ADR-0008. |
+| N10 | Bibliotheksversionen als Eingaben | Run-Umgebung | **environment** | Noch offen. ADR-0008 hat keine konfliktfreie ausgegebene RunRecord-Version für zusätzliche `reproducibility`-Felder. |
+| N11 | numpy-Zufälligkeit | `src/` | **honoured** | Das Paket verwendet kein `np.random`. |
+| N12 | pydicom-Schreibpfad | `writers/dicom.py` | **honoured** | Bei festem Input und pydicom deterministisch. Die Wiederverwendung von SOPInstanceUID bleibt außerhalb des Determinismusumfangs. |
+| N13 | Interaktive Eingabeaufforderungen | `cli.py` | **intended** | Menschliche Entscheidungen landen in `args`; der interaktive Modus akzeptiert nun ebenfalls optional `run-timestamp`. |
+| N14 | Faker-Kalendertag von `date_of_birth()` | `identity/recipes.py` | **honoured** | Das Identifier-Schema enthält `generator.reference_date = "2026-07-10"` sowie `reference_date_policy`; die DOB-Generierung liest das Systemdatum nicht mehr. Erneut am 2026-07-14 behoben: Das Rezept rief `fake.date_time_ad()` auf, dessen `_rand_seconds`-Hilfsfunktion (`faker/providers/date_time/__init__.py`) selbst nach `platform.system()` verzweigt — `randint` (Integer-Sekunden) unter Windows, `uniform` (Float-Sekunden) sonst — und dadurch den geseedeten RNG-Stream je Betriebssystem unterschiedlich verbrauchte. Das erzeugte bei gleichem Seed ein anderes Geburtsdatum. Dies war die tatsächliche Ursache des Windows-Linux-E2E-Record-Hash-Unterschieds; alle anderen Identitätsfelder und Box-Geometrien waren bereits plattformstabil. Das Rezept verwendet nun direkt `fake.random.randint()` statt `fake.date_time_ad()` und entspricht damit auf jeder Plattform dem früheren, nur unter Windows verwendeten Verhalten von Faker. Die von `identity_id` unabhängige Unit-Abdeckung (`test_date_of_birth_matches_reference_day_faker_path_and_ignores_execution_day`) prüft nun dieselben plattformunabhängigen Primitive statt `fake.date_of_birth()` gegen, das weiterhin den Betriebssystem-Zweig enthält und nicht mehr als plattformübergreifende Referenz dienen kann. |
 
-`derive_seed(seed, name)` is the first eight bytes of
-`sha256(f"{seed}:{name}".encode("utf-8"))` as a big-endian integer. Python's
-built-in `hash()` must not be used for seed derivation.
+`derive_seed(seed, name)` sind die ersten acht Bytes von
+`sha256(f"{seed}:{name}".encode("utf-8"))` als Big-Endian-Ganzzahl. Pythons
+eingebaute Funktion `hash()` darf nicht zur Seed-Ableitung verwendet werden.
 
-## Reproducibility contract
+## Reproduzierbarkeitsvertrag
 
-For a fixed code version, dependency lockfile, font files, and input document,
-an injection run is a pure function of `(seed, input, rotation, placement_mode,
-font_size_pct, font_family, text_background, identifier_schema,
-run_timestamp)`. Injected values, rendered pixels, annotation geometry, and
-ground-truth artifacts are byte-identical across repeated runs.
+Für eine feste Code-Version, Lockdatei der Abhängigkeiten, Schriftdateien und
+ein Eingabedokument ist ein Injektions-Run eine reine Funktion von `(seed,
+input, rotation, placement_mode, font_size_pct, font_family, text_background,
+identifier_schema, run_timestamp)`. Injizierte Werte, gerenderte Pixel,
+Annotationsgeometrie und Ground-Truth-Artefakte sind bei wiederholten Runs
+byteidentisch.
 
-Every new random decision uses a named stream derived from the run seed and a
-stage name. `identity_a` keeps direct Faker seeding and placement keeps the
-grandfathered raw-seed stream for byte compatibility. Auto-selection of a
-default input is seeded and records the resolved path, so a run can be replayed
-by passing that path.
+Jede neue Zufallsentscheidung verwendet einen benannten Stream, der aus dem
+Run-Seed und einem Stufennamen abgeleitet wird. `identity_a` behält das direkte
+Faker-Seeding, und die Platzierung behält für Bytekompatibilität den
+übernommenen Raw-Seed-Stream. Die Autoauswahl eines Default-Inputs ist geseedet
+und zeichnet den aufgelösten Pfad auf, sodass ein Run durch Übergabe dieses
+Pfads wiederholt werden kann.
 
-Future RunRecord versions should record environmental inputs that can influence
-bytes: library versions, platform, font paths, and font file hashes.
+Künftige RunRecord-Versionen sollten Umgebungsinputs aufzeichnen, die Bytes
+beeinflussen können: Bibliotheksversionen, Plattform, Schriftpfade und
+Schriftdatei-Hashes.
 
-## Current open gate
+## Aktuelles offenes Gate
 
-The `reproducibility` block and identifier-schema provenance are additive
-RunRecord fields. ADR-0008 still has no conflict-free emitted version beyond
-`0.2.0-prototype`, so WP-G does not emit partial or version-incorrect fields.
+Der `reproducibility`-Block und die Provenienz des Identifier-Schemas sind
+zusätzliche RunRecord-Felder. ADR-0008 hat über `0.2.0-prototype` hinaus noch
+keine konfliktfreie ausgegebene Version, daher gibt WP-G keine unvollständigen
+oder versionswidrigen Felder aus.
 
-## Reference updates
+## Aktualisierung der Referenzen
 
-E2E now passes a fixed timestamp and compares full artifact bytes, including
-`ground_truth.json` and `run_manifest.json`. Reference hash changes are limited
-to the DOB fix and timestamp fix:
+E2E übergibt nun einen festen Zeitstempel und vergleicht die vollständigen
+Artefaktbytes einschließlich `ground_truth.json` und `run_manifest.json`.
+Referenz-Hashänderungen beschränken sich auf die DOB- und Zeitstempelkorrektur:
 
-- DCM output bytes changed because `PatientBirthDate` no longer drifts with the
-  execution day.
-- JSON artifact bytes changed because `run_id` now uses the fixed E2E
-  timestamp instead of a normalized wall-clock value.
-- Preview image bytes stayed unchanged because DOB is tag-only in the prototype
-  schema.
+- Die DCM-Ausgabe-Bytes änderten sich, weil `PatientBirthDate` nicht mehr mit
+  dem Ausführungstag abweicht.
+- Die JSON-Artefaktbytes änderten sich, weil `run_id` nun den festen E2E-
+  Zeitstempel statt eines normalisierten Wanduhrwerts verwendet.
+- Die Preview-Bildbytes blieben unverändert, weil DOB im Prototype-Schema nur
+  als Tag verwendet wird.
 
-Reference update 2026-07-14 (see N14): `patient_birth_date` changed on Linux
-because Faker's own `_rand_seconds` branches on `platform.system()`; the DOB
-recipe no longer depends on that branch, and the DCM/JPG record hashes are
-back to the pre-existing Windows-computed value now that both platforms agree.
-`ground_truth.json`, `run_manifest.json`, `preview.png`, and
-`preview_annotated.png` reference hashes were re-pinned to the bytes produced
-on the CI runner (ubuntu-latest): the JSON files intentionally embed
-`os.linesep`, and the PNGs are pixel-identical across platforms but re-encoded
-by a platform-specific Pillow/matplotlib build (see N8, N9). Verified locally
-via a `ghcr.io/astral-sh/uv:python3.13-bookworm` container reproducing the CI
-lint/type-check/test steps.
+Referenzaktualisierung 2026-07-14 (siehe N14): `patient_birth_date` änderte
+sich unter Linux, weil Fakers eigener `_rand_seconds` nach `platform.system()`
+verzweigt; das DOB-Rezept hängt nicht mehr von diesem Zweig ab, und die
+DCM/JPG-Record-Hashes entsprechen wieder dem zuvor unter Windows berechneten
+Wert, da nun beide Plattformen übereinstimmen. Die Referenz-Hashes von
+`ground_truth.json`, `run_manifest.json`, `preview.png` und
+`preview_annotated.png` wurden erneut auf die vom CI-Runner (`ubuntu-latest`)
+erzeugten Bytes festgelegt: Die JSON-Dateien enthalten absichtlich
+`os.linesep`, und die PNGs sind plattformübergreifend pixelidentisch, werden
+aber von einem plattformspezifischen Pillow-/matplotlib-Build neu kodiert
+(siehe N8, N9). Lokal über einen
+`ghcr.io/astral-sh/uv:python3.13-bookworm`-Container verifiziert, der die
+CI-Schritte für Linting, Typprüfung und Tests reproduziert.

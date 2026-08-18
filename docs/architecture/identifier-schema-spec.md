@@ -1,83 +1,84 @@
-# Identifier-Schema Externalization (WP-C)
+# Externalisierung des Identifier-Schemas (WP-C)
 
-Status: implemented for the DICOM/JPG core chain, updated 2026-07-12. Implements
-ADR-0007 for the prototype schema. Emitted schema provenance remains blocked by
-ADR-0008.
+Status: für die DICOM/JPG-Kernkette implementiert, aktualisiert am 2026-07-12.
+Implementiert ADR-0007 für das Prototype-Schema. Die Ausgabe der
+Schema-Provenienz bleibt durch ADR-0008 blockiert.
 
-## What counts as taxonomy (must move to data)
+## Was als Taxonomie gilt (muss in Daten verschoben werden)
 
-Everything that answers "which fields exist and what happens to each":
-field names, generation recipes, synthetic prefixes, DICOM tag routing,
-visible-vs-tag-only routing, render line order, identity-id derivation.
+Alles, was beantwortet, „welche Felder existieren und was mit ihnen geschieht“:
+Feldnamen, Generierungsrezepte, synthetische Präfixe, DICOM-Tag-Routing,
+Routing sichtbar versus nur als Tag, Reihenfolge der Renderzeilen und Ableitung
+der Identity-ID.
 
-## What stays code (mechanism, not taxonomy)
+## Was im Code bleibt (Mechanismus, nicht Taxonomie)
 
-Faker provider implementations, rendering mechanics, geometry, VR-aware tag
-writing, mask/segment machinery, file I/O. The schema *names* a generator
-recipe; code implements it.
+Faker-Provider-Implementierungen, Rendering-Mechanik, Geometrie,
+VR-bewusstes Tag-Schreiben, Masken-/Segmentmechanik und Datei-I/O. Das Schema
+*benennt* ein Generierungsrezept; der Code implementiert es.
 
-## File format and location
+## Dateiformat und Speicherort
 
-`configs/identifier_schemas/dicom-prototype.json` — JSON (matches the PDF
-plan's config-format decision; no new dependency). Loaded by
-`config/identifier_schema.py` into pydantic models (below). The active schema
-is selected by a `--identifier-schema` CLI option defaulting to the prototype
-file. Recording the resolved schema path and its `schema_id`/`version` in
-`run_metadata` remains an additive follow-up that requires the ADR-0008
-emission-version gate.
+`configs/identifier_schemas/dicom-prototype.json` — JSON (entspricht der
+Konfigurationsformat-Entscheidung des PDF-Plans; keine neue Abhängigkeit).
+Wird von `config/identifier_schema.py` in pydantic-Modelle geladen (siehe unten).
+Das aktive Schema wird über die CLI-Option `--identifier-schema` ausgewählt,
+deren Standard das Prototype-File ist. Das Aufzeichnen des aufgelösten
+Schema-Pfads sowie von `schema_id`/`version` in `run_metadata` bleibt eine
+additive Nacharbeit und benötigt das Ausgabeversions-Gate aus ADR-0008.
 
-## Schema structure
+## Struktur des Schemas
 
 ```jsonc
 {
   "schema_id": "dicom-prototype",
   "version": "1.0.0",
-  "description": "The five prototype fields, externalized without behaviour change.",
-  "identity_id_field": "patient_id",        // which field's value becomes identity_id
+  "description": "Die fünf Prototype-Felder, ohne Verhaltensänderung externalisiert.",
+  "identity_id_field": "patient_id",        // Wert welches Feldes zu identity_id wird
   "generator": {
     "provider": "faker",
-    "locale": "en_US",                       // today hardcoded in generator.py:9
-    "reference_date": "2026-07-10",          // fixed date for date-sensitive Faker recipes
+    "locale": "en_US",                       // heute in generator.py:9 hardcodiert
+    "reference_date": "2026-07-10",          // festes Datum für datumsabhängige Faker-Rezepte
     "reference_date_policy": "faker-date_of_birth-reference-v1"
   },
-  "fields": [ /* ordered list — order is the Faker call order (see Determinism) */ ]
+  "fields": [ /* geordnete Liste — Reihenfolge ist Faker-Aufrufreihenfolge (siehe Determinismus) */ ]
 }
 ```
 
-Each field entry:
+Jeder Feldeintrag:
 
 ```jsonc
 {
-  "name": "patient_id",                      // identity field name (WP-B Identity.fields key)
-  "category": "identifier",                  // free-form label for reporting; pipeline logic MUST NOT branch on it
+  "name": "patient_id",                      // Name des Identitätsfeldes (WP-B-Schlüssel Identity.fields)
+  "category": "identifier",                  // freies Label für Berichte; Pipeline-Logik DARF nicht danach verzweigen
   "generation": {
-    "recipe": "numerify",                    // named recipe implemented in identity/
+    "recipe": "numerify",                    // benanntes Rezept, implementiert in identity/
     "arguments": { "text": "######" },
     "value_template": "SYNTH-{value}"        // prefix applied at generation time
   },
   "generic_prefix": "SYNTH-",                // segmentation rule for rendering (ADR-0003); null if none
   "routing": {
-    "dicom_tag": {                           // null for non-DICOM-addressable fields
+    "dicom_tag": {                           // null für nicht per DICOM adressierbare Felder
       "keyword": "PatientID",
       "address": "0010,0020",
       "vr": "LO"
     },
-    "visible_pixel": { "enabled": true, "line_index": 1 }   // enabled:false = tag-only
+    "visible_pixel": { "enabled": true, "line_index": 1 }   // enabled:false = nur Tag
   }
 }
 ```
 
-Pydantic models in `config/identifier_schema.py` (all `extra="forbid"`):
+Pydantic-Modelle in `config/identifier_schema.py` (alle `extra="forbid"`):
 `IdentifierSchema`, `GeneratorConfig`, `FieldSpec`, `GenerationSpec`,
-`DicomTagRoute`, `VisiblePixelRoute`. Load-time validation: unique field
-names; `identity_id_field` exists; `line_index` values unique among
-visible-enabled fields and forming `0..n-1`; `generic_prefix`, when set, must
-be a prefix of `value_template`'s literal head (so segmentation can never
-fail at render time); `address` matches `^[0-9A-F]{4},[0-9A-F]{4}$`; `vr` is
-two uppercase letters; `reference_date` is an ISO date; `reference_date_policy`
-is non-empty.
+`DicomTagRoute`, `VisiblePixelRoute`. Validierung beim Laden: eindeutige
+Feldnamen; `identity_id_field` ist vorhanden; `line_index`-Werte sind unter den
+sichtbar aktivierten Feldern eindeutig und bilden `0..n-1`; `generic_prefix`
+muss, wenn gesetzt, ein Präfix des literalen Anfangs von `value_template` sein
+(damit die Segmentierung beim Rendern nie fehlschlägt); `address` entspricht
+`^[0-9A-F]{4},[0-9A-F]{4}$`; `vr` besteht aus zwei Großbuchstaben;
+`reference_date` ist ein ISO-Datum; `reference_date_policy` ist nicht leer.
 
-## Worked example: today's five fields as data
+## Ausgearbeitetes Beispiel: die heutigen fünf Felder als Daten
 
 ```jsonc
 {
@@ -145,100 +146,104 @@ is non-empty.
 }
 ```
 
-`dicom_person_name` is a named recipe (code) producing
-`f"{last_name}^{first_name}"` — the `^` join is DICOM PN mechanism, not
-taxonomy, so it stays a recipe implementation in `identity/recipes.py`.
+`dicom_person_name` ist ein benanntes Rezept (Code), das
+`f"{last_name}^{first_name}"` erzeugt — die Verkettung mit `^` ist ein DICOM-
+PN-Mechanismus und keine Taxonomie; sie bleibt daher als Rezeptimplementierung
+in `identity/recipes.py`.
 
-## Before → after mapping
+## Vorher-nachher-Abbildung
 
-| Hardcoded constant | Location today | Destination in schema |
+| Hardcodierte Konstante | Heutiger Ort | Ziel im Schema |
 |---|---|---|
-| `_TAG_META` (keyword → address, VR) | `runner.py:27-33` | `fields[*].routing.dicom_tag.{address,vr}` |
-| `_IDENTITY_FIELD_MAP` (keyword → field name) | `runner.py:35-41` | implicit: `fields[*].name` + `routing.dicom_tag.keyword` (one entry, two views) |
-| `_VISIBLE_PIXEL_KEYWORDS` + order | `runner.py:43-47`, order via `enumerate` at `:348` | `fields[*].routing.visible_pixel.{enabled,line_index}` |
+| `_TAG_META` (Keyword → Adresse, VR) | `runner.py:27-33` | `fields[*].routing.dicom_tag.{address,vr}` |
+| `_IDENTITY_FIELD_MAP` (Keyword → Feldname) | `runner.py:35-41` | implizit: `fields[*].name` + `routing.dicom_tag.keyword` (ein Eintrag, zwei Ansichten) |
+| `_VISIBLE_PIXEL_KEYWORDS` + Reihenfolge | `runner.py:43-47`, Reihenfolge über `enumerate` bei `:348` | `fields[*].routing.visible_pixel.{enabled,line_index}` |
 | `_TAG_ONLY_KEYWORDS` | `runner.py:48` | `visible_pixel.enabled: false` |
-| `SYNTH-` prefix generation | `identity/generator.py:15` | `patient_id.generation.value_template` |
-| `ACC-` prefix generation | `identity/generator.py:18` | `accession_number.generation.value_template` |
-| Prefix segmentation rules | `planning.build_text_segments()` | generic rule driven by `fields[*].generic_prefix`: if value starts with prefix → `[generic(prefix), pii(rest)]`, else `[pii(value)]` |
-| Faker locale | `identity/generator.py:9` | `generator.locale` |
-| Faker call recipes + order | `identity/generator.py:13-18` | `fields[]` order + `generation.recipe/arguments` |
+| `SYNTH-`-Präfixgenerierung | `identity/generator.py:15` | `patient_id.generation.value_template` |
+| `ACC-`-Präfixgenerierung | `identity/generator.py:18` | `accession_number.generation.value_template` |
+| Präfix-Segmentierungsregeln | `planning.build_text_segments()` | Generische Regel anhand von `fields[*].generic_prefix`: wenn der Wert mit dem Präfix beginnt → `[generic(prefix), pii(rest)]`, sonst `[pii(value)]` |
+| Faker-Locale | `identity/generator.py:9` | `generator.locale` |
+| Faker-Aufrufrezepte + Reihenfolge | `identity/generator.py:13-18` | Reihenfolge von `fields[]` + `generation.recipe/arguments` |
 | identity_id = patient_id | `runner.py:329`, `:518` | `identity_id_field` |
-| Duplicate prefix logic in dead API | `engine/pixel_injection.py:99-138` | deleted, not migrated |
-| `_TAG_META` keyword set = tag_map keys | `runner.py:296-303` (`_build_tag_map`) | derived: all fields with a `dicom_tag` route |
+| Doppelte Präfixlogik in toter API | `engine/pixel_injection.py:99-138` | gelöscht, nicht migriert |
+| `_TAG_META`-Keywordmenge = tag_map-Schlüssel | `runner.py:296-303` (`_build_tag_map`) | abgeleitet: alle Felder mit einer `dicom_tag`-Route |
 
-Stays code: `_FONT_FAMILY_CHOICES` / `_TEXT_BACKGROUND_CHOICES` /
-`_SHOW_LABEL_BOX_CHOICES` (`runner.py:50-52`) are render/CLI options, not
-taxonomy — they move to run-config handling in `config/` eventually, but are
-out of scope here.
+Bleibt Code: `_FONT_FAMILY_CHOICES` / `_TEXT_BACKGROUND_CHOICES` /
+`_SHOW_LABEL_BOX_CHOICES` (`runner.py:50-52`) sind Render-/CLI-Optionen, keine
+Taxonomie — sie wechseln später in die Run-Konfigurationsverarbeitung unter
+`config/`, liegen aber außerhalb dieses Umfangs.
 
-## Determinism constraint (byte-identity)
+## Determinismus-Constraint (Byte-Identität)
 
-`generate_identity` seeds one Faker instance and draws in a fixed order
-(`identity/generator.py:13-18`): last_name, first_name, numerify, date_of_birth,
-random_element, numerify. Faker outputs depend on **call order**, so the
-schema-driven generator must draw **in `fields[]` list order with the same
-recipe calls** to reproduce identical identities for a given seed. The worked
-example's field order intentionally matches — except that today
-`last_name` is drawn *before* `first_name` inside one field; the
-`dicom_person_name` recipe preserves that internal order. Add a regression
-test: seed 42 through the schema-driven path equals today's
-`generate_identity(42)` output exactly.
+`generate_identity` versieht eine Faker-Instanz mit einem Seed und zieht in fester Reihenfolge
+(`identity/generator.py:13-18`): `last_name`, `first_name`, `numerify`,
+`date_of_birth`, `random_element`, `numerify`. Faker-Ausgaben hängen von der
+**Aufrufreihenfolge** ab, daher muss der schema-gesteuerte Generator **in der
+Listenreihenfolge von `fields[]` mit denselben Rezeptaufrufen** ziehen, um für
+einen Seed identische Identitäten zu reproduzieren. Die Reihenfolge des
+Beispiels entspricht absichtlich der aktuellen Reihenfolge — mit der Ausnahme,
+dass heute innerhalb eines Feldes `last_name` *vor* `first_name` gezogen wird;
+das Rezept `dicom_person_name` erhält diese interne Reihenfolge. Einen
+Regressionstest ergänzen: Seed 42 über den schema-gesteuerten Pfad muss exakt
+der heutigen Ausgabe von `generate_identity(42)` entsprechen.
 
-`date_of_birth` must not read the execution day. It uses
-`generator.reference_date` and `generator.reference_date_policy` from the
-schema; the prototype fixes `2026-07-10` as the age-window anchor for that day.
-The recipe draws the birth-date offset via `fake.random.randint()` directly
-rather than calling Faker's own `date_of_birth()`/`date_time_ad()`: those
-methods branch on `platform.system()` internally (`randint` on Windows,
-`uniform` elsewhere), which is not reproducible across operating systems for a
-fixed seed (see `docs/architecture/determinism-audit.md` N14).
+`date_of_birth` darf den Ausführungstag nicht lesen. Es verwendet
+`generator.reference_date` und `generator.reference_date_policy` aus dem
+Schema. Das Prototype-Schema setzt `2026-07-10` als Anker des Altersfensters
+fest. Das Rezept zieht den Offset des Geburtsdatums direkt über
+`fake.random.randint()`, statt die Faker-eigenen
+`date_of_birth()`/`date_time_ad()` aufzurufen: Diese Methoden verzweigen intern
+nach `platform.system()` (`randint` unter Windows, `uniform` sonst), was bei
+festem Seed nicht über Betriebssysteme hinweg reproduzierbar ist (siehe
+`docs/architecture/determinism-audit.md` N14).
 
-## What this does *not* cover
+## Was dadurch *nicht* abgedeckt wird
 
-- Run/render configuration (fonts, placement, rotation) — separate config
-  concern, later package.
-- Multi-identity pools and cross-document identity reuse (PLAN.md "Identity
-  Pool") — the schema is compatible (recipes + seeds) but pool semantics are
-  future work.
-- New PII categories — explicitly out of scope for the pipeline
-  (`AGENTS.md`); the schema lets *others* define them.
+- Run-/Render-Konfiguration (Schriften, Platzierung, Rotation) — eigener
+  Konfigurationsbereich, späteres Paket.
+- Pools mit mehreren Identitäten und dokumentübergreifende
+  Identitätswiederverwendung (PLAN.md „Identity Pool“) — das Schema ist
+  kompatibel (Rezepte + Seeds), die Poolsemantik ist aber künftige Arbeit.
+- Neue PII-Kategorien — ausdrücklich außerhalb des Pipeline-Umfangs
+  (`AGENTS.md`); das Schema erlaubt es *anderen*, sie zu definieren.
 
-## Implementation status, 2026-07-12
+## Implementierungsstatus, 2026-07-12
 
-Implemented:
+Implementiert:
 
-- `config/identifier_schema.py` validates generator, field, DICOM route,
-  visible route, prefix/template, and cross-field constraints.
-- `configs/identifier_schemas/dicom-prototype.json` contains the five
-  prototype fields and deterministic generator reference date.
-- `identity/generator.py` iterates schema fields in file order and delegates to
-  `identity/recipes.py`.
-- `planning.py` derives tag annotations, visible render plan, and text segments
-  from the schema.
-- Tests cover malformed schemas, default-schema loading, Faker reference-date
-  determinism, legacy seed regressions, and a toy-schema E2E run.
+- `config/identifier_schema.py` validiert Generator, Felder, DICOM-Route,
+  sichtbare Route, Präfix/Template und feldübergreifende Constraints.
+- `configs/identifier_schemas/dicom-prototype.json` enthält die fünf Prototype-
+  Felder und das deterministische Generator-Referenzdatum.
+- `identity/generator.py` durchläuft Schemafelder in Dateireihenfolge und
+  delegiert an `identity/recipes.py`.
+- `planning.py` leitet Tag-Annotationen, sichtbaren Render-Plan und Textsegmente
+  aus dem Schema ab.
+- Tests decken fehlerhafte Schemas, Laden des Standardschemas, Faker-
+  Referenzdatum-Determinismus, Legacy-Seed-Regressionen und einen
+  E2E-Lauf mit Spielzeugschema ab.
 
-Open:
+Offen:
 
-- `run_metadata` does not yet emit `identifier_schema_id`,
-  `identifier_schema_version`, or schema path because ADR-0008 has no emitted
-  additive version for those fields.
+- `run_metadata` gibt `identifier_schema_id`, `identifier_schema_version` oder
+  Schema-Pfad noch nicht aus, weil ADR-0008 keine ausgegebene additive Version
+  für diese Felder besitzt.
 
-## Implementation Status
+## Implementierungsstatus
 
-### Implemented 2026-07-12
+### Implementiert am 2026-07-12
 
-- `config/identifier_schema.py` and unit tests for validation failures.
-- Default schema file under `configs/identifier_schemas/`.
-- Recipe registry and schema-driven `generate_identity(seed, schema)`.
-- Planning functions read DICOM routing, visible routing, and prefixes from the
-  schema.
-- Committed coverage: E2E bytehash tests and toy-schema smoke test.
+- `config/identifier_schema.py` und Unit-Tests für Validierungsfehler.
+- Standardschema unter `configs/identifier_schemas/`.
+- Rezept-Registry und schema-gesteuertes `generate_identity(seed, schema)`.
+- Planungsfunktionen lesen DICOM-Routing, sichtbares Routing und Präfixe aus
+  dem Schema.
+- Eingecheckte Abdeckung: E2E-Bytehash-Tests und Spielzeugschema-Smoke-Test.
 
-### Remaining
+### Verbleibend
 
-- Emitted schema provenance in `run_metadata`, blocked by ADR-0008.
+- Ausgegebene Schema-Provenienz in `run_metadata`, durch ADR-0008 blockiert.
 
-Definition of done update: the DICOM/JPG path can run with the default schema
-or a two-field toy schema without code changes. Provenance emission remains
-outside the current `0.2.0-prototype` record.
+Abschlusskriterium: Der DICOM/JPG-Pfad kann mit dem Standardschema oder einem
+Zwei-Felder-Spielzeugschema ohne Codeänderungen laufen. Die Ausgabe der
+Provenienz bleibt außerhalb des aktuellen `0.2.0-prototype`-Records.

@@ -1,423 +1,460 @@
-# ScrabbleGAN Handwriting Generation — Implementation Plan
+# ScrabbleGAN-Handschriftgenerierung — Implementierungsplan
 
-Status: **partially complete — host-side provider/cache integration, automatic
-Docker runtime wiring, real checkpoint verification, and soft-alpha raster
-processing completed; ADR and full test-gate follow-up remain open**.
-The fake renderer, manifest, hashing, validation scaffold, integrated
-`--font-family handwriting` path, and standalone `generate-handwriting --seed`
-path exist. The real ScrabbleGAN run was verified on 2026-07-15 with the
-official source checkout, `.git_commit` metadata, and the local
-checkpoint/options sidecar.
+Status: **teilweise umgesetzt – Provider-/Cache-Integration auf dem Host,
+automatische Docker-Runtime-Verdrahtung, Verifizierung des echten Checkpoints
+und Soft-Alpha-Rasterverarbeitung abgeschlossen; ADR- und vollständige
+Test-Gate-Nacharbeiten bleiben offen**.
+Der Fake-Renderer, Manifest-, Hashing- und Validierungs-Scaffold, der integrierte
+Pfad `--font-family handwriting` und der eigenständige Pfad
+`generate-handwriting --seed` existieren. Der reale ScrabbleGAN-Lauf wurde am
+2026-07-15 mit offiziellem Source-Checkout, `.git_commit`-Metadaten und lokalem
+Checkpoint-/Options-Sidecar verifiziert.
 
-Created 2026-07-10. Based on the findings in
-`tools/handwriting/scrabblegan/UPSTREAM_REVIEW.md` (upstream comparison
-against `https://github.com/amzn/convolutional-handwriting-gan`). The existing
-batch scaffold (manifest contract, hashing, validation, fake renderer,
-container isolation) is kept; this plan closes the gap between the scaffold
-and a working real-model pipeline, then documents and tests the result.
+Erstellt am 2026-07-10. Basiert auf den Ergebnissen aus
+`tools/handwriting/scrabblegan/UPSTREAM_REVIEW.md` (Upstream-Vergleich
+mit `https://github.com/amzn/convolutional-handwriting-gan`). Der bestehende
+Batch-Scaffold (Manifest-Vertrag, Hashing, Validierung, Fake-Renderer,
+Container-Isolation) bleibt erhalten. Dieser Plan schließt die Lücke zwischen
+Scaffold und einer funktionierenden Realmodell-Pipeline und dokumentiert und
+testet anschließend das Ergebnis.
 
-Goal: generate real ScrabbleGAN handwriting assets (image + ink mask +
-manifest) inside the isolated legacy environment and consume them in
-`uv run injection-pipeline` end to end, reproducibly. In handwriting mode,
-the pipeline shall generate the Faker identity first, look up the resulting
-seed in the local handwriting-asset store, generate missing assets, attach the
-assets to the render plan, and persist them for later runs. A separate console
-command shall accept a seed and pre-generate the same asset bundle without
-injecting a document.
+Ziel: Echte ScrabbleGAN-Handschrift-Assets (Bild + Tintenmaske + Manifest) in
+der isolierten Legacy-Umgebung erzeugen und in
+`uv run injection-pipeline` reproduzierbar von Anfang bis Ende nutzen. Im
+Handschriftmodus erzeugt die Pipeline zuerst die Faker-Identität,
+sucht den resultierenden Seed im lokalen Handschrift-Asset-Speicher, erzeugt
+fehlende Assets, hängt sie an den Render-Plan an und persistiert sie für spätere
+Läufe. Ein separater Konsolenbefehl akzeptiert einen Seed und erzeugt dasselbe
+Asset-Bundle vorab, ohne ein Dokument zu injizieren.
 
-## Scope
+## Umfang
 
-- In:
-  - A runnable legacy container with the upstream environment (Python 3.6.8,
-    PyTorch 1.2.0) and the batch tool installed.
-  - A custom single-text inference wrapper around the upstream generator
-    (upstream has no such script — Review finding 1).
-  - A trained (or otherwise procured) generator checkpoint, pinned by SHA-256.
-  - Fixes to the batch tool: transparent-background mask bug (finding 4),
-    alphabet validation (finding 5), invisible white-on-white combination
-    (finding 6).
-  - One verified end-to-end run: batch manifest → container render →
-    validated output manifest → DICOM injection with visual check.
-  - An integrated handwriting render mode in the DICOM/JPG injection flow:
-    Faker identity generation → asset lookup → generation of missing assets →
-    handwriting overlay injection → persistent manifest/artifacts under
+- Enthalten:
+  - Eine ausführbare Legacy-Container-Umgebung mit Upstream-Umgebung (Python
+    3.6.8, PyTorch 1.2.0) und installiertem Batch-Tool.
+  - Ein eigener Single-Text-Inference-Wrapper um den Upstream-Generator
+    (Upstream besitzt kein solches Skript – Review-Ergebnis 1).
+  - Ein trainierter oder anderweitig beschaffter, per SHA-256 festgelegter
+    Generator-Checkpoint.
+  - Korrekturen am Batch-Tool: Maskenfehler bei transparentem Hintergrund
+    (Ergebnis 4), Alphabetvalidierung (Ergebnis 5), unsichtbare Kombination
+    aus Weiß auf Weiß (Ergebnis 6).
+  - Ein verifizierter End-to-End-Lauf: Batch-Manifest → Container-Rendering →
+    validiertes Ausgabe-Manifest → DICOM-Injektion mit visueller Prüfung.
+  - Ein integrierter Handschrift-Render-Modus im DICOM/JPG-Injektionsfluss:
+    Faker-Identitätsgenerierung → Asset-Suche → Erzeugung fehlender Assets →
+    Handschrift-Overlay-Injektion → persistente Manifeste/Artefakte unter
     `DicomData/HandwritingAssets/`.
-  - A standalone seed-based handwriting-generation command that uses the same
-    cache and generator contract as the integrated mode.
-  - Interactive CLI ordering in which the seed is selected before the common
-    font/renderer choice, followed by the remaining render parameters.
-  - Tests (host-side unit tests, container smoke test, determinism check,
-    integration test) and documentation updates, including closing out this
-    plan and the review file.
-- Out:
-  - HTTP API around the batch core (explicitly deferred by the v1 README).
-  - New identity fields beyond `patient_name`, `patient_id`,
+  - Ein eigenständiger seed-basierter Handschriftgenerierungsbefehl mit
+    demselben Cache- und Generatorvertrag wie der integrierte Modus.
+  - Interaktive CLI-Reihenfolge, in der der Seed vor der gemeinsamen
+    Font-/Renderer-Auswahl und den übrigen Render-Parametern festgelegt wird.
+  - Tests (Unit-Tests auf dem Host, Container-Smoke-Test,
+    Determinismusprüfung, Integrationstest) und Dokumentationsaktualisierungen
+    einschließlich Abschluss dieses Plans und der Review-Datei.
+- Nicht enthalten:
+  - HTTP-API um den Batch-Kern (laut v1-README ausdrücklich zurückgestellt).
+  - Neue Identitätsfelder über `patient_name`, `patient_id` und
     `accession_number`.
-  - Model-level style conditioning beyond the selected renderer and seed;
-    ScrabbleGAN noise-vector styles stay implicit via the seed unless a later
-    decision adds an explicit style parameter.
-  - Committing datasets, checkpoints, or generated assets (stay under
-    `DicomData/`, gitignored).
+  - Style-Conditioning auf Modellebene über gewählten Renderer und Seed hinaus;
+    ScrabbleGAN-Noise-Vector-Stile bleiben implizit über den Seed, sofern eine
+    spätere Entscheidung keinen expliziten Style-Parameter ergänzt.
+  - Versionieren von Datensätzen, Checkpoints oder erzeugten Assets (sie bleiben
+    unter `DicomData/` und sind durch Git ignoriert).
 
-## Decisions
+## Entscheidungen
 
-### Confirmed integration contract
+### Bestätigter Integrationsvertrag
 
-- The existing manifest-controlled path remains a supported low-level
-  contract for explicit asset injection and testing.
-- The new integrated path uses one common `--font-family`/interactive choice.
-  It includes the normal font options (`arial`, `calibri`, `tahoma`,
-  `consolas`) plus `handwriting`. A handwriting choice invokes an
-  asset provider after Faker identity generation; normal choices keep the
-  existing Pillow rendering path.
-- The asset provider must be shared by the injection CLI and the standalone
-  seed command so that a pre-generated seed is reused by injection.
-- Handwriting is generated only for the currently visible identity fields:
-  `patient_name`, `patient_id`, and `accession_number`.
-- The cache is a seed bundle, but an asset is reusable only when its cache
-  identity matches the seed, identity-schema ID/version, identity field,
-  generated text, ScrabbleGAN checkpoint SHA-256, upstream commit, generator
-  manifest hash, and options sidecar SHA-256 (`options_sha256` /
-  `generator_options_sha256`). A changed identity or generator contract
-  creates a new compatible asset instead of silently reusing stale output.
-- Asset lookup and writes are local filesystem operations below
-  `DicomData/HandwritingAssets/`; generated images, masks, manifests,
-  checkpoints, and third-party source remain untracked.
-- Both integrated and standalone modes start the isolated ScrabbleGAN runtime
-  automatically on cache miss. If the runtime, checkpoint, required source,
-  source `.git_commit`/Git checkout metadata, or options sidecar is
-  unreachable, the command fails clearly and does not fall back to a normal
-  font.
-- The default isolated runtime is the `injection-scrabblegan` Docker image;
-  `--handwriting-runtime-command` is an explicit override for host-side tests
-  or another isolated runtime.
-- The standalone command is `uv run injection-pipeline generate-handwriting
-  --seed <seed>` and writes the same reusable bundle as integrated injection.
-- Normal asset generation uses CPU-only inference inside the isolated runtime.
-  A GPU is not required on the machine running the injection pipeline.
-- Because the official Amazon repository provides the training and generation
-  code but no ready-to-use generator checkpoint in its repository tree, v1
-  uses a checkpoint trained from the official code. Training is a one-time
-  prerequisite performed on a university GPU or cloud GPU; the trained
-  generator is then mounted for CPU inference.
+- Der bestehende manifestgesteuerte Pfad bleibt ein unterstützter Low-Level-
+  Vertrag für explizite Asset-Injektion und Tests.
+- Der neue integrierte Pfad verwendet eine gemeinsame
+  `--font-family`-/interaktive Auswahl. Sie umfasst die normalen Font-Optionen
+  (`arial`, `calibri`, `tahoma`, `consolas`) sowie `handwriting`. Die Auswahl
+  `handwriting` ruft nach der Faker-Identitätsgenerierung einen Asset-Provider
+  auf; normale Auswahlen behalten den bestehenden Pillow-Renderpfad.
+- Der Asset-Provider muss von Injektions-CLI und eigenständigem Seed-Befehl
+  gemeinsam verwendet werden, damit ein vorab erzeugter Seed bei der Injektion
+  wiederverwendet wird.
+- Handschrift wird nur für die derzeit sichtbaren Identitätsfelder erzeugt:
+  `patient_name`, `patient_id` und `accession_number`.
+- Der Cache ist ein Seed-Bundle, aber ein Asset ist nur wiederverwendbar, wenn
+  seine Cache-Identität mit Seed, Identifier-Schema-ID/-Version, Identitätsfeld,
+  erzeugtem Text, ScrabbleGAN-Checkpoint-SHA-256, Upstream-Commit,
+  Generator-Manifest-Hash und Options-Sidecar-SHA-256 (`options_sha256` /
+  `generator_options_sha256`) übereinstimmt. Eine geänderte Identität oder ein
+  geänderter Generatorvertrag erzeugt ein neues kompatibles Asset, statt alte
+  Ausgabe stillschweigend wiederzuverwenden.
+- Asset-Suche und -Schreiben sind lokale Dateisystemoperationen unter
+  `DicomData/HandwritingAssets/`; erzeugte Bilder, Masken, Manifeste,
+  Checkpoints und Quellcode von Drittanbietern bleiben nicht versioniert.
+  - Integrierter und eigenständiger Modus starten die isolierte ScrabbleGAN-
+    Runtime bei einem Cache-Miss automatisch. Wenn Runtime, Checkpoint,
+    erforderliche Source, Source-`.git_commit`-/Git-Checkout-Metadaten oder
+    Options-Sidecar nicht erreichbar sind, schlägt der Befehl eindeutig fehl
+    und fällt nicht auf eine normale Font zurück.
+  - Die standardmäßige isolierte Runtime ist das Docker-Image
+    `injection-scrabblegan`; `--handwriting-runtime-command` ist ein expliziter
+    Override für Host-Tests oder eine andere isolierte Runtime.
+  - Der eigenständige Befehl ist `uv run injection-pipeline
+    generate-handwriting --seed <seed>` und schreibt dasselbe wiederverwendbare
+    Bundle wie die integrierte Injektion.
+  - Normale Asset-Erzeugung verwendet CPU-only-Inferenz in der isolierten
+    Runtime. Auf dem Rechner, der die Injektions-Pipeline ausführt, ist keine
+    GPU erforderlich.
+  - Da das offizielle Amazon-Repository zwar Trainings- und Generierungscode,
+    aber keinen einsatzbereiten Generator-Checkpoint enthält, verwendet v1
+    einen aus dem offiziellen Code trainierten Checkpoint. Das Training ist
+    eine einmalige Voraussetzung auf einer Universitäts- oder Cloud-GPU; der
+    trainierte Generator wird anschließend für CPU-Inferenz eingebunden.
 
-Confirmed by the review; to be re-validated in WP0 where marked *(open)*:
+Durch die Review bestätigt; an den mit *(offen)* markierten Stellen in WP0 erneut
+zu validieren:
 
-- **Inference runs on CPU inside the container.** Word-image generation with
-  the trained generator is cheap; CPU inference removes the CUDA 9/10 base
-  image problem, the Docker-Hub tag-pruning risk, and WSL2 GPU passthrough
-  uncertainty on the Windows dev machine, and it is more deterministic than
-  CUDA. GPU is only needed for *training*, which runs outside this repo's
-  container (university GPU machine or Colab).
-- **The wrapper loads a raw `net_G` state dict from a single mounted file.**
-  This keeps the existing `--checkpoint` + `--checkpoint-sha256` contract.
-  The training run must export `latest_net_G.pth`; the wrapper reconstructs
-  the generator architecture from pinned upstream code plus a small JSON
-  sidecar with the architecture options (alphabet, image height, channels).
-- **Upstream source stays a runtime mount** (pinned commit via `.git_commit`),
-  never vendored or committed — unchanged from the current design.
-- **Dataset/alphabet: IAM, `IAMcharH32rmPunct`.** English words, no
-  punctuation. Digits/hyphens in `patient_id`/`accession_number` and umlauts
-  in names must therefore be validated against the actual checkpoint alphabet
-  and rejected (v1: reject, do not transliterate). *(open — confirm IAM access
-  registration and whether digits are in the trained alphabet)*
-- **Multi-word `patient_name` values are rendered per word and composited
-  horizontally** by the batch tool with a fixed, seeded gap; the manifest
-  `text` keeps the full string. Rejecting spaces outright would make
-  `patient_name` useless.
-- Record the checkpoint/inference contract as **ADR-0010** once WP0 decisions
-  are confirmed (fits the existing `docs/decisions/` series).
+- **Inferenz läuft im Container auf der CPU.** Die Wortbild-Erzeugung mit dem
+  trainierten Generator ist günstig; CPU-Inferenz beseitigt das Problem des
+  CUDA-9/10-Basis-Images, das Risiko entfernter Docker-Hub-Tags und die
+  Unsicherheit der WSL2-GPU-Durchleitung auf der Windows-Entwicklungsmaschine.
+  Sie ist deterministischer als CUDA. Eine GPU wird nur für das *Training*
+  benötigt, das außerhalb des Container-Repositories läuft (Universitäts-GPU
+  oder Colab).
+- **Der Wrapper lädt einen rohen `net_G`-State-Dict aus einer einzelnen
+  eingebundenen Datei.** Dadurch bleibt der bestehende Vertrag
+  `--checkpoint` + `--checkpoint-sha256` erhalten. Der Trainingslauf muss
+  `latest_net_G.pth` exportieren; der Wrapper rekonstruiert die
+  Generatorarchitektur aus festgelegtem Upstream-Code und einem kleinen
+  JSON-Sidecar mit Architekturoptionen (Alphabet, Bildhöhe, Kanäle).
+- **Upstream-Source bleibt ein Runtime-Mount** (festgelegter Commit über
+  `.git_commit`) und wird weder vendored noch versioniert – unverändert zum
+  aktuellen Design.
+- **Datensatz/Alphabet: IAM, `IAMcharH32rmPunct`.** Englische Wörter ohne
+  Interpunktion. Ziffern/Bindestriche in `patient_id`/`accession_number` und
+  Umlaute in Namen müssen daher gegen das tatsächliche Checkpoint-Alphabet
+  validiert und zurückgewiesen werden (v1: zurückweisen, nicht transliterieren).
+  *(offen – IAM-Zugangsregistrierung und Vorkommen von Ziffern im trainierten
+  Alphabet bestätigen)*
+- **Mehrwortwerte von `patient_name` werden wortweise gerendert und
+  horizontal zusammengesetzt**; das Batch-Tool verwendet einen festen,
+  seed-basierten Abstand, das Manifest-`text` behält die vollständige
+  Zeichenkette. Eine pauschale Zurückweisung von Leerzeichen würde
+  `patient_name` unbrauchbar machen.
+- Den Checkpoint-/Inferenzvertrag nach Bestätigung der WP0-Entscheidungen als
+  **ADR-0010** festhalten (passt in die bestehende Reihe unter
+  `docs/decisions/`).
 
-## Work Packages
+## Arbeitspakete
 
-Each WP lists acceptance criteria as checkboxes. Tick them as they complete
-and update the Status line at the top; do not delete failed approaches —
-strike through and note what replaced them.
+Jedes WP enthält Akzeptanzkriterien als Checkboxen. Diese werden beim Abschluss
+aktualisiert und die Statuszeile am Anfang wird angepasst. Fehlgeschlagene
+Ansätze nicht löschen, sondern durchstreichen und dokumentieren, wodurch sie
+ersetzt wurden.
 
-## One-Time Prerequisite For The User
+## Einmalige Voraussetzung für den Benutzer
 
-The user does not need to implement the model integration manually, but one
-trained generator checkpoint must exist before `--font-family handwriting` can
-produce real assets. The setup follows the official Amazon repository:
+Der Benutzer muss die Modellintegration nicht manuell implementieren; vor der
+Verwendung von `--font-family handwriting` für echte Assets muss jedoch ein
+trainierter Generator-Checkpoint vorhanden sein. Die Einrichtung folgt dem
+offiziellen Amazon-Repository:
 
-1. Clone the pinned commit of
-   `https://github.com/amzn/convolutional-handwriting-gan` in a separate
-   Linux/WSL2 or cloud-GPU workspace.
-2. Register for and download IAM, then arrange the official `Datasets/IAM`
-   structure (`wordImages`, `lineImages`, `original`, and
-   `original_partition`). Keep the dataset outside Git and outside committed
-   project fixtures.
-3. Create the official legacy environment from
-   `environmentPytorch12.yml`; the repository documents Python 3.6,
-   PyTorch 1.2, CUDA 9, and Ubuntu 16.04 as its tested combination.
-4. Run the official `data/create_text_data.py` preparation step and audit the
-   resulting alphabet before training. The checkpoint must support letters,
-   digits, and the hyphen needed by the three visible prototype fields; if it
-   does not, training data/configuration must be extended before integration.
-5. Train with the official `train.py`/`train_semi_supervised.py` workflow on
-   the external GPU, export the generator weights and architecture options,
-   and place the resulting checkpoint under the ignored
-   `DicomData/HandwritingAssets/scrabblegan/checkpoints/` directory.
+1. Den festgelegten Commit von
+   `https://github.com/amzn/convolutional-handwriting-gan` in einem separaten
+   Linux-/WSL2- oder Cloud-GPU-Arbeitsbereich clonen.
+2. Für IAM registrieren und den Datensatz laden, anschließend die offizielle
+   Struktur `Datasets/IAM` (`wordImages`, `lineImages`, `original` und
+   `original_partition`) einrichten. Den Datensatz außerhalb von Git und
+   versionierten Projekt-Fixtures halten.
+3. Die offizielle Legacy-Umgebung aus `environmentPytorch12.yml` erstellen;
+   das Repository dokumentiert Python 3.6, PyTorch 1.2, CUDA 9 und Ubuntu 16.04
+   als getestete Kombination.
+4. Den offiziellen Vorbereitungsschritt `data/create_text_data.py` ausführen
+   und das resultierende Alphabet vor dem Training prüfen. Der Checkpoint muss
+   die für die drei sichtbaren Prototype-Felder benötigten Buchstaben, Ziffern
+   und den Bindestrich unterstützen; andernfalls müssen Trainingsdaten oder
+   Konfiguration vor der Integration erweitert werden.
+5. Mit dem offiziellen Workflow `train.py`/`train_semi_supervised.py` auf der
+   externen GPU trainieren, Generatorgewichte und Architekturoptionen
+   exportieren und den Checkpoint unter dem ignorierten Verzeichnis
+   `DicomData/HandwritingAssets/scrabblegan/checkpoints/` ablegen.
 
-The repository implementation will then build the isolated runtime, validate
-the checkpoint hash, start CPU inference automatically, and generate/cache
-the requested seed assets. No checkpoint, IAM data, or legacy environment is
-added to the Python 3.13 project.
+Die Repository-Implementierung baut anschließend die isolierte Runtime,
+validiert den Checkpoint-Hash, startet automatisch die CPU-Inferenz und
+erzeugt bzw. cached die angeforderten Seed-Assets. Kein Checkpoint, keine IAM-
+Daten und keine Legacy-Umgebung werden zum Python-3.13-Projekt hinzugefügt.
 
-### WP0: Decisions And Prerequisites
+### WP0: Entscheidungen und Voraussetzungen
 
-Confirm the *(open)* decisions above and secure external prerequisites.
+Die oben genannten *(offen)* Entscheidungen bestätigen und die externen
+Voraussetzungen sichern.
 
-- [ ] Pin the exact upstream commit (record in this plan and in
-      `.git_commit` convention docs).
-- [x] Confirm CPU-only inference is acceptable for v1; GPU is reserved for
-      one-time checkpoint training.
-- [ ] IAM dataset access obtained (registration) and stored under
-      `DicomData/` (gitignored); lexicon files downloaded.
-- [x] Training venue decided: external Linux GPU, preferably a university
-      machine; a cloud GPU is the fallback. The checkpoint is not trained in
-      the Python 3.13 project environment.
-- [x] Renderer contract decided: one common font-family/renderer choice,
-      including `arial`, `calibri`, `tahoma`, `consolas`, and `handwriting`.
-- [x] Handwriting scope limited to the visible fields
-      `patient_name`, `patient_id`, and `accession_number`.
-- [x] Cache identity includes seed, schema, field, generated text, checkpoint,
-      upstream commit, generator manifest hash, and options sidecar hash;
-      invalidation is explicit.
-- [x] Standalone command is `generate-handwriting --seed <seed>` and shares
-      the integrated asset-provider contract.
-- [x] Missing or unreachable ScrabbleGAN prerequisites fail the run; there is
-      no automatic font fallback.
-- [ ] ADR-0010 drafted with the checkpoint/inference contract.
+- [ ] Den exakten Upstream-Commit festlegen (in diesem Plan und in den
+      Dokumenten zur `.git_commit`-Konvention festhalten).
+- [x] Bestätigt: CPU-only-Inferenz ist für v1 ausreichend; die GPU ist für das
+      einmalige Checkpoint-Training reserviert.
+- [ ] Zugriff auf den IAM-Datensatz erhalten (Registrierung) und unter
+      `DicomData/` gespeichert (von Git ignoriert); Lexikondateien geladen.
+- [x] Trainingsort festgelegt: externe Linux-GPU, vorzugsweise eine
+      Universitätsmaschine; eine Cloud-GPU ist der Fallback. Der Checkpoint
+      wird nicht in der Python-3.13-Projektumgebung trainiert.
+- [x] Renderer-Vertrag festgelegt: eine gemeinsame Font-/Renderer-Auswahl mit
+      `arial`, `calibri`, `tahoma`, `consolas` und `handwriting`.
+- [x] Handschriftumfang auf die sichtbaren Felder beschränkt:
+      `patient_name`, `patient_id` und `accession_number`.
+- [x] Cache-Identität umfasst Seed, Schema, Feld, erzeugten Text, Checkpoint,
+      Upstream-Commit, Generator-Manifest-Hash und Options-Sidecar-Hash;
+      die Invalidierung ist explizit.
+- [x] Eigenständiger Befehl ist `generate-handwriting --seed <seed>` und teilt
+      den Vertrag des integrierten Asset-Providers.
+- [x] Fehlende oder nicht erreichbare ScrabbleGAN-Voraussetzungen lassen den
+      Lauf fehlschlagen; es gibt keinen automatischen Font-Fallback.
+- [ ] ADR-0010 mit dem Checkpoint-/Inferenzvertrag entworfen.
 
-### WP1: Container Rebuild
+### WP1: Container-Neuaufbau
 
-Replace the broken Dockerfile (Review finding 2) with one that actually runs
-the upstream code.
+Das fehlerhafte Dockerfile (Review-Ergebnis 2) durch eines ersetzen, das den
+Upstream-Code tatsächlich ausführt.
 
-- Base: a plain `ubuntu:16.04`-compatible image is *not* required for CPU
-  inference; use a slim Linux base + **Micromamba**, create the env from
-  upstream's `environmentPytorch12.yml` (PyTorch 1.2.0 CPU build variant if
-  the yml's CUDA pin fails on CPU — adjust and document the delta).
-- Keep the `scrabblegan-render` / `scrabblegan-validate` entrypoints, now
-  executing inside the Micromamba environment.
-- Use the Micromamba solver rather than the legacy Conda solver; the latter
-  can exhaust the memory available to Docker Desktop while resolving the
-  historical Python 3.6 dependency graph.
-- Remove dead `PYTORCH_VERSION`/CUDA ARGs or make them real.
+- Basis: Für CPU-Inferenz ist kein normales `ubuntu:16.04`-kompatibles Image
+  erforderlich; eine schlanke Linux-Basis + **Micromamba** verwenden und die
+  Umgebung aus Upstreams `environmentPytorch12.yml` erstellen (PyTorch-1.2.0-
+  CPU-Build-Variante, falls der CUDA-Pin der YML unter CPU fehlschlägt – die
+  Abweichung anpassen und dokumentieren).
+- Die Einstiegspunkte `scrabblegan-render` / `scrabblegan-validate` behalten,
+  nun innerhalb der Micromamba-Umgebung ausgeführt.
+- Den Micromamba-Solver statt des Legacy-Conda-Solvers verwenden; letzterer
+  kann beim Auflösen des historischen Python-3.6-Abhängigkeitsgraphen den für
+  Docker Desktop verfügbaren Speicher erschöpfen.
+- Tote `PYTORCH_VERSION`-/CUDA-ARGs entfernen oder tatsächlich verwenden.
 
-- [x] `docker build` succeeds from a clean checkout.
-- [x] In-container smoke test passes: `python -c "import torch, torchvision;
-      print(torch.__version__)"` prints 1.2.0 and upstream
-      `models/` imports succeed against a mounted source checkout.
-- [x] `scrabblegan-render --help` / `scrabblegan-validate --help` work
-      (current CMD contract preserved).
+- [x] `docker build` ist aus einem sauberen Checkout erfolgreich.
+- [x] Container-Smoke-Test erfolgreich: `python -c "import torch, torchvision;
+      print(torch.__version__)"` gibt 1.2.0 aus und Upstream-Imports aus
+      `models/` funktionieren gegen einen eingebundenen Source-Checkout.
+- [x] `scrabblegan-render --help` / `scrabblegan-validate --help` funktionieren
+      (aktueller CMD-Vertrag erhalten).
 
-### WP2: Checkpoint Procurement
+### WP2: Beschaffung des Checkpoints
 
-Upstream publishes no weights (Review finding 3); train once, outside the
-container.
+Upstream veröffentlicht keine Gewichte (Review-Ergebnis 3); einmal außerhalb
+des Containers trainieren.
 
-- Follow upstream README: `data/create_text_data.py` → LMDB → `train.py`
-  with `IAMcharH32rmPunct`.
-- Export `latest_net_G.pth` plus the architecture-options JSON sidecar;
-  compute SHA-256; place under
+- Dem Upstream-README folgen: `data/create_text_data.py` → LMDB → `train.py`
+  mit `IAMcharH32rmPunct`.
+- `latest_net_G.pth` und den JSON-Sidecar mit Architekturoptionen exportieren,
+  SHA-256 berechnen und unter
   `DicomData/HandwritingAssets/scrabblegan/checkpoints/`.
 
-- [ ] Training run completed; sample grid images visually plausible.
-- [ ] `model.pth` (= exported `net_G`) + options sidecar + SHA-256 recorded
-      (hash goes into run commands, not into git-committed docs as a fake
-      `PIN_...` placeholder).
-- [ ] Trained alphabet string extracted and recorded (input to WP4
-      validation).
+- [ ] Trainingslauf abgeschlossen; Beispielrasterbilder visuell plausibel.
+- [ ] `model.pth` (= exportierter `net_G`) + Options-Sidecar + SHA-256
+      aufgezeichnet (der Hash gehört in Run-Befehle, nicht als falscher
+      `PIN_...`-Platzhalter in versionierte Dokumente).
+- [ ] Trainierte Alphabetzeichenkette extrahiert und aufgezeichnet (Eingabe für
+      die WP4-Validierung).
 
-### WP3: Single-Text Inference Wrapper
+### WP3: Single-Text-Inference-Wrapper
 
-The core missing piece (Review finding 1): a script that renders one text
-string to one PNG, deterministically.
+Der zentrale fehlende Baustein (Review-Ergebnis 1): ein Skript, das eine
+Textzeichenkette deterministisch in eine PNG-Datei rendert.
 
-- Location: `tools/handwriting/scrabblegan/wrapper/generate_single.py`,
-  copied into the image next to `scrabblegan_tool` (it is ours, unlike the
-  mounted upstream source). Python 3.6-compatible.
-- Contract:
-  `--text --seed --checkpoint --options-json --output --source-dir` — matching
-  the existing `--generator-command` placeholders and the
-  `--handwriting-options-json` provider sidecar path.
-- Behavior: seed `random`/`numpy`/`torch` (+
-  `torch.backends.cudnn.deterministic` if GPU ever used), build `netG` from
-  pinned upstream `models/` code, load the state dict, encode text via the
-  alphabet, generate, save grayscale PNG.
-- Make this wrapper the built-in default command in `render.py` (replacing
-  the fictional `generate.py` default).
+- Speicherort: `tools/handwriting/scrabblegan/wrapper/generate_single.py`, in
+  das Image neben `scrabblegan_tool` kopiert (es gehört uns, anders als die
+  eingebundene Upstream-Source). Python-3.6-kompatibel.
+- Vertrag:
+  `--text --seed --checkpoint --options-json --output --source-dir` — passend
+  zu den bestehenden `--generator-command`-Platzhaltern und dem
+  Provider-Sidecar-Pfad `--handwriting-options-json`.
+- Verhalten: `random`/`numpy`/`torch` seeden (+
+  `torch.backends.cudnn.deterministic`, falls jemals eine GPU verwendet wird),
+  `netG` aus festgelegtem Upstream-Code in `models/` aufbauen, State-Dict laden,
+  Text über das Alphabet codieren, generieren und ein Graustufen-PNG speichern.
+- Diesen Wrapper als eingebauten Standardbefehl in `render.py` verwenden (den
+  fiktiven `generate.py`-Standard ersetzen).
 
-- [ ] Wrapper renders a known word to a PNG in the container.
-- [ ] Same seed + text + checkpoint → byte-identical PNG on repeated runs
-      (determinism contract, AGENTS.md).
-- [ ] Different seeds → visibly different handwriting.
-- [x] Out-of-alphabet input fails with a clear error (not garbage output).
-- [x] `render.py` default command updated; README command examples updated
-      in WP7.
+- [ ] Wrapper rendert ein bekanntes Wort im Container in ein PNG.
+- [ ] Derselbe Seed + Text + Checkpoint → bei wiederholten Läufen byte-
+      identisches PNG (Determinismusvertrag, AGENTS.md).
+- [ ] Unterschiedliche Seeds → sichtbar unterschiedliche Handschrift.
+- [x] Eingabe außerhalb des Alphabets schlägt mit eindeutigem Fehler fehl
+      (keine unbrauchbare Ausgabe).
+- [x] Standardbefehl in `render.py` aktualisiert; README-Befehlsbeispiele in
+      WP7 aktualisiert.
 
-### WP4: Batch-Tool Fixes
+### WP4: Korrekturen am Batch-Tool
 
-Close the tool-level findings so real (grayscale, no-alpha) generator output
-is processed correctly.
+Die Tool-Ergebnisse beheben, damit echte (Graustufen-, Alpha-lose)
+Generatorausgabe korrekt verarbeitet wird.
 
-- `masks.py`: derive the ink mask from the white-distance threshold whenever
-  the raw image has no meaningful alpha channel; use `background` only for
-  compositing (Review finding 4). Replace the per-pixel loop with
-  `Image.point`/numpy while touching it (finding 6b).
-- `manifest.py`: validate `text` against the checkpoint alphabet (passed as
-  file/option); reject `ink_color: white` + `background: white`
-  (finding 6a).
-- Multi-word support: split on spaces, render per word via the wrapper,
-  composite with fixed gap in the batch tool.
+- `masks.py`: Tintenmaske aus dem White-Distance-Schwellwert ableiten, wenn das
+  Rohbild keinen sinnvollen Alpha-Kanal besitzt; `background` nur für das
+  Compositing verwenden (Review-Ergebnis 4). Die Pixel-Schleife dabei durch
+  `Image.point`/numpy ersetzen (Ergebnis 6b).
+- `manifest.py`: `text` gegen das Checkpoint-Alphabet validieren (als
+  Datei/Option übergeben); `ink_color: white` + `background: white`
+  zurückweisen (Ergebnis 6a).
+- Mehrwortunterstützung: an Leerzeichen teilen, jedes Wort über den Wrapper
+  rendern und mit festem Abstand im Batch-Tool zusammensetzen.
 
-- [x] Transparent-background assets from a real grayscale raw image produce a
-      correct mask (not a solid rectangle) — covered by a unit test with a
-      synthetic grayscale raw.
-- [x] Alphabet validation rejects bad records at manifest load with line
-      numbers; white-on-white rejected.
-- [x] Multi-word rendering produces one image + one mask + one bbox per
-      asset; word gap deterministic.
-- [x] Existing fake-renderer tests still pass unchanged (contract stability).
+- [x] Assets mit transparentem Hintergrund erzeugen aus einem echten
+      Graustufen-Rohbild eine korrekte Maske (kein Vollrechteck) – abgedeckt
+      durch einen Unit-Test mit synthetischem Graustufen-Rohbild.
+- [x] Die Alphabetvalidierung weist fehlerhafte Datensätze beim Manifest-Laden
+      mit Zeilennummern zurück; Weiß auf Weiß wird zurückgewiesen.
+- [x] Mehrwort-Rendering erzeugt ein Bild + eine Maske + eine Bounding-Box pro
+      Asset; der Wortabstand ist deterministisch.
+- [x] Bestehende Fake-Renderer-Tests bleiben unverändert erfolgreich
+      (Vertragsstabilität).
 
-### WP5: End-To-End Run And Injection
+### WP5: End-to-End-Lauf und Injektion
 
-Host-side provider/cache wiring is implemented for both integrated injection
-and standalone generation. The real Docker/upstream checkpoint run completed
-successfully on 2026-07-15.
+Die Provider-/Cache-Verdrahtung auf dem Host ist für integrierte Injektion und
+eigenständige Generierung implementiert. Der reale Docker-/Upstream-
+Checkpoint-Lauf wurde am 2026-07-15 erfolgreich abgeschlossen.
 
-- Real batch run in the container against the trained checkpoint for all
-  three v1 fields (multi-word name included).
-- `scrabblegan-validate` on the output manifest.
+- Einen realen Batch-Lauf im Container gegen den trainierten Checkpoint für
+  alle drei v1-Felder (einschließlich Mehrwortname).
+- `scrabblegan-validate` für das Ausgabemanifest.
 - `uv run injection-pipeline --handwriting-manifest ... --handwriting-asset
-  patient_name=...` consumes the assets.
-- Integrated handwriting run: after the seed and common font-family/renderer
-  choice are known,
-  generate the Faker identity, resolve or create the seed's asset bundle,
-  attach matching assets to every selected render item, and persist the
-  resulting manifest under `DicomData/HandwritingAssets/`.
-- Standalone seed run: invoke the asset provider without a document and write
-  the same bundle and manifest that the integrated run would reuse.
+  patient_name=...` verwendet die Assets.
+- Integrierter Handschriftlauf: Nach Festlegung von Seed und gemeinsamer
+  Font-/Renderer-Auswahl die Faker-Identität erzeugen, das Asset-Bundle des
+  Seeds auflösen oder erstellen, passende Assets an jedes ausgewählte
+  Render-Element hängen und das resultierende Manifest unter
+  `DicomData/HandwritingAssets/` persistieren.
+- Eigenständiger Seed-Lauf: den Asset-Provider ohne Dokument aufrufen und
+  dasselbe Bundle und Manifest schreiben, das der integrierte Lauf
+  wiederverwenden würde.
 
-- [x] Batch run completes; `failures.jsonl` empty or explained.
-- [x] Output manifest passes validation (hashes, bboxes, relative paths).
-- [x] Injection run produces a DICOM/preview where the handwriting overlay is
-      visually correct (position, ink color, transparency) — screenshot or
-      preview artifact kept under the run output.
-- [x] Ground truth of the injection run records the handwriting asset
-      (`renderer_type: handwriting_asset`) correctly.
-- [x] A second injection with the same resolved seed and compatible cache key
-      reuses the existing assets and does not invoke ScrabbleGAN again.
-- [x] The standalone seed command and the integrated run produce compatible
-      asset manifests and deterministic image/mask hashes.
+- [x] Batch-Lauf abgeschlossen; `failures.jsonl` leer oder begründet.
+- [x] Ausgabemanifest besteht die Validierung (Hashes, Bounding-Boxen, relative
+      Pfade).
+- [x] Injektionslauf erzeugt ein DICOM/eine Preview mit visuell korrektem
+      Handschrift-Overlay (Position, Tintenfarbe, Transparenz) – Screenshot
+      oder Preview-Artefakt liegt unter der Run-Ausgabe.
+- [x] Ground Truth des Injektionslaufs zeichnet das Handschrift-Asset
+      (`renderer_type: handwriting_asset`) korrekt auf.
+- [x] Eine zweite Injektion mit demselben aufgelösten Seed und kompatiblem
+      Cache-Schlüssel verwendet die vorhandenen Assets erneut und ruft
+      ScrabbleGAN nicht nochmals auf.
+- [x] Eigenständiger Seed-Befehl und integrierter Lauf erzeugen kompatible
+      Asset-Manifeste und deterministische Bild-/Masken-Hashes.
 
-### WP6: Testing
+### WP6: Tests
 
-Consolidate what WP3–WP5 introduced into the repeatable test suite.
+Die in WP3–WP5 eingeführten Bestandteile in die wiederholbar ausführbare
+Testsuite zusammenführen.
 
-- Host-side (Python 3.13, existing `tests/unit/test_scrabblegan_generator.py`
-  pattern): new tests for alphabet validation, white-on-white rejection,
-  grayscale-raw mask derivation, multi-word compositing, and the
-  `--generator-command` template building.
-- Container-side: a smoke-test script (checked in under
-  `tools/handwriting/scrabblegan/`) that runs the fake renderer plus a
-  1-record real render and asserts manifest validity — runnable manually and
-  documented; not wired into CI (CI has no checkpoint).
-- Determinism: test that two renders of the same record yield identical
-  `image_sha256`/`mask_sha256` (real renderer, manual; fake renderer, CI).
-- Cache behavior: cache hit avoids generation; cache miss creates all required
-  assets; stale/incompatible cache entries follow the documented invalidation
-  policy.
-- CLI behavior: interactive prompts ask for the common font-family/renderer
-  choice immediately after the seed and before the remaining render
-  parameters; standalone generation accepts a seed and writes the expected
-  asset bundle.
+- Hostseite (Python 3.13, bestehendes Muster
+  `tests/unit/test_scrabblegan_generator.py`): neue Tests für Alphabet-
+  validierung, Zurückweisung von Weiß auf Weiß, Maskenableitung aus
+  Graustufen-Rohdaten, Mehrwort-Compositing und das Erzeugen des
+  `--generator-command`-Templates.
+- Containerseite: ein unter `tools/handwriting/scrabblegan/` versioniertes
+  Smoke-Test-Skript, das Fake-Renderer und einen realen Render-Lauf mit einem
+  Datensatz ausführt und die Manifestgültigkeit prüft – manuell ausführbar und
+  dokumentiert, aber nicht in CI verdrahtet (CI besitzt keinen Checkpoint).
+- Determinismus: prüfen, dass zwei Render-Läufe desselben Datensatzes
+  identische `image_sha256`/`mask_sha256` liefern (realer Renderer manuell,
+  Fake-Renderer in CI).
+- Cache-Verhalten: Ein Cache-Hit vermeidet Generierung; ein Cache-Miss erzeugt
+  alle erforderlichen Assets; veraltete/inkompatible Cache-Einträge folgen der
+  dokumentierten Invalidierungsrichtlinie.
+- CLI-Verhalten: Interaktive Prompts fragen die gemeinsame Font-/Renderer-
+  Auswahl direkt nach dem Seed und vor den übrigen Render-Parametern ab; die
+  eigenständige Generierung akzeptiert einen Seed und schreibt das erwartete
+  Asset-Bundle.
 
-- [x] `uv run pytest tests/unit/test_scrabblegan_generator.py -q` green:
-      17 tests passed on 2026-07-15, including JSON/JSONL manifest handling.
-- [x] `uv run ruff check src/ tests/` / `uv run mypy src/` green on
-      2026-07-15 (tool code remains outside `src/` except the provider seam).
-- [ ] Full `uv run pytest tests/ -x` gate is green on Windows. Some broader
-      pytest cases are currently blocked by permission errors while pytest
-      creates its Windows temporary directories; rerun after that environment
-      issue is resolved.
-- [x] Container smoke test documented and executed once with the real
-      checkpoint; result noted here.
+- [x] `uv run pytest tests/unit/test_scrabblegan_generator.py -q` erfolgreich:
+      17 Tests bestanden am 2026-07-15, einschließlich JSON-/JSONL-
+      Manifestverarbeitung.
+- [x] `uv run ruff check src/ tests/` / `uv run mypy src/` erfolgreich am
+      2026-07-15 (Tool-Code bleibt bis auf die Provider-Schnittstelle außerhalb
+      von `src/`).
+- [ ] Das vollständige Gate `uv run pytest tests/ -x` ist unter Windows
+      erfolgreich. Einige umfangreichere pytest-Fälle sind derzeit durch
+      Berechtigungsfehler beim Erzeugen temporärer Windows-Verzeichnisse
+      blockiert; nach Behebung dieses Umgebungsproblems erneut ausführen.
+- [x] Container-Smoke-Test dokumentiert und einmal mit dem echten Checkpoint
+      ausgeführt; Ergebnis hier festgehalten.
 
-### WP7: Documentation And Plan Closure
+### WP7: Dokumentation und Planabschluss
 
-- Update `tools/handwriting/scrabblegan/README.md`: real prerequisites
-  (training required, no pretrained weights), the wrapper as default
-  generator command, real (non-fictional) command examples, CPU-inference
-  note, alphabet/multi-word rules.
-- Update `UPSTREAM_REVIEW.md`: mark each finding resolved with a pointer to
-  the fixing WP/commit; keep the file as a historical record.
-- Finalize ADR-0010 (accepted).
-- Update the example manifests in `examples/` if the contract gained fields
-  (e.g. options sidecar reference).
-- Update `docs/dicom-injection.md`, `README.md`, and the architecture/work-
-  package documents with the integrated renderer mode, cache behavior,
-  interactive prompt order, and standalone command.
+- `tools/handwriting/scrabblegan/README.md` aktualisieren: reale
+  Voraussetzungen (Training erforderlich, keine vortrainierten Gewichte),
+  Wrapper als Standard-Generatorbefehl, reale (nicht-fiktive) Befehlsbeispiele,
+  CPU-Inferenzhinweis sowie Alphabet-/Mehrwortregeln.
+- `UPSTREAM_REVIEW.md` aktualisieren: jedes Ergebnis mit Verweis auf
+  korrigierendes WP/Commit als gelöst markieren; die Datei als historischen
+  Datensatz erhalten.
+- ADR-0010 abschließen (accepted).
+- Beispielmanifeste in `examples/` aktualisieren, falls der Vertrag Felder
+  hinzugewonnen hat (z. B. Verweis auf Options-Sidecar).
+- `docs/dicom-injection.md`, `README.md` und die Architektur-/Arbeitspaket-
+  Dokumente mit integriertem Renderer-Modus, Cache-Verhalten, interaktiver
+  Prompt-Reihenfolge und eigenständigem Befehl aktualisieren.
 
-- [x] README rewritten and consistent with the implemented host-side behavior.
-- [ ] UPSTREAM_REVIEW findings all marked resolved/waived.
-- [ ] ADR-0010 accepted and cross-linked.
-- [ ] **This plan: all checkboxes ticked, Status line set to `done` with
-      date.** Unticked items must carry a written reason (waived/deferred).
+- [x] README neu geschrieben und konsistent mit dem implementierten Verhalten
+      auf dem Host.
+- [ ] Alle Ergebnisse in UPSTREAM_REVIEW als gelöst/zurückgestellt markiert.
+- [ ] ADR-0010 angenommen und querverlinkt.
+- [ ] **Dieser Plan: alle Checkboxen aktiviert, Statuszeile auf `done` mit
+      Datum gesetzt.** Nicht aktivierte Punkte müssen einen schriftlichen Grund
+      (zurückgestellt/verschoben) tragen.
 
-## Test Scenarios (summary)
+## Testszenarien (Zusammenfassung)
 
-1. Fake renderer round trip (existing) — contract regression guard.
-2. Grayscale raw + `transparent` background → correct mask and bbox.
-3. Alphabet: record with out-of-alphabet character rejected at load.
-4. White ink on white background rejected.
-5. Multi-word name → single composited asset, deterministic gap.
-6. Determinism: identical record rendered twice → identical hashes.
-7. End-to-end: real manifest → render → validate → inject → visual check.
-8. Integrated cache: seed → Faker identity → generate-on-miss → inject →
-   persisted asset bundle → repeat run cache hit.
-9. Standalone seed generation followed by injection reuses the generated
-   bundle without regeneration.
+1. Fake-Renderer-Roundtrip (bestehend) – Regression-Schutz für den Vertrag.
+2. Graustufen-Rohdaten + `transparent`-Hintergrund → korrekte Maske und
+   Bounding-Box.
+3. Alphabet: Datensatz mit Zeichen außerhalb des Alphabets wird beim Laden
+   zurückgewiesen.
+4. Weiße Tinte auf weißem Hintergrund wird zurückgewiesen.
+5. Mehrwortname → einzelnes zusammengesetztes Asset, deterministischer Abstand.
+6. Determinismus: identischer Datensatz zweimal gerendert → identische Hashes.
+7. End-to-End: echtes Manifest → Rendern → Validieren → Injizieren → visuelle
+   Prüfung.
+8. Integrierter Cache: Seed → Faker-Identität → Generierung bei Cache-Miss →
+   Injektion → persistiertes Asset-Bundle → Cache-Hit beim Wiederholungslauf.
+9. Auf eigenständige Seed-Generierung folgende Injektion verwendet das
+   erzeugte Bundle ohne erneute Generierung.
 
-## Validation Commands
+## Validierungsbefehle
 
 ```powershell
-# Host-side tests
+# Tests auf dem Host
 uv run pytest tests/ -x
 uv run ruff check src/ tests/
 uv run mypy src/
 
-# Focused handwriting validation used on 2026-07-15
+# Fokussierte Handschriftvalidierung vom 2026-07-15
 uv run pytest tests/unit/test_handwriting*.py tests/unit/test_scrabblegan_generator.py
 
-# Container build + smoke
+# Container-Build + Smoke-Test
 docker build --platform linux/amd64 -t injection-scrabblegan tools/handwriting/scrabblegan
 docker run --rm --platform linux/amd64 injection-scrabblegan
 
-# Real render + validate + inject (verified 2026-07-15):
+# Echtes Rendering + Validierung + Injektion (verifiziert am 2026-07-15):
 uv run injection-pipeline generate-handwriting --seed 42
 uv run injection-pipeline --seed 42 --font-family handwriting
 ```
 
-## Risks And Notes
+## Risiken und Hinweise
 
-- **Local prerequisites are present and verified.** The official source,
-  `.git_commit`, checkpoint, companion checkpoints, and options sidecar are
-  already under the ignored `DicomData/HandwritingAssets/` tree. On another
-  machine they must be provided in the same layout; do not copy IAM data,
-  checkpoints, generated assets, or external source into tracked repo paths.
-- **Training remains external only if the checkpoint is replaced.** IAM
-  registration, LMDB preparation, and GPU training are not required for the
-  current inference setup, but are needed to train a new compatible model.
-- **PyTorch 1.2.0 CPU availability is verified.** The Micromamba image builds
-  and runs the pinned Python 3.6/PyTorch 1.2 CPU environment; no CUDA image is
-  required for handwriting generation.
-- **Handwriting realism** for digit-heavy fields depends on digits being in
-  the IAM training alphabet; if they are not, `patient_id`/
-  `accession_number` may need a digits-capable retraining or must be waived
-  for v1 (decision point in WP0/WP2).
-- Old upstream code may need small compatibility patches; keep any patches as
-  documented `.patch` files in the tool directory, applied to the mounted
-  source — never fork silently.
+- **Lokale Voraussetzungen sind vorhanden und verifiziert.** Offizielle
+  Source, `.git_commit`, Checkpoint, Begleit-Checkpoints und Options-Sidecar
+  liegen bereits unter dem ignorierten Baum `DicomData/HandwritingAssets/`.
+  Auf einem anderen Rechner müssen sie in derselben Struktur bereitgestellt
+  werden; IAM-Daten, Checkpoints, erzeugte Assets oder externe Source nicht in
+  versionierte Repository-Pfade kopieren.
+- **Training bleibt extern, wenn der Checkpoint ersetzt wird.** IAM-
+  Registrierung, LMDB-Vorbereitung und GPU-Training sind für die aktuelle
+  Inferenz-Einrichtung nicht erforderlich, werden aber zum Training eines
+  neuen kompatiblen Modells benötigt.
+- **PyTorch-1.2.0-CPU-Verfügbarkeit ist verifiziert.** Das Micromamba-Image
+  baut und führt die festgelegte Python-3.6-/PyTorch-1.2-CPU-Umgebung aus; für
+  Handschriftgenerierung ist kein CUDA-Image erforderlich.
+- **Handschriftrealismus** für ziffernlastige Felder hängt davon ab, dass
+  Ziffern im IAM-Trainingsalphabet enthalten sind. Andernfalls benötigen
+  `patient_id`/`accession_number` möglicherweise ein ziffernfähiges Retraining
+  oder müssen für v1 zurückgestellt werden (Entscheidungspunkt in WP0/WP2).
+- Alter Upstream-Code kann kleine Kompatibilitätspatches benötigen; solche
+  Patches als dokumentierte `.patch`-Dateien im Tool-Verzeichnis ablegen und
+  auf die eingebundene Source anwenden – niemals stillschweigend forken.

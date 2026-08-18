@@ -1,21 +1,21 @@
 # InjectionPipeline
 
-Scalable pipeline for injecting synthetic personally identifiable information
-(PII) into anonymized medical documents. The project supports a master's thesis
-and a larger research effort.
+Skalierbare Pipeline zum Injizieren synthetischer personenbezogener
+Informationen (PII) in anonymisierte medizinische Dokumente. Das Projekt
+unterstützt eine Masterarbeit und ein größeres Forschungsvorhaben.
 
 ## Stack
 
 - Python 3.13
-- `uv` for package and virtual environment management
-- pytest + pytest-cov for testing
-- ruff for linting and formatting
+- `uv` für Paket- und Virtual-Environment-Verwaltung
+- pytest + pytest-cov für Tests
+- ruff für Linting und Formatierung
 - mypy in strict mode
-- pydantic for models and validation
-- pydicom for DICOM handling
-- pandas for tabular data
+- pydantic für Modelle und Validierung
+- pydicom für DICOM-Verarbeitung
+- pandas für tabellarische Daten
 
-## Project Structure
+## Projektstruktur
 
 ```text
 InjectionPipeline/
@@ -39,8 +39,8 @@ InjectionPipeline/
 |   |-- fixtures/
 |   |-- integration/
 |   `-- unit/
-|-- DicomData/               # Local input data, not committed
-|-- output/                  # Local generated outputs, not committed
+|-- DicomData/               # Lokale Eingabedaten, nicht einchecken
+|-- output/                  # Lokal erzeugte Ausgaben, nicht einchecken
 |-- .github/
 |-- pyproject.toml
 |-- uv.lock
@@ -48,151 +48,162 @@ InjectionPipeline/
 `-- README.md
 ```
 
-## Commands
+## Befehle
 
-- `uv run pytest tests/ -x` - run tests, stop on first failure
-- `uv run pytest tests/ --cov=src/injection_pipeline` - run tests with coverage
-- `uv run ruff check src/ tests/` - lint
-- `uv run ruff format src/ tests/` - format
-- `uv run mypy src/` - type check
-- `uv run injection-pipeline --seed 42` - run the migrated DICOM/JPG pipeline
+- `uv run pytest tests/ -x` - Tests ausführen, beim ersten Fehler stoppen
+- `uv run pytest tests/ --cov=src/injection_pipeline` - Tests mit Coverage ausführen
+- `uv run ruff check src/ tests/` - Linting
+- `uv run ruff format src/ tests/` - Formatierung
+- `uv run mypy src/` - Typprüfung
+- `uv run injection-pipeline --seed 42` - migrierte DICOM/JPG-Pipeline ausführen
 
-`uv run injection-pipeline` starts an interactive setup when no CLI arguments
-are provided. With CLI arguments but without `--input`, it chooses a seeded
-default from `DicomData/Dicom-Files` and `DicomData/images`.
+`uv run injection-pipeline` startet ohne CLI-Argumente eine interaktive
+Einrichtung. Mit CLI-Argumenten, aber ohne `--input`, wählt der Befehl einen
+geseedeten Standard aus `DicomData/Dicom-Files` und `DicomData/images`.
 
 | Option | Default | Possible values | Description |
 |--------|---------|-----------------|-------------|
-| `--seed` | `42` | Any integer | Seed for identity generation, default input selection, and layout choices |
-| `--input` | Seeded auto-selection | Path ending in `.dcm`, `.jpg`, or `.jpeg` | Source document path |
-| `--output-dir` | `output` | Path | Root output directory; each run creates a subdirectory |
-| `--identifier-schema` | `configs/identifier_schemas/dicom-prototype.json` | Existing JSON schema path | External identifier schema for identity fields and routes |
+| `--seed` | `42` | Jede Ganzzahl | Seed für Identitätsgenerierung, Default-Input-Auswahl und Layoutentscheidungen |
+| `--input` | Seed-basierte Autoauswahl | Pfad mit Endung `.dcm`, `.jpg` oder `.jpeg` | Pfad des Quelldokuments |
+| `--output-dir` | `output` | Pfad | Ausgabe-Stammverzeichnis; jeder Run erzeugt ein Unterverzeichnis |
+| `--identifier-schema` | `configs/identifier_schemas/dicom-prototype.json` | Vorhandener JSON-Schema-Pfad | Externes Identifier-Schema für Identitätsfelder und Routen |
 | `--rotation-angle` | `0` | `0`, `20`, `90`, `180`, `270` | Rotation angle for visible injected text |
-| `--font-size-pct` | `100` | Integer `>= 1` | Visible text size as a percentage of the prototype default |
+| `--font-size-pct` | `100` | Ganzzahl `>= 1` | Sichtbare Textgröße als Prozentsatz des Prototype-Standards |
 | `--placement-mode` | `corners` | `corners`, `free` | Placement strategy for visible injected text |
-| `--font-family` | `arial` | `arial`, `calibri`, `tahoma`, `consolas` | Font family used for visible rendering |
+| `--font-family` | `arial` | `arial`, `calibri`, `tahoma`, `consolas` | Für sichtbares Rendering verwendete Font-Familie |
 | `--text-background` | none | `white` | Optional white background behind visible text |
 | `--handwriting-ink-color` | `auto` | `auto`, `black`, `gray`, `white` | Handwriting ink color; `auto` selects by local luminance |
-| `--handwriting-contrast-mode` | `none` | `none`, `halo` | Optional handwriting halo; auto enables it when contrast is uncertain |
+| `--handwriting-contrast-mode` | `none` | `none`, `halo` | Optionaler Handschrift-Halo; `auto` aktiviert ihn bei unsicherem Kontrast |
 | `--show-label-boxes` | `n` | `y`, `n` | Draw generic prefix boxes in `preview_annotated.png` |
-| `--run-timestamp` | Current time | ISO-8601 datetime | Fixed timestamp for deterministic run IDs |
-| `--handwriting-manifest` | none | JSONL manifest or JSON manifest with `assets` | Manifest for generated handwriting assets |
-| `--handwriting-asset` | none | Repeatable `identity_field=asset_id` mapping | Map schema fields to handwriting assets; requires `--handwriting-manifest` |
+| `--run-timestamp` | Aktuelle Zeit | ISO-8601-Datetime | Fester Zeitstempel für deterministische Run-IDs |
+| `--handwriting-manifest` | none | JSONL-Manifest oder JSON-Manifest mit `assets` | Manifest für erzeugte Handschrift-Assets |
+| `--handwriting-asset` | none | Wiederholbare Zuordnung `identity_field=asset_id` | Schemafelder Handschrift-Assets zuordnen; benötigt `--handwriting-manifest` |
 
-## Code Style
+## Code-Stil
 
 - Follow PEP 8.
-- Type all public function signatures and return values.
-- Use pydantic `BaseModel` for shared data structures.
-- Use `pathlib.Path` for paths.
-- Use snake_case for functions and variables, PascalCase for classes, and
+- Öffentliche Funktionssignaturen und Rückgabewerte typisieren.
+- Für gemeinsame Datenstrukturen pydantic `BaseModel` verwenden.
+- Für Pfade `pathlib.Path` verwenden.
+- Für Funktionen und Variablen snake_case, für Klassen PascalCase und
   UPPER_CASE for constants.
-- Use commenting-guidelines skill for function comments
-- Keep functions focused. Split functions once they become hard to scan or larger than 100 lines
+- Für Funktionskommentare das commenting-guidelines-Skill verwenden.
+- Funktionen fokussiert halten. Funktionen aufteilen, sobald sie schwer zu
+  überblicken oder länger als 100 Zeilen werden.
 - Avoid wildcard imports.
 
-## Architecture Principles
+## Architekturprinzipien
 
-- **Adapter pattern:** each document format gets its own loader and writer.
-- **Taxonomy-agnostic:** consume an external identifier schema; do not hardcode
+- **Adaptermuster:** Jedes Dokumentformat erhält einen eigenen Loader und Writer.
+- **Taxonomieagnostisch:** Ein externes Identifier-Schema verwenden; nicht hardcodieren
   PII categories in production pipeline logic.
-- **Separation of concerns:** document models, injection logic, writing, and
-  validation communicate through explicit models.
-- **Reproducibility:** seed all randomness.
-- **Ground truth as artifact:** store annotations separately from output
-  documents.
+- **Trennung der Zuständigkeiten:** Dokumentmodelle, Injektionslogik, Schreiben
+  und Validierung kommunizieren über explizite Modelle.
+- **Reproduzierbarkeit:** Alle Zufallsquellen seeden.
+- **Ground Truth als Artefakt:** Annotationen getrennt von Ausgabedokumenten
+  speichern.
 
-## Architecture Rules
+## Architekturregeln
 
-- Add format support through loaders and writers, not by changing engine logic.
-- Keep the pipeline taxonomy-agnostic. Identifier types come from an external
+- Formatunterstützung über Loader und Writer ergänzen, nicht durch Änderung der
+  Engine-Logik.
+- Die Pipeline taxonomieagnostisch halten. Identifier-Typen kommen aus einem externen
   schema.
-- Keep document models, injection logic, writers, and validators separate.
-- Seed all randomness. Same config plus same seed must produce the same output.
-- Write annotations as versioned sidecar artifacts, not into the document.
+- Dokumentmodelle, Injektionslogik, Writer und Validatoren getrennt halten.
+- Alle Zufallsquellen seeden. Dieselbe Konfiguration plus derselbe Seed muss
+  dieselbe Ausgabe erzeugen.
+- Annotationen als versionierte Sidecar-Artefakte schreiben, nicht in das Dokument.
 
-## Testing
+## Tests
 
-- Add unit tests for public functions.
-- Use pytest fixtures for reusable sample data.
-- Keep integration tests small and fixture-based.
-- Name tests `test_<module_name>.py`.
-- Prioritize coverage for `models/`, `engine/`, and `validators/`.
+- Unit-Tests für öffentliche Funktionen ergänzen.
+- pytest-Fixtures für wiederverwendbare Beispieldaten verwenden.
+- Integrationstests klein und fixture-basiert halten.
+- Tests `test_<module_name>.py` nennen.
+- Abdeckung für `models/`, `engine/` und `validators/` priorisieren.
 
 ## Git
 
-- Conventional commits: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`.
+- Conventional Commits: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`.
 - Branches: `feature/<short-description>` or `fix/<short-description>`.
-- Keep commits atomic.
-- Do not commit real patient data, MIMIC-derived data, generated assets, model
-  weights, or secrets.
+- Commits atomar halten.
+- Keine echten Patientendaten, aus MIMIC abgeleiteten Daten, erzeugten Assets,
+  Modellgewichte oder Secrets einchecken.
 
-## Out of Scope
+## Außerhalb des Umfangs
 
 - De-identification
 - Defining PII categories
-- Clinical use
+- Klinische Nutzung
 - Web application work
 
-## Codex Safety Rules
+## Codex-Sicherheitsregeln
 
-- Use sandboxed workspace access by default.
-- Do not access the network unless explicitly approved.
-- Do not install, update, or remove dependencies without approval.
-- Do not edit files outside the repository.
-- Do not delete files, rewrite git history, or run destructive commands without
-  approval.
-- Do not commit secrets, credentials, real patient data, or MIMIC-derived sample
-  data.
-- Propose a plan before changing architecture, public APIs, schemas, or config
-  formats.
-- Prefer small diffs and avoid unrelated refactoring.
+- Standardmäßig Sandbox-Zugriff auf den Workspace verwenden.
+- Netzwerkzugriff nur nach ausdrücklicher Genehmigung.
+- Abhängigkeiten nicht ohne Genehmigung installieren, aktualisieren oder entfernen.
+- Keine Dateien außerhalb des Repositorys bearbeiten.
+- Keine Dateien löschen, Git-Historie umschreiben oder destruktive Befehle ohne
+  Genehmigung ausführen.
+- Keine Secrets, Zugangsdaten, echten Patientendaten oder aus MIMIC abgeleiteten
+  Beispieldaten einchecken.
+- Vor Änderungen an Architektur, öffentlichen APIs, Schemas oder
+  Konfigurationsformaten einen Plan vorlegen.
+- Kleine Diffs bevorzugen und unabhängige Refactorings vermeiden.
 
-## Subagent Workflow
+## Subagent-Workflow
 
-- For all applicable work, create a subagent using `luna` with medium effort.
+- Für alle geeigneten Arbeiten einen Subagenten mit `luna` und mittlerem Aufwand
+  erstellen.
 
-## Documentation Rules
+## Dokumentationsregeln
 
-- Use the current architecture, decision, and operational documents in `docs/`
-  as the source of truth for project planning.
-- `docs/` is the source for architecture notes, operational documentation,
-  decisions, and audit/status material.
-- `docs/archive/` contains superseded material. Do not use it as source of
-  truth.
-- For documentation, docstring, and code-comment tasks, use the
-  `commenting-guidelines` skill when available.
-- Start substantial documentation work from the newest relevant current file in
-  `docs/architecture/`, `docs/decisions/`, or operational docs. The retired
-  research/thesis/template layer is not active source material.
-- Treat accepted decisions as stable.
-- If a finding and summary disagree, update the summary instead of combining
-  inconsistent states.
-- Read the smallest useful slice of `docs/`.
+- **Dokumentationssprache:** Deutsch. Freitext, Überschriften und erklärende
+  Beschreibungen werden auf Deutsch verfasst. Fachbegriffe, API-Bezeichner,
+  CLI-Optionen, Code, Dateinamen, Pfade, Ordnernamen und externe Eigennamen
+  bleiben unverändert, sofern ihre Übersetzung nicht ausdrücklich Teil der
+  Aufgabe ist.
+- Die aktuellen Architektur-, Entscheidungs- und Betriebsdokumente in `docs/`
+  als Quelle der Wahrheit für die Projektplanung verwenden.
+- `docs/` ist die Quelle für Architekturhinweise, Betriebsdokumentation,
+  Entscheidungen und Audit-/Statusmaterial.
+- `docs/archive/` enthält überholtes Material. Nicht als Quelle der Wahrheit
+  verwenden.
+- Für Dokumentations-, Docstring- und Code-Kommentaraufgaben das
+  `commenting-guidelines`-Skill verwenden, sofern verfügbar.
+- Substanzielle Dokumentationsarbeit mit der neuesten relevanten aktuellen Datei
+  in `docs/architecture/`, `docs/decisions/` oder Betriebsdokumenten beginnen.
+  Die ausgemusterte Research-/Thesis-/Template-Schicht ist kein aktives
+  Quellenmaterial.
+- Angenommene Entscheidungen als stabil behandeln.
+- Wenn ein Befund und eine Zusammenfassung widersprechen, die Zusammenfassung
+  aktualisieren, statt widersprüchliche Zustände zu kombinieren.
+- Den kleinsten nützlichen Ausschnitt aus `docs/` lesen.
 
-## Contributing
+## Mitarbeit
 
-- Use conventional commits: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`.
-- Keep commits atomic.
-- Do not commit real patient data, MIMIC-derived sample data, checkpoints, or
-  generated local artifacts.
+- Conventional Commits verwenden: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`.
+- Commits atomar halten.
+- Keine echten Patientendaten, aus MIMIC abgeleiteten Beispieldaten,
+  Checkpoints oder lokal erzeugten Artefakte einchecken.
 
-## Current Project State
+## Aktueller Projektstand
 
-As of 2026-07-13:
+Stand 2026-07-13:
 
-- `src/injection_pipeline/` contains the DICOM/JPG core chain: pydantic domain
-  models, artifact writers, runtime CLI/runner modules, external identifier
-  schema loading, split engine stages, and registered DCM/JPG loader/writer
-  adapters.
-- The DICOM/JPG entry point is `uv run injection-pipeline ...` or
+- `src/injection_pipeline/` enthält die DICOM/JPG-Kernkette: pydantic-Domain-
+  Modelle, Artefakt-Writer, Runtime-CLI-/Runner-Module, Laden des externen
+  Identifier-Schemas, aufgeteilte Engine-Stufen und registrierte DCM/JPG-
+  Loader-/Writer-Adapter.
+- Der DICOM/JPG-Einstiegspunkt ist `uv run injection-pipeline ...` oder
   `uv run python -m injection_pipeline ...`.
-- `docs/dicom-injection.md` documents CLI usage, output artifacts, and the
-  `0.2.0-prototype` ground-truth schema.
-- The retired `prototypes/` tree is no longer the active source of truth; use
-  `docs/dicom-injection.md`, `docs/architecture/`, and `docs/decisions/`.
-- WP-I and the implemented WP-B..WP-G slices are tracked in
-  `docs/fable-work-packages.md` and `docs/architecture/`. The PDF
-  loader/writer, annotation sidecar, and CLI are implemented; broader PDF
-  operational fixture coverage, ADR-0008 provenance/reproducibility
-  emission, and the WP-G environment block remain open.
+- `docs/dicom-injection.md` dokumentiert CLI-Nutzung, Ausgabe-Artefakte und das
+  Ground-Truth-Schema `0.2.0-prototype`.
+- Der ausgemusterte `prototypes/`-Baum ist keine aktive Quelle der Wahrheit
+  mehr; `docs/dicom-injection.md`, `docs/architecture/` und
+  `docs/decisions/` verwenden.
+- WP-I und die implementierten WP-B..WP-G-Scheiben sind in
+  `docs/fable-work-packages.md` und `docs/architecture/` nachverfolgt. PDF-
+  Loader/Writer, Annotation-Sidecar und CLI sind implementiert; breitere
+  operative PDF-Fixture-Abdeckung, ADR-0008-Provenienz/
+  Reproduzierbarkeitsausgabe und der WP-G-Umgebungsblock bleiben offen.

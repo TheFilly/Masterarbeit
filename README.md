@@ -1,46 +1,48 @@
 # InjectionPipeline
 
-Python pipeline for injecting fully synthetic PII into already anonymized
-medical documents. The project supports a master's thesis and evaluates how
-de-identification systems behave when controlled PII is reintroduced.
+Python-Pipeline zum Injizieren vollständig synthetischer PII in bereits
+anonymisierte medizinische Dokumente. Das Projekt unterstützt eine
+Masterarbeit und untersucht, wie sich De-Identifikationssysteme verhalten,
+wenn kontrollierte PII erneut eingebracht wird.
 
-The pipeline is an injection tool. It modifies documents and writes a separate
-ground-truth artifact for every injected value.
+Die Pipeline ist ein Injection-Tool. Sie verändert Dokumente und schreibt für
+jeden injizierten Wert ein separates Ground-Truth-Artefakt.
 
-## Current Status
+## Aktueller Status
 
-- `src/injection_pipeline/` contains the DICOM/JPG core chain plus the PDF
-  loader/writer path with pydantic models, an external identifier schema, and
-  split runner/engine stages.
-- Run the migrated DICOM/JPG path with `uv run injection-pipeline ...` or
-  `uv run python -m injection_pipeline ...`.
-- DICOM/JPG operational details live in `docs/dicom-injection.md`.
-- ScrabbleGAN handwriting generation is specified in
-  `docs/scrabblegan-implementation-plan.md`; the integrated cache/provider
-  path and automatic Docker runtime wiring are implemented and verified with
-  the local Amazon source checkout and checkpoint.
-- Architecture status and open implementation gates live in
-  `docs/architecture/` and `docs/fable-work-packages.md`.
+- `src/injection_pipeline/` enthält die DICOM/JPG-Kernkette sowie den PDF-
+  Loader/Writer-Pfad mit pydantic-Modellen, einem externen Identifier-Schema
+  und getrennten Runner-/Engine-Stufen.
+- Der migrierte DICOM/JPG-Pfad wird mit `uv run injection-pipeline ...` oder
+  `uv run python -m injection_pipeline ...` ausgeführt.
+- Betriebsdetails für DICOM/JPG stehen in `docs/dicom-injection.md`.
+- Die ScrabbleGAN-Handschriftgenerierung ist in
+  `docs/scrabblegan-implementation-plan.md` spezifiziert; der integrierte
+  Cache-/Provider-Pfad und die automatische Docker-Runtime-Verdrahtung sind
+  implementiert und mit dem lokalen Amazon-Source-Checkout und Checkpoint
+  verifiziert.
+- Architekturstatus und offene Implementierungsgates stehen in
+  `docs/architecture/` und `docs/fable-work-packages.md`.
 
 ## Stack
 
-| Tool | Purpose |
+| Tool | Zweck |
 |------|---------|
 | Python 3.13 | Runtime |
-| `uv` | Package and virtual environment management |
-| Pydantic v2 | Data models and validation |
-| pydicom | DICOM handling |
-| reportlab + pypdf | PDF overlay generation and template merging |
-| pandas | Tabular data such as MIMIC-IV CSVs |
-| pytest + pytest-cov | Tests and coverage |
-| ruff | Linting and formatting |
-| mypy strict mode | Static type checking |
+| `uv` | Paket- und Virtual-Environment-Verwaltung |
+| Pydantic v2 | Datenmodelle und Validierung |
+| pydicom | DICOM-Verarbeitung |
+| reportlab + pypdf | PDF-Overlay-Erzeugung und Template-Zusammenführung |
+| pandas | Tabellendaten wie MIMIC-IV-CSV-Dateien |
+| pytest + pytest-cov | Tests und Coverage |
+| ruff | Linting und Formatierung |
+| mypy strict mode | Statische Typprüfung |
 
-## Structure
+## Struktur
 
 ```text
 InjectionPipeline/
-|-- src/injection_pipeline/       # Package code and migrated DICOM/JPG pipeline
+|-- src/injection_pipeline/       # Paketcode und migrierte DICOM/JPG-Pipeline
 |   |-- artifacts/
 |   |-- config/
 |   |-- engine/
@@ -51,7 +53,7 @@ InjectionPipeline/
 |   |-- runtime/
 |   |-- validators/
 |   `-- writers/
-|-- tools/handwriting/            # Isolated handwriting tooling
+|-- tools/handwriting/            # Isolierte Handschrift-Tools
 |-- configs/
 |-- docs/
 |   |-- architecture/
@@ -61,8 +63,8 @@ InjectionPipeline/
 |   |-- fixtures/
 |   |-- integration/
 |   `-- unit/
-|-- DicomData/                    # Local input data, not committed
-|-- output/                       # Local generated outputs, not committed
+|-- DicomData/                    # Lokale Eingabedaten, nicht versioniert
+|-- output/                       # Lokal erzeugte Ausgaben, nicht versioniert
 |-- .github/
 |-- pyproject.toml
 |-- uv.lock
@@ -70,7 +72,7 @@ InjectionPipeline/
 `-- AGENTS.md
 ```
 
-## Setup
+## Einrichtung
 
 ```bash
 git clone <repo-url>
@@ -78,10 +80,10 @@ cd InjectionPipeline
 uv sync --extra dev
 ```
 
-Run `uv sync --extra dev` after a fresh clone or new virtual environment. The
-dev extra installs `pytest`, `ruff`, and `mypy`.
+Nach einem frischen Clone oder einem neuen Virtual Environment `uv sync --extra
+dev` ausführen. Das Dev-Extra installiert `pytest`, `ruff` und `mypy`.
 
-## Commands
+## Befehle
 
 ```bash
 uv run pytest tests/ -x
@@ -91,13 +93,13 @@ uv run ruff format src/ tests/
 uv run mypy src/
 ```
 
-Run all local gates:
+Alle lokalen Gates ausführen:
 
 ```bash
 uv run ruff check src/ tests/ && uv run mypy src/ && uv run pytest tests/ -x
 ```
 
-Run the migrated DICOM/JPG pipeline:
+Die migrierte DICOM/JPG-Pipeline ausführen:
 
 ```bash
 uv run injection-pipeline --seed 42 --rotation-angle 20
@@ -105,18 +107,19 @@ uv run injection-pipeline --seed 42 --font-family handwriting
 uv run injection-pipeline generate-handwriting --seed 42
 ```
 
-Run the manually inspected cross-function visual-check suite:
+Die manuell geprüfte, funktionsübergreifende Visual-Check-Suite ausführen:
 
 ```bash
 uv run python tools/visual_checks/pipeline_functionality.py
 ```
 
-It writes a new timestamped session below `output/visual-checks/` and covers
-the normal CLI, handwriting, PDF commands, `inject_function`, and `make_pdf`.
-The suite is intentionally not part of pytest; see
-`tools/visual_checks/README.md` for skip options and the covered scenarios.
+Sie schreibt eine neue Sitzung mit Zeitstempel unter `output/visual-checks/`
+und deckt die normale CLI, Handschrift, PDF-Befehle, `inject_function` und
+`make_pdf` ab. Die Suite ist absichtlich nicht Teil von pytest; siehe
+`tools/visual_checks/README.md` für Skip-Optionen und die abgedeckten
+Szenarien.
 
-Use the public Python API for one controlled DICOM/JPG injection:
+Die öffentliche Python-API für eine kontrollierte DICOM/JPG-Injektion:
 
 ```python
 from injection_pipeline import inject_function
@@ -158,39 +161,39 @@ def inject_function(
 ) -> tuple[Path, Path]: ...
 ```
 
-`category` ist ein freier String fuer die PII-Kategorie, die in
+`category` ist ein freier String für die PII-Kategorie, die in
 `ground_truth.json` erscheint. Native DICOM-Tags werden nur verwendet, wenn
 `category` case-insensitive eindeutig zu einem Schema-Feldnamen wie
 `patient_id` oder einem DICOM-Keyword wie `PatientID` passt; freie Labels wie
 `identifier` bleiben sichtbar/pixelbasiert. `value` ist der zu injizierende
 PII-Wert als String.
 `prefix` und `suffix` sind nicht-PII-Text vor und nach dem Wert. Leerzeichen
-werden nicht automatisch ergaenzt; der sichtbare Text entsteht aus
+werden nicht automatisch ergänzt; der sichtbare Text entsteht aus
 `prefix + value + suffix`. `handwritten=True` nutzt die bestehende
-Handwriting-Pipeline fuer den gesamten sichtbaren Text und benoetigt dieselben
+Handwriting-Pipeline für den gesamten sichtbaren Text und benötigt dieselben
 lokalen ScrabbleGAN-Voraussetzungen wie `--font-family handwriting`.
 `documentType` akzeptiert `dcm` und `jpg`, unabhaengig von Gross- und
-Kleinschreibung. `dcm` waehlt eine `.dcm`-Datei aus
-`DicomData/Dicom-Files`; `jpg` waehlt eine `.jpg`- oder `.jpeg`-Datei aus
+Kleinschreibung. `dcm` wählt eine `.dcm`-Datei aus
+`DicomData/Dicom-Files`; `jpg` wählt eine `.jpg`- oder `.jpeg`-Datei aus
 `DicomData/images`. Die Quelldatei wird passend zum Typ zufaellig aus den
-lokalen Standardkandidaten gewaehlt, sofern `input_path` fehlt. Position und
+lokalen Standardkandidaten gewählt, sofern `input_path` fehlt. Position und
 Rotation werden zufaellig bestimmt, sofern keine deterministischen Parameter
 angegeben sind. `seed`, `input_path`, `rotation_degrees` und `run_timestamp`
 ermöglichen reproduzierbare Aufrufe, ohne das bisherige nondeterministische
 Legacy-Verhalten ohne diese Parameter zu ändern.
 
-Jeder API-Aufruf erzeugt weiterhin einen vollstaendigen Run unter
+Jeder API-Aufruf erzeugt weiterhin einen vollständigen Run unter
 `output/<run-id>/` mit injiziertem Dokument, `ground_truth.json`,
 `preview.png`, `preview_annotated.png` und `run_manifest.json`. Wenn
 `output_dir` gesetzt ist, werden zusaetzlich nur das injizierte Dokument und
 `ground_truth.json` in dieses Exportverzeichnis kopiert; vorhandene andere
-Dateien in diesem Ordner werden nicht bereinigt. Die Rueckgabe ist ein Tupel
+Dateien in diesem Ordner werden nicht bereinigt. Die Rückgabe ist ein Tupel
 `(injected_path, ground_truth_path)` mit den Pfaden zu diesen beiden Dateien.
-Ungueltige Parameter oder fehlende lokale Standard-Eingabedateien fuehren zu
+Ungültige Parameter oder fehlende lokale Standard-Eingabedateien führen zu
 `ValueError`.
 
-The public PDF composition API composes several already injected image
-artifacts and several PDF text injections into one PDF:
+Die öffentliche PDF-Kompositions-API fügt mehrere bereits injizierte
+Bildartefakte und mehrere PDF-Textinjektionen zu einer PDF-Datei zusammen:
 
 ```python
 from injection_pipeline import (
@@ -237,7 +240,7 @@ artifacts = make_pdf(
 )
 ```
 
-The exported signature is:
+Die exportierte Signatur lautet:
 
 ```python
 def make_pdf(
@@ -250,34 +253,37 @@ def make_pdf(
 ) -> PdfMakeArtifacts: ...
 ```
 
-`images` contains already injected image files plus their existing image-space
-annotations; the API embeds those images and transforms their annotations into
-PDF coordinates. Existing `BoxAnnotation`-style dictionaries are accepted:
-`label` maps to `category`, `text` maps to `value`, and `corners` maps to
-`image_corners`. Prefix and suffix corner fields from legacy annotations are
-preserved when present.
+`images` enthält bereits injizierte Bilddateien und ihre vorhandenen
+Bildraum-Annotationen; die API bindet diese Bilder ein und transformiert ihre
+Annotationen in PDF-Koordinaten. Dictionaries im Stil von `BoxAnnotation` sind
+zulässig:
+`label` wird auf `category`, `text` auf `value` und `corners` auf
+`image_corners` abgebildet. Präfix- und Suffix-Ecken aus Legacy-Annotationen
+bleiben erhalten, sofern vorhanden.
 
-`texts` contains one or more direct PDF text specs with the same meaning as
-`inject_function`'s `category`, `value`, `prefix`, `suffix`, and `handwritten`
-parameters, but without an output path. Normal text is written as PDF-native
-text. `handwritten=True` for direct PDF text aborts with a clear error because
-the public API has no safe handwriting asset or manifest source for that case.
-Already rendered handwriting is passed as an image plus annotation.
+`texts` enthält eine oder mehrere direkte PDF-Textspezifikationen mit derselben
+Bedeutung wie die Parameter `category`, `value`, `prefix`, `suffix` und
+`handwritten` von `inject_function`, jedoch ohne Ausgabepfad. Normaler Text
+wird als PDF-nativer Text geschrieben. `handwritten=True` für direkten PDF-Text
+bricht mit einem eindeutigen Fehler ab, weil die öffentliche API für diesen
+Fall keine sichere Handschrift-Asset- oder Manifestquelle besitzt. Bereits
+gerenderte Handschrift wird als Bild mit Annotation übergeben.
 
-`pdf` is the input template, and `output_dir` is required. `seed` controls only
-layout choices, item arrangement, page breaks, and random image rotations; text
-contents always come from the passed parameters. The layout places all images
-and text boxes without overlap, mixes beside-each-other and stacked
-arrangements, rotates images by a seedable small angle, and appends pages when
-the current page has insufficient remaining space. Invalid inputs, malformed
-annotations, impossible placements, or unsupported handwriting requests abort
-with a clear error.
+`pdf` ist das Eingabe-Template, `output_dir` ist erforderlich. `seed` steuert
+nur Layoutentscheidungen, Anordnung, Seitenumbrüche und zufällige
+Bildrotationen; die Textinhalte stammen immer aus den übergebenen Parametern.
+Das Layout platziert alle Bilder und Textboxen ohne Überlappung, kombiniert
+nebeneinanderliegende und gestapelte Anordnungen, rotiert Bilder um einen
+seedbaren kleinen Winkel und hängt Seiten an, wenn auf der aktuellen Seite
+nicht genügend Platz vorhanden ist. Ungültige Eingaben, fehlerhafte
+Annotationen, unmögliche Platzierungen oder nicht unterstützte
+Handschriftanfragen brechen mit einem eindeutigen Fehler ab.
 
-Each call writes `pdf_make.pdf`, `pdf_make_annotated.pdf`, and
-`pdf_make_annotations.json` under `output_dir`. The `PdfMakeArtifacts` return
-object exposes these paths plus the parsed sidecar record, including layout
-metadata and main, prefix, and suffix quads where the source annotations
-provide them.
+Jeder Aufruf schreibt `pdf_make.pdf`, `pdf_make_annotated.pdf` und
+`pdf_make_annotations.json` unter `output_dir`. Das zurückgegebene Objekt
+`PdfMakeArtifacts` stellt diese Pfade sowie den geparsten Sidecar-Datensatz
+bereit, einschließlich Layout-Metadaten und Haupt-, Präfix- und Suffix-Quads,
+sofern die Quellannotation diese liefert.
 
 Für die Handschrift-Integration muss das ScrabbleGAN-Docker-Image einmalig
 aus dem Projektstamm gebaut werden:
@@ -313,138 +319,145 @@ kompatible Assets werden aus `DicomData/HandwritingAssets/` wiederverwendet.
 Die Voraussetzungen für Source-Checkout, Checkpoint und Options-Sidecar sind
 unter `tools/handwriting/scrabblegan/README.md` beschrieben.
 
-Inject an already injected DICOM into an existing PDF template:
+Ein bereits injiziertes DICOM in ein vorhandenes PDF-Template injizieren:
 
 ```bash
 uv run injection-pipeline inject-pdf --input-pdf DicomData/pdf/Briefmarken.1Stk.17.03.2026_1345.pdf --input-dicom DicomData/InjectedDicom/<run-id>/<source-stem>_injected.dcm --dicom-annotation DicomData/InjectedDicom/<run-id>/ground_truth.json
 ```
 
-`compose-pdf` is an alias. Both commands accept `--output-dir`, `--slot`, and
-`--page-index`; they write a new PDF and `pdf_annotations.json` under
-`output/pdf/<run_id>/<template-stem>-<slot>/` without changing source files.
+`compose-pdf` ist ein Alias. Beide Befehle akzeptieren `--output-dir`, `--slot`
+und `--page-index`; sie schreiben eine neue PDF-Datei und
+`pdf_annotations.json` unter `output/pdf/<run_id>/<template-stem>-<slot>/`,
+ohne Quelldateien zu verändern.
 
-The same CLI is also available through `uv run python -m injection_pipeline`.
+Dieselbe CLI ist auch über `uv run python -m injection_pipeline` verfügbar.
 
-With no CLI arguments, the command starts an interactive parameter setup. If at
-least one CLI argument is set and `--input` is missing, the pipeline chooses a
-seeded default from `DicomData/Dicom-Files` and `DicomData/images`.
+Ohne CLI-Argumente startet der Befehl eine interaktive Parametereinrichtung.
+Wenn mindestens ein CLI-Argument gesetzt ist und `--input` fehlt, wählt die
+Pipeline einen seed-basierten Standard aus `DicomData/Dicom-Files` und
+`DicomData/images`.
 
-| Option | Default | Possible values | Description |
+| Option | Standard | Mögliche Werte | Beschreibung |
 |--------|---------|-----------------|-------------|
-| `--seed` | `42` | Any integer | Seed for identity generation, default input selection, and layout choices |
-| `--input` | Seeded auto-selection | Path ending in `.dcm`, `.jpg`, or `.jpeg` | Source document path |
-| `--output-dir` | `output` | Path | Root output directory; each run creates a subdirectory |
-| `--identifier-schema` | `configs/identifier_schemas/dicom-prototype.json` | Existing JSON schema path | External identifier schema for identity fields and routes |
-| `--rotation-angle` | `0` | `0`, `20`, `90`, `180`, `270` | Rotation angle for visible injected text |
-| `--font-size-pct` | `100` | Integer `>= 1` | Visible text size as a percentage of the prototype default |
-| `--placement-mode` | `corners` | `corners`, `free` | Placement strategy for visible injected text |
-| `--font-family` | `arial` | `arial`, `calibri`, `tahoma`, `consolas`, `handwriting` | Common font/renderer choice |
-| `--text-background` | none | `white` | Optional white background behind visible text |
-| `--handwriting-ink-color` | `auto` | `auto`, `black`, `gray`, `white` | Handwriting ink color; `auto` selects black/white from local luminance |
-| `--handwriting-contrast-mode` | `none` | `none`, `halo` | Optional handwriting halo; auto enables it when contrast is uncertain |
-| `--show-label-boxes` | `n` | `y`, `n` | Draw generic prefix boxes in `preview_annotated.png` |
-| `--run-timestamp` | Current time | ISO-8601 datetime | Fixed timestamp for deterministic run IDs |
-| `--handwriting-manifest` | none | JSONL manifest or JSON manifest with `assets` | Manifest for generated handwriting assets |
-| `--handwriting-asset` | none | Repeatable `identity_field=asset_id` mapping | Map schema fields to handwriting assets; requires `--handwriting-manifest` |
-| `--handwriting-asset-root` | `DicomData/HandwritingAssets` | Path | Persistent cache for generated handwriting assets |
-| `--handwriting-checkpoint` | `DicomData/HandwritingAssets/scrabblegan/checkpoints/latest_net_G.pth` | Path | Local ScrabbleGAN generator checkpoint |
-| `--handwriting-checkpoint-sha256` | auto-hash local file | SHA-256 hex digest | Expected checkpoint hash |
-| `--handwriting-options-json` | checkpoint-adjacent sidecar | Path | Optional options sidecar; otherwise `options.json`, `test_opt.json`, `train_opt.json`, `test_opt.txt`, or `train_opt.txt` is resolved next to the checkpoint |
-| `--handwriting-source-dir` | `DicomData/HandwritingAssets/scrabblegan/source` | Path | Local official Amazon source checkout or source copy |
-| `--handwriting-upstream-commit` | source `.git_commit` or Git HEAD | Commit hash | Pinned upstream commit recorded in generated manifests |
-| `--handwriting-runtime-command` | automatic Docker runtime | Command string | Optional host-side generator override; default starts the configured Docker image |
-| `--handwriting-container-image` | `injection-scrabblegan` | Docker image tag | Image used by the automatic handwriting runtime |
-| `--handwriting-generator-command` | built-in `generate_single.py` wrapper | Command template | Optional single-text generator override passed to the batch tool |
+| `--seed` | `42` | Jede Ganzzahl | Seed für Identitätsgenerierung, Standard-Eingabeauswahl und Layoutentscheidungen |
+| `--input` | Seed-basierte Autoauswahl | Pfad mit Endung `.dcm`, `.jpg` oder `.jpeg` | Pfad des Quelldokuments |
+| `--output-dir` | `output` | Pfad | Ausgabe-Stammverzeichnis; jeder Run erzeugt ein Unterverzeichnis |
+| `--identifier-schema` | `configs/identifier_schemas/dicom-prototype.json` | Vorhandener JSON-Schema-Pfad | Externes Identifier-Schema für Identitätsfelder und Routen |
+| `--rotation-angle` | `0` | `0`, `20`, `90`, `180`, `270` | Rotationswinkel des sichtbar injizierten Texts |
+| `--font-size-pct` | `100` | Ganzzahl `>= 1` | Sichtbare Textgröße als Prozentsatz des Prototype-Standards |
+| `--placement-mode` | `corners` | `corners`, `free` | Platzierungsstrategie für sichtbar injizierten Text |
+| `--font-family` | `arial` | `arial`, `calibri`, `tahoma`, `consolas`, `handwriting` | Gemeinsame Font-/Renderer-Auswahl |
+| `--text-background` | none | `white` | Optionaler weißer Hintergrund hinter sichtbarem Text |
+| `--handwriting-ink-color` | `auto` | `auto`, `black`, `gray`, `white` | Handschriftfarbe; `auto` wählt anhand der lokalen Luminanz Schwarz oder Weiß |
+| `--handwriting-contrast-mode` | `none` | `none`, `halo` | Optionaler Handschrift-Halo; `auto` aktiviert ihn bei unsicherem Kontrast |
+| `--show-label-boxes` | `n` | `y`, `n` | Generische Präfix-Boxen in `preview_annotated.png` zeichnen |
+| `--run-timestamp` | Aktuelle Zeit | ISO-8601-Datetime | Fester Zeitstempel für deterministische Run-IDs |
+| `--handwriting-manifest` | none | JSONL-Manifest oder JSON-Manifest mit `assets` | Manifest für erzeugte Handschrift-Assets |
+| `--handwriting-asset` | none | Wiederholbare Zuordnung `identity_field=asset_id` | Schemafelder Handschrift-Assets zuordnen; erfordert `--handwriting-manifest` |
+| `--handwriting-asset-root` | `DicomData/HandwritingAssets` | Pfad | Persistenter Cache-Stamm für erzeugte Handschrift-Assets |
+| `--handwriting-checkpoint` | `DicomData/HandwritingAssets/scrabblegan/checkpoints/latest_net_G.pth` | Pfad | Lokaler ScrabbleGAN-Generator-Checkpoint |
+| `--handwriting-checkpoint-sha256` | Hash der lokalen Datei | SHA-256-Hex-Digest | Erwarteter Checkpoint-Hash |
+| `--handwriting-options-json` | Sidecar neben dem Checkpoint | Pfad | Optionaler Options-Sidecar; andernfalls wird neben dem Checkpoint `options.json`, `test_opt.json`, `train_opt.json`, `test_opt.txt` oder `train_opt.txt` aufgelöst |
+| `--handwriting-source-dir` | `DicomData/HandwritingAssets/scrabblegan/source` | Pfad | Lokaler offizieller Amazon-Source-Checkout oder eine Source-Kopie |
+| `--handwriting-upstream-commit` | Source `.git_commit` oder Git HEAD | Commit-Hash | In erzeugten Manifesten festgehaltener Upstream-Commit |
+| `--handwriting-runtime-command` | Automatische Docker-Runtime | Befehlsstring | Optionaler Generator-Override auf dem Host; Standard startet das konfigurierte Docker-Image |
+| `--handwriting-container-image` | `injection-scrabblegan` | Docker-Image-Tag | Von der automatischen Handschrift-Runtime verwendetes Image |
+| `--handwriting-generator-command` | Eingebauter `generate_single.py`-Wrapper | Befehls-Template | Optionales Single-Text-Generator-Override für das Batch-Tool |
 
-In interactive mode, the seed is selected first, then the common
-font-family/renderer choice is asked before input/schema and the remaining
-render parameters. In handwriting mode, Faker values are generated first;
-missing compatible assets are generated through the isolated ScrabbleGAN
-runtime, stored below `DicomData/HandwritingAssets/`, and injected immediately.
-A separate `generate-handwriting --seed` command pre-generates the same
-reusable bundle. Handwriting covers only `patient_name`, `patient_id`, and
-`accession_number`; the cache distinguishes seed, schema, field, generated
-text, checkpoint SHA-256, upstream commit, generator manifest hash, and
-`options_sha256`. If the checkpoint, sidecar, source metadata, or runtime is
-missing, the command aborts without a font fallback.
+Im interaktiven Modus wird zuerst der Seed ausgewählt; danach wird die
+gemeinsame Font-/Renderer-Auswahl und anschließend Eingabe/Schema sowie die
+übrigen Render-Parameter abgefragt. Im Handschriftmodus werden zuerst die
+Faker-Werte erzeugt. Fehlende kompatible Assets werden über die isolierte
+ScrabbleGAN-Runtime erzeugt, unter `DicomData/HandwritingAssets/` gespeichert
+und sofort injiziert. Der separate Befehl `generate-handwriting --seed`
+erzeugt dasselbe wiederverwendbare Bundle vorab. Handschrift wird nur für
+`patient_name`, `patient_id` und `accession_number` unterstützt; der Cache
+unterscheidet Seed, Schema, Feld, erzeugten Text, Checkpoint-SHA-256,
+Upstream-Commit, Generator-Manifest-Hash und `options_sha256`. Fehlen
+Checkpoint, Sidecar, Source-Metadaten oder Runtime, bricht der Befehl ohne
+Font-Fallback ab.
 
-Handwriting appearance is reconstructed from the separate ink mask at render
-time. With `--handwriting-ink-color auto`, median luminance below `128`
-selects white ink and otherwise selects black ink. A p10-p90 luminance spread
-above `96`, contrast below `64`, or too few valid sample pixels activates a
-deterministic two-pixel halo; the no-sample fallback is white ink with a black
-halo. Explicit `black`, `gray`, and `white` values override auto selection.
-The halo is visual only and is excluded from the ground-truth ink mask.
+Das Erscheinungsbild der Handschrift wird beim Rendern aus der separaten
+Tintenmaske rekonstruiert. Bei `--handwriting-ink-color auto` wird bei einer
+mittleren Luminanz unter `128` weiße, sonst schwarze Tinte gewählt. Eine
+Luminanzspanne p10-p90 über `96`, ein Kontrast unter `64` oder zu wenige gültige
+Abtastpixel aktivieren einen deterministischen Zwei-Pixel-Halo; ohne Samples
+ist weiße Tinte mit schwarzem Halo der Fallback. Explizite Werte `black`,
+`gray` und `white` überschreiben die automatische Auswahl. Der Halo ist rein
+visuell und wird aus der Ground-Truth-Tintenmaske ausgeschlossen.
 
-## Outputs
+## Ausgaben
 
-Each DICOM/JPG run produces:
+Jeder DICOM/JPG-Run erzeugt:
 
-| Artifact | Description |
+| Artefakt | Beschreibung |
 |----------|-------------|
-| Modified document | Input document with injected synthetic PII |
-| Ground truth | Separate annotation artifact with positions, identifier type, value, and metadata |
+| Geändertes Dokument | Eingabedokument mit injizierter synthetischer PII |
+| Ground Truth | Separates Annotationsartefakt mit Positionen, Identifier-Typ, Wert und Metadaten |
 
-The migrated DICOM/JPG path writes `ground_truth.json` with schema
-`0.2.0-prototype`. PDF writes `pdf_annotations.json` with schema
-`0.3.0-pdf-prototype` under the shared ADR-0008 lineage. A PDF invocation
-creates new `pdf_injected.pdf`, `pdf_injected_annotated.pdf`, and
-`pdf_annotations.json` artifacts; it never modifies the source PDF, DICOM, or
-JSON annotation.
+Der migrierte DICOM/JPG-Pfad schreibt `ground_truth.json` mit dem Schema
+`0.2.0-prototype`. PDF schreibt `pdf_annotations.json` mit dem Schema
+`0.3.0-pdf-prototype` innerhalb der gemeinsamen ADR-0008-Linie. Ein PDF-Aufruf
+erzeugt neue Artefakte `pdf_injected.pdf`, `pdf_injected_annotated.pdf` und
+`pdf_annotations.json`; die Quell-PDF, das DICOM und die JSON-Annotation werden
+niemals verändert.
 
-Visible `box_annotations` keep the compatible `label`/`label_corners` fields
-and additionally include `category`, `prefix`, `suffix`, `prefix_corners`, and
-`suffix_corners`. The PII `text` is only the injected value, while
-`rendered_text` is the exact visible string `prefix + value + suffix`.
-Native `dicom_tag_annotations` may also include `category` when the value was
-planned from an identifier-schema field.
+Sichtbare `box_annotations` behalten die kompatiblen Felder
+`label`/`label_corners` und enthalten zusätzlich `category`, `prefix`,
+`suffix`, `prefix_corners` und `suffix_corners`. Der PII-Wert in `text` ist nur
+der injizierte Wert; `rendered_text` ist die exakt sichtbare Zeichenkette
+`prefix + value + suffix`. Native `dicom_tag_annotations` können ebenfalls
+`category` enthalten, wenn der Wert aus einem Identifier-Schema-Feld geplant
+wurde.
 
-## Current validation snapshot
+## Aktueller Validierungsstand
 
-As of 2026-07-15, the real Docker/upstream checkpoint path is verified locally:
-`generate-handwriting --seed 42` generated three assets, a second run reported
-three cache hits, `scrabblegan-validate` passed, and a full DICOM handwriting
-injection produced a rendered preview and ground truth. `uv run ruff check`
-and `uv run mypy src/` are green. Some pytest cases remain blocked on this
-Windows machine by permission errors while pytest creates its temporary
-directories; this is an environment limitation, not a failed model run.
+Stand 2026-07-15 ist der reale Docker-/Upstream-Checkpoint-Pfad lokal
+verifiziert: `generate-handwriting --seed 42` erzeugte drei Assets, ein
+zweiter Lauf meldete drei Cache-Hits, `scrabblegan-validate` war erfolgreich
+und eine vollständige DICOM-Handschriftinjektion erzeugte Preview und Ground
+Truth. `uv run ruff check` und `uv run mypy src/` sind erfolgreich. Einige
+pytest-Fälle bleiben auf dieser Windows-Maschine wegen Berechtigungsfehlern
+beim Erzeugen temporärer Verzeichnisse blockiert; das ist eine
+Umgebungseinschränkung und kein fehlgeschlagener Modelllauf.
 
-## Not In Scope
+## Nicht im Umfang
 
-- De-identification
-- Defining the PII taxonomy
-- Clinical use
-- Web application work
-- Real patient data
+- De-Identifikation
+- Definition der PII-Taxonomie
+- Klinische Nutzung
+- Arbeiten an Webanwendungen
+- Echte Patientendaten
 
-## References
+## Referenzen
 
-This project injects fully synthetic PII, but individual experiments may use
-external research code, datasets, or standards. 
+Dieses Projekt injiziert vollständig synthetische PII; einzelne Experimente
+können jedoch externen Forschungscode, Datensätze oder Standards verwenden.
 
-### Handwriting Generation
+### Handschriftgenerierung
 
-- ScrabbleGAN method and generated handwriting assets:
+- ScrabbleGAN-Methode und erzeugte Handschrift-Assets:
   Fogel, S., Averbuch-Elor, H., Cohen, S., Mazor, S., & Litman, R. (2020).
   ScrabbleGAN: Semi-Supervised Varying Length Handwritten Text Generation. In
   *Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern
   Recognition (CVPR)*.
-- Official ScrabbleGAN implementation used by the isolated handwriting tooling:
+- Offizielle ScrabbleGAN-Implementierung, die von den isolierten
+  Handschrift-Tools verwendet wird:
   Amazon Science / Amazon Rekognition Israel. (2020). *ScrabbleGAN:
   Semi-Supervised Varying Length Handwritten Text Generation* [Source code].
   GitHub. <https://github.com/amzn/convolutional-handwriting-gan>
 
-### MIMIC-IV and PhysioNet
+### MIMIC-IV und PhysioNet
 
-- MIMIC-IV v3.1 resource citation:
+- Zitat für die MIMIC-IV-v3.1-Ressource:
   Johnson, A., Bulgarelli, L., Pollard, T., Gow, B., Moody, B., Horng, S.,
   Celi, L. A., & Mark, R. (2024). *MIMIC-IV* (version 3.1). PhysioNet.
   RRID:SCR_007345. <https://doi.org/10.13026/kpb9-mt58>
-- MIMIC-IV dataset publication:
+- Veröffentlichung zum MIMIC-IV-Datensatz:
   Johnson, A. E. W., Bulgarelli, L., Shen, L., et al. (2023). MIMIC-IV, a
   freely accessible electronic health record dataset. *Scientific Data, 10*, 1.
   <https://doi.org/10.1038/s41597-022-01899-x>
-- PhysioNet platform citation:
+- Zitat für die PhysioNet-Plattform:
   Goldberger, A., Amaral, L., Glass, L., Hausdorff, J., Ivanov, P. C.,
   Mark, R., Mietus, J. E., Moody, G. B., Peng, C. K., & Stanley, H. E. (2000).
   PhysioBank, PhysioToolkit, and PhysioNet: Components of a new research

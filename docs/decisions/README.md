@@ -1,14 +1,16 @@
-# Decisions
+# Entscheidungen
 
-Store stable choices that affect scope, architecture, schemas, or validation.
+Hier werden stabile Entscheidungen abgelegt, die Umfang, Architektur, Schemas
+oder Validierung betreffen.
 
-Decision status values:
+Mögliche Entscheidungsstatus:
 
 - `proposed`
 - `accepted`
 - `superseded`
 
-Accepted ADRs remain in this directory after implementation because they record
-why the project chose a contract, not just what work was performed. New
-decisions should link to current architecture or operational documentation;
-archived Phase-1 material is historical context only.
+Angenommene ADRs bleiben nach der Implementierung in diesem Verzeichnis, weil
+sie festhalten, warum das Projekt einen Vertrag gewählt hat, und nicht nur,
+welche Arbeiten ausgeführt wurden. Neue Entscheidungen sollen auf aktuelle
+Architektur- oder Betriebsdokumentation verweisen; archiviertes Material aus
+Phase 1 ist ausschließlich historischer Kontext.

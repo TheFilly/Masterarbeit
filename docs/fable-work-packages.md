@@ -1,365 +1,391 @@
-# Fable Work Packages — Second Generation
+# Fable-Arbeitspakete — zweite Generation
 
-Backlog of work packages following the completed architecture-alignment round.
-The first generation (WP-A through WP-H) was executed on 2026-07-06 and is
-removed from this file; its deliverables live in `docs/architecture/` and
-`docs/decisions/` (ADR-0001..0009). The DICOM/JPG implementation pass on
-2026-07-12 completed WP-I and the core WP-B..WP-G handoff slices. WP-P and two
-of three WP-R items followed on 2026-07-13. Remaining work stays explicit below.
+Backlog der Arbeitspakete nach der abgeschlossenen Architekturabgleich-Runde.
+Die erste Generation (WP-A bis WP-H) wurde am 2026-07-06 ausgeführt und aus
+dieser Datei entfernt; ihre Ergebnisse liegen in `docs/architecture/` und
+`docs/decisions/` (ADR-0001..0009). Der DICOM/JPG-Implementierungslauf am
+2026-07-12 schloss WP-I sowie die zentralen WP-B..WP-G-Übergabestücke ab. WP-P
+und zwei von drei WP-R-Punkten folgten am 2026-07-13. Verbleibende Arbeit bleibt
+unten ausdrücklich aufgeführt.
 
-| Package | Deliverable status |
+| Paket | Status der Ergebnisse |
 |---|---|
-| WP-A | Blueprint and ADR review recorded in `docs/architecture/target-architecture.md`. |
-| WP-B | Implemented for DICOM/JPG: pydantic models, `RunRecord`, and round-trip tests. Shared geometry and PDF sidecar models are implemented; broader PDF fixture coverage remains. |
-| WP-C | Implemented for DICOM/JPG: identifier schema loader, default schema, schema-driven identity generation, and planning. Remaining: emitted schema provenance after ADR-0008. |
-| WP-D | Implemented for DICOM/JPG: runner split, `RunRecord` wiring, and adapter lookup. PDF adapter CLI integration is implemented under the approved PDF plan; broader operational fixture coverage remains. |
-| WP-E | Implemented for DICOM/JPG: mypy override removed, engine split, dead API removed, DICOM pixel writeback moved. Remaining: none for DICOM/JPG core typing after WP-P. |
-| WP-F | Implemented for DICOM/JPG: adapter models, registry, DICOM/JPG loaders and writers. The PDF loader/writer pair is implemented under the approved PDF plan; broader operational fixture coverage remains. |
-| WP-G | Partially implemented: seeded default input, injectable clock, stable seed derivation, deterministic `reference_date`. Remaining: environment/provenance emission after ADR-0008. |
-| WP-H | Completed: active documentation no longer depends on the retired Research/Thesis/Templates layer. |
+| WP-A | Blueprint und ADR-Review in `docs/architecture/target-architecture.md` festgehalten. |
+| WP-B | Für DICOM/JPG implementiert: pydantic-Modelle, `RunRecord` und Round-Trip-Tests. Gemeinsame Geometrie- und PDF-Sidecar-Modelle sind implementiert; breitere PDF-Fixture-Abdeckung bleibt offen. |
+| WP-C | Für DICOM/JPG implementiert: Identifier-Schema-Loader, Standardschema, schema-gesteuerte Identitätsgenerierung und Planung. Verbleibend: Ausgabe der Schema-Provenienz nach ADR-0008. |
+| WP-D | Für DICOM/JPG implementiert: Runner-Aufteilung, `RunRecord`-Verkabelung und Adapterauflösung. PDF-Adapter-CLI-Integration gemäß freigegebenem PDF-Plan implementiert; breitere operative Fixture-Abdeckung bleibt offen. |
+| WP-E | Für DICOM/JPG implementiert: mypy-Override entfernt, Engine aufgeteilt, tote API entfernt, DICOM-Pixel-Schreiben verschoben. Verbleibend: keine DICOM/JPG-Kern-Typisierungsarbeit nach WP-P. |
+| WP-F | Für DICOM/JPG implementiert: Adaptermodelle, Registry, DICOM/JPG-Loader und -Writer. Das PDF-Loader/Writer-Paar ist gemäß freigegebenem PDF-Plan implementiert; breitere operative Fixture-Abdeckung bleibt offen. |
+| WP-G | Teilweise implementiert: geseedeter Default-Input, injizierbare Uhr, stabile Seed-Ableitung, deterministisches `reference_date`. Verbleibend: Ausgabe von Umgebung/Provenienz nach ADR-0008. |
+| WP-H | Abgeschlossen: Die aktive Dokumentation hängt nicht mehr von der ausgemusterten Research/Thesis/Templates-Schicht ab. |
 
-Ground rules for the packages below:
+Grundregeln für die folgenden Pakete:
 
-- Packages marked **design** produce Markdown deliverables under `docs/`
-  (Fable's job); packages marked **implementation** are executed directly by
-  Opus/Codex against an existing spec, with tests.
-- Reference concrete code (`file:line`); design deliverables end with an
-  implementation handoff and definition of done.
-- Preserve the migration invariant: existing DCM/JPG runs stay byte-identical
-  unless an ADR approves a change (`docs/dicom-injection.md`, Validation
-  State).
-- The thesis-traceability layer (claims, findings, templates) was removed on
-  2026-07-06 and is out of scope for all packages.
-
----
-
-## WP-I — End-to-End Test Harness & CI (implementation, done 2026-07-12)
-
-**Implemented.** `tests/fixtures/synthetic_documents.py` generates synthetic
-DCM/JPG inputs without real or MIMIC-derived data.
-`tests/integration/test_end_to_end.py` runs DICOM and JPG paths with fixed
-seed, fixed input, fixed timestamp, default schema, and a deterministic test
-font, then compares all artifact hashes. CI in `.github/workflows/ci.yml` runs
-uv sync, ruff, mypy, and pytest.
-
-**Remaining.** None for WP-I. The scratch-branch one-pixel proof is not kept as
-a repository artifact.
+- Als **Design** markierte Pakete erzeugen Markdown-Ergebnisse unter `docs/`
+  (Fables Aufgabe); als **Implementierung** markierte Pakete werden von
+  Opus/Codex direkt anhand einer bestehenden Spezifikation mit Tests ausgeführt.
+- Konkreten Code referenzieren (`file:line`); Design-Ergebnisse enden mit einer
+  Implementierungsübergabe und einem Abschlusskriterium.
+- Die Migrationsinvariante bewahren: Bestehende DCM/JPG-Runs bleiben
+  byteidentisch, sofern kein ADR eine Änderung genehmigt
+  (`docs/dicom-injection.md`, Validierungsstatus).
+- Die Thesis-Traceability-Schicht (Claims, Findings, Templates) wurde am
+  2026-07-06 entfernt und liegt außerhalb des Umfangs aller Pakete.
 
 ---
 
-## WP-J — ScrabbleGAN Restart and Injection Integration (implementation, closure open)
+## WP-I — End-to-End-Test-Harness und CI (Implementierung, abgeschlossen 2026-07-12)
 
-**Goal.** Make real ScrabbleGAN handwriting generation work end-to-end in this
-repo: a runnable environment, a working single-text inference path, a pinned
-checkpoint, and generated assets flowing through the existing manifest
-contract into an injection run. Extend that batch contract so the injection
-pipeline can generate missing assets after Faker identity generation, reuse
-them from `DicomData/HandwritingAssets/`, and expose the same behavior through
-a standalone seed-based console command.
+**Implementiert.** `tests/fixtures/synthetic_documents.py` erzeugt synthetische
+DCM/JPG-Eingaben ohne reale oder aus MIMIC abgeleitete Daten.
+`tests/integration/test_end_to_end.py` führt DICOM- und JPG-Pfade mit festem
+Seed, festem Input, festem Zeitstempel, Standardschema und deterministischer
+Testschrift aus und vergleicht anschließend alle Artefakt-Hashes. Die CI in
+`.github/workflows/ci.yml` führt uv sync, ruff, mypy und pytest aus.
 
-**Why now.** The first attempt produced a sound batch scaffold
-(`tools/handwriting/scrabblegan/`: manifest contract, hashing, validation,
-fake renderer) but zero real generation. `UPSTREAM_REVIEW.md` (2026-06-11)
-found the integration was built against an assumed upstream interface that
-does not exist. The scaffold is worth keeping; the generation core must be
-rebuilt on verified upstream reality
+**Verbleibend.** Nichts für WP-I. Der Ein-Pixel-Nachweis aus dem Scratch-Branch
+wird nicht als Repository-Artefakt aufbewahrt.
+
+---
+
+## WP-J — ScrabbleGAN-Neustart und Injektionsintegration (Implementierung, Abschluss offen)
+
+**Ziel.** Echte ScrabbleGAN-Handschriftgenerierung in diesem Repository von
+Anfang bis Ende nutzbar machen: eine ausführbare Umgebung, ein funktionierender
+Inference-Pfad für Einzeltexte, ein festgelegter Checkpoint sowie erzeugte
+Assets, die über den bestehenden Manifestvertrag in einen Injektions-Run
+fließen. Den Batch-Vertrag so erweitern, dass die Injektionspipeline fehlende
+Assets nach der Faker-Identitätsgenerierung erzeugen, aus
+`DicomData/HandwritingAssets/` wiederverwenden und dasselbe Verhalten über einen
+eigenständigen seed-basierten Konsolenbefehl anbieten kann.
+
+**Warum jetzt.** Der erste Versuch erzeugte ein solides Batch-Grundgerüst
+(`tools/handwriting/scrabblegan/`: Manifestvertrag, Hashing, Validierung,
+Fake-Renderer), aber keine echte Generierung. `UPSTREAM_REVIEW.md` (2026-06-11)
+stellte fest, dass die Integration gegen eine angenommene Upstream-Schnittstelle
+gebaut war, die nicht existiert. Das Grundgerüst soll erhalten bleiben; der
+Generierungskern muss auf der verifizierten Upstream-Realität
 (`https://github.com/amzn/convolutional-handwriting-gan`).
 
-**Verified blockers to clear (from `UPSTREAM_REVIEW.md`, re-confirm against
-upstream `master` before building):**
+**Zu beseitigende verifizierte Blocker (aus `UPSTREAM_REVIEW.md`, vor dem Build
+gegen Upstream-`master` erneut bestätigen):**
 
-1. **No single-text inference upstream.** `render.py:89-106` defaults to a
-   fictional `generate.py --text ... --seed ... --checkpoint ... --output ...`;
-   upstream only has `generate_wordsLMDB.py` (lexicon-sampled, LMDB/TIFF
-   output, no seed flag, pix2pix-style `TestOptions`/`create_model()`
-   loading). A custom wrapper (`generate_single.py`) must be written in this
-   repo: build the options object, load `netG` weights, encode text with the
-   dataset alphabet, seed `torch`/`numpy`/`random` from the manifest seed,
-   save one PNG to `--output`.
-2. **The Docker image cannot run ScrabbleGAN.** `Dockerfile:6` uses a CUDA 9.0
-   / Ubuntu 16.04 base, installs only `Pillow<8` (`Dockerfile:33`), never
-   installs PyTorch, and `apt-get install python3.6` fails on Xenial. Upstream
-   needs Python 3.6.8 + PyTorch 1.2.0 + cudatoolkit 10.0
-   (`environmentPytorch12.yml`); old `nvidia/cuda` tags may be pruned from
-   Docker Hub.
-3. **No pretrained weights exist.** Upstream publishes none; a checkpoint must
-   be trained locally on IAM/RIMES/CVL (manual dataset registration) or
-   sourced from a community reproduction and hash-pinned. The tooling's
-   single-`model.pth` mount also mismatches upstream's
-   `<checkpoints_dir>/<experiment>/<epoch>_net_G.pth` layout — decide whether
-   the wrapper loads a raw `net_G.pth` state dict directly (then the single
-   mounted file + SHA-256 pinning stays).
-4. **Mask bug for real output.** `masks._build_mask` trusts the alpha channel
-   for `background == "transparent"`, but real ScrabbleGAN output is grayscale
-   with no alpha — after `convert("RGBA")` every pixel is opaque and the mask
-   becomes a solid rectangle. Always derive ink from the white-distance
-   threshold; use alpha only when the raw image has a non-trivial alpha
-   channel.
-5. **Alphabet constraints unvalidated.** Trained alphabets (e.g.
-   `IAMcharH32rmPunct`) may exclude digits/hyphens — `patient_id`
-   (`SYNTH-######`) and `accession_number` values can produce garbage glyphs;
-   multi-word `patient_name` needs per-word generation plus compositing.
-   Validate manifest `text` against the checkpoint's alphabet in
-   `manifest.py`; define the multi-word strategy.
-6. **Minor:** reject `ink_color: white` + `background: white`; replace the
-   per-pixel Python loop in `masks._build_mask` with numpy.
+1. **Keine Inferenz für Einzeltexte im Upstream.** `render.py:89-106` verwendet
+   standardmäßig einen fiktiven Aufruf `generate.py --text ... --seed ...
+   --checkpoint ... --output ...`; Upstream besitzt nur
+   `generate_wordsLMDB.py` (Lexikon-Sampling, LMDB/TIFF-Ausgabe, kein Seed-Flag,
+   Laden über `TestOptions`/`create_model()` im Pix2pix-Stil). Ein eigener
+   Wrapper (`generate_single.py`) muss in diesem Repository geschrieben werden:
+   Options-Objekt aufbauen, `netG`-Gewichte laden, Text mit dem Datenalphabet
+   kodieren, `torch`/`numpy`/`random` aus dem Manifest-Seed seeden und eine PNG
+   nach `--output` schreiben.
+2. **Das Docker-Image kann ScrabbleGAN nicht ausführen.** `Dockerfile:6`
+   verwendet CUDA 9.0 / Ubuntu 16.04, installiert nur `Pillow<8`
+   (`Dockerfile:33`), installiert PyTorch nie, und
+   `apt-get install python3.6` schlägt unter Xenial fehl. Upstream benötigt
+   Python 3.6.8 + PyTorch 1.2.0 + cudatoolkit 10.0
+   (`environmentPytorch12.yml`); alte `nvidia/cuda`-Tags könnten aus Docker Hub
+   entfernt worden sein.
+3. **Es gibt keine vortrainierten Gewichte.** Upstream veröffentlicht keine;
+   ein Checkpoint muss lokal auf IAM/RIMES/CVL trainiert (manuelle
+   Dataset-Registrierung) oder aus einer Community-Reproduktion bezogen und per
+   Hash festgelegt werden. Der einzelne `model.pth`-Mount des Toolings passt
+   außerdem nicht zu Upstreams Layout
+   `<checkpoints_dir>/<experiment>/<epoch>_net_G.pth` — es ist zu entscheiden,
+   ob der Wrapper direkt ein rohes `net_G.pth`-State-Dict lädt.
+4. **Maskenfehler bei echter Ausgabe.** `masks._build_mask` vertraut bei
+   `background == "transparent"` auf den Alphakanal, aber echte ScrabbleGAN-
+   Ausgabe ist Graustufenbild ohne Alpha — nach `convert("RGBA")` ist jedes
+   Pixel opak und die Maske wird zu einem soliden Rechteck. Tinte immer aus dem
+   Abstand-zu-Weiß-Schwellenwert ableiten; Alpha nur verwenden, wenn das
+   Rohbild einen nichttrivialen Alphakanal besitzt.
+5. **Alphabetbeschränkungen werden nicht validiert.** Trainierte Alphabete (z. B.
+   `IAMcharH32rmPunct`) können Ziffern/Bindestriche ausschließen — Werte von
+   `patient_id` (`SYNTH-######`) und `accession_number` können unbrauchbare
+   Glyphen erzeugen; mehrteiliger `patient_name` benötigt Generierung pro Wort
+   und anschließendes Compositing. `manifest.py` soll `text` gegen das
+   Checkpoint-Alphabet validieren; die Strategie für mehrere Wörter ist zu
+   definieren.
+6. **Kleinigkeit:** `ink_color: white` + `background: white` ablehnen; die
+   Python-Pixel-Schleife in `masks._build_mask` durch numpy ersetzen.
 
-**Phase 0 — feasibility decision (design, one ADR).** Before touching the
-Dockerfile, decide the runtime strategy; this was the first attempt's fatal
-gap. Options to evaluate against the actual host (Windows 10 + WSL2 + GPU
-availability):
+**Phase 0 — Machbarkeitsentscheidung (Design, ein ADR).** Vor Änderungen am
+Dockerfile die Runtime-Strategie entscheiden; dies war die entscheidende Lücke
+des ersten Versuchs. Optionen anhand des tatsächlichen Hosts (Windows 10 + WSL2
++ GPU-Verfügbarkeit) bewerten:
 
-- (a) Faithful legacy container: Miniconda + upstream
-  `environmentPytorch12.yml` in a CUDA 10.0 base — maximal fidelity, fragile
-  base-image availability, GPU passthrough via WSL2 required for training.
-- (b) **Modern-PyTorch port (recommended default):** run upstream inference
-  code on current PyTorch in a plain container or venv; pix2pix-era code
-  typically needs small patches. CPU inference is fine for asset generation;
-  only training needs GPU.
-- (c) Replace ScrabbleGAN with a maintained handwriting-synthesis model with
-  published weights — fallback if (a) and (b) both fail the time budget; the
-  manifest/mask/validation contract is generator-agnostic by design, so only
-  `render.py`'s command changes.
+- (a) Getreuer Legacy-Container: Miniconda + Upstream-
+  `environmentPytorch12.yml` in einer CUDA-10.0-Basis — maximale Treue,
+  fragile Verfügbarkeit des Basis-Images, GPU-Durchreichung über WSL2 für das
+  Training erforderlich.
+- (b) **Portierung auf modernes PyTorch (empfohlener Standard):** Upstream-
+  Inferenzcode mit aktuellem PyTorch in einem einfachen Container oder venv
+  ausführen; Code aus der Pix2pix-Ära benötigt typischerweise kleine Patches.
+  CPU-Inferenz reicht für die Asset-Erzeugung, nur das Training benötigt die GPU.
+- (c) ScrabbleGAN durch ein gepflegtes Handschrift-Synthesemodell mit
+  veröffentlichten Gewichten ersetzen — Fallback, falls (a) und (b) das
+  Zeitbudget überschreiten; Manifest-/Masken-/Validierungsvertrag sind bewusst
+  generatoragnostisch, daher ändert sich nur der Befehl von `render.py`.
 
-The ADR must also settle the checkpoint plan (train vs. community weights,
-dataset licensing constraints — IAM requires registration and must never be
-committed) and pin the upstream commit (`Dockerfile:9` still says
-`PIN_UPSTREAM_COMMIT`).
+Das ADR muss außerdem den Checkpoint-Plan (Training versus Community-Gewichte,
+Lizenzbedingungen der Datensätze — IAM erfordert Registrierung und darf nie
+eingecheckt werden) festlegen und den Upstream-Commit pinnen
+(`Dockerfile:9` enthält noch `PIN_UPSTREAM_COMMIT`).
 
-**Implementation sequence (after the ADR).**
+**Implementierungsreihenfolge (nach dem ADR).**
 
-1. Pin upstream commit; write `generate_single.py` against it (blocker 1) and
-   make it the built-in default command in `render.py`, replacing the
-   fictional `generate.py` path.
-2. Build the chosen runtime (blocker 2 or its port alternative); smoke-test
-   `generate_single.py` with random-init weights (shape/alphabet plumbing
-   works without a trained checkpoint).
-3. Acquire/train the checkpoint per the ADR; record SHA-256; document the
-   training prerequisite in the README (blocker 3).
-4. Fix the mask derivation (blocker 4) + minor fixes (blocker 6); extend the
-   fake-renderer tests with a no-alpha grayscale fixture that reproduces the
-   bug first.
-5. Add alphabet validation and the multi-word strategy (blocker 5); update
-   `examples/batch_manifest.example.jsonl` accordingly.
-6. End-to-end: `batch.jsonl` → real render → `manifest.jsonl` →
+1. Upstream-Commit pinnen; `generate_single.py` darauf schreiben (Blocker 1)
+   und als eingebauten Standardbefehl in `render.py` verwenden, der den
+   fiktiven `generate.py`-Pfad ersetzt.
+2. Gewählte Runtime bauen (Blocker 2 oder Portierungsalternative);
+   `generate_single.py` mit zufällig initialisierten Gewichten einem
+   Smoke-Test unterziehen (Shape-/Alphabet-Verkabelung funktioniert ohne
+   trainierten Checkpoint).
+3. Checkpoint gemäß ADR beschaffen/trainieren; SHA-256 aufzeichnen; die
+   Trainingsvoraussetzung im README dokumentieren (Blocker 3).
+4. Maskenableitung (Blocker 4) und kleinere Korrekturen (Blocker 6) beheben;
+   Fake-Renderer-Tests um ein Alpha-freies Graustufen-Fixture erweitern, das
+   den Fehler zunächst reproduziert.
+5. Alphabetvalidierung und Strategie für mehrere Wörter ergänzen (Blocker 5);
+   `examples/batch_manifest.example.jsonl` entsprechend aktualisieren.
+6. Ende zu Ende: `batch.jsonl` → echtes Rendering → `manifest.jsonl` →
    `scrabblegan-validate` → `uv run injection-pipeline --handwriting-manifest
-   ... --handwriting-asset patient_name=...` produces a DCM run with correct
-   ink-mask geometry in `ground_truth.json`.
-7. Rewrite `UPSTREAM_REVIEW.md` findings as resolved/superseded; update both
-   READMEs' "blocked" notices.
+   ... --handwriting-asset patient_name=...` erzeugt einen DCM-Run mit korrekter
+   Tintenmaskengeometrie in `ground_truth.json`.
+7. Befunde in `UPSTREAM_REVIEW.md` als gelöst/überholt umschreiben; die
+   „blocked“-Hinweise in beiden READMEs aktualisieren.
 
-**Scope / DoD.** One real generated asset for each selected v1 field
-(`patient_name`, `patient_id`, `accession_number` unless the field decision
-expands the set) is injected into a DCM run; a second run with the same
-compatible seed/cache identity reuses the persisted assets; a standalone seed
-command produces the same reusable bundle; existing fake-renderer tests still
-pass; no legacy dependencies enter the Python 3.13 project
-(`tools/handwriting/README.md` runtime boundary holds); no datasets, weights,
-or generated assets are committed.
+**Umfang / DoD.** Ein echtes erzeugtes Asset für jedes ausgewählte v1-Feld
+(`patient_name`, `patient_id`, `accession_number`, sofern die Feldentscheidung
+die Menge nicht erweitert) wird in einen DCM-Run injiziert; ein zweiter Run mit derselben kompatiblen
+Seed-/Cache-Identität verwendet die gespeicherten Assets wieder; ein
+eigenständiger Seed-Befehl erzeugt dasselbe wiederverwendbare Bundle; bestehende
+Fake-Renderer-Tests bleiben erfolgreich; keine Legacy-Abhängigkeiten gelangen
+in das Python-3.13-Projekt (`tools/handwriting/README.md`-Runtime-Grenze bleibt
+erhalten); keine Datensätze, Gewichte oder erzeugten Assets werden eingecheckt.
 
-**Depends on.** The real generator core remains isolated, but the integrated
-asset-provider seam touches the main pipeline's runtime CLI, runner, render
-plan, and ground-truth metadata. **Leverage.** High for datasets that require
-realistic handwriting; the existing scaffold reduces the integration work but
-not the model/checkpoint or cache-contract risk.
-
----
-
-## WP-K — DICOM Conformance & Validators (design)
-
-**Goal.** Specify the `validators/` module and the DICOM-conformance policy
-for injected outputs.
-
-**Why now.** `writers/dicom.py` does not regenerate `SOPInstanceUID` after
-modifying pixel data and rewrites transfer syntax to
-ExplicitVRLittleEndian. Downstream consumers may reject or mis-index such
-files. `validators/` has no implemented validation policy.
-
-**Deliverables.** `docs/architecture/validators-spec.md`: validation stages
-(schema round-trip, annotation-geometry consistency vs. rendered pixels,
-format validity per adapter) and an ADR on UID regeneration + transfer-syntax
-policy (a deliberate byte-compat break, so it needs its own golden-file
-transition plan).
-
-**Depends on.** WP-B models implemented; WP-I harness. **Leverage.** Medium-high.
+**Abhängigkeiten.** Der echte Generierungskern bleibt isoliert, aber die
+integrierte Asset-Provider-Grenze berührt Runtime-CLI, Runner, Render-Plan und
+Ground-Truth-Metadaten der Hauptpipeline. **Hebel.** Hoch für Datensätze, die
+realistische Handschrift benötigen; das bestehende Grundgerüst reduziert die
+Integrationsarbeit, nicht aber das Risiko bei Modell/Checkpoint oder
+Cache-Vertrag.
 
 ---
 
-## WP-L — Multi-Frame Injection Policy (design, small)
+## WP-K — DICOM-Konformität und Validatoren (Design)
 
-**Goal.** Decide and record how multi-frame DICOM (cine loops) should be
-injected.
+**Ziel.** Das Modul `validators/` und die DICOM-Konformitätsrichtlinie für
+injizierte Ausgaben spezifizieren.
 
-**Why now.** Only frame 0 is injected (`applied_frame_indices: [0]` in
-`engine/injector.py`); a 47-frame loop is PII-free on 46 frames.
-For detector training data this is a dataset property that must be either
-fixed or documented as intended.
+**Warum jetzt.** `writers/dicom.py` generiert `SOPInstanceUID` nach einer
+Änderung der Pixeldaten nicht neu und schreibt die Transfer Syntax in
+ExplicitVRLittleEndian um. Nachgelagerte Konsumenten könnten solche Dateien
+ablehnen oder falsch indizieren. Für `validators/` gibt es noch keine
+implementierte Validierungsrichtlinie.
 
-**Deliverables.** One ADR (inject all frames vs. frame-0-only as recorded
-property vs. per-run option), plus the ground-truth implications
-(`frame_index` semantics in `BoxAnnotation`, per-frame corners) folded into
-the WP-B spec as an addendum.
+**Ergebnisse.** `docs/architecture/validators-spec.md`: Validierungsstufen
+(Schema-Round-Trip, Konsistenz von Annotation und Geometrie gegenüber den
+gerenderten Pixeln, Formatgültigkeit pro Adapter) sowie ein ADR zur UID-
+Neugenerierung und Transfer-Syntax-Richtlinie (ein bewusster
+Bytekompatibilitätsbruch, daher mit eigenem Golden-File-Übergangsplan).
 
-**Depends on.** WP-B spec (annotation shapes). **Leverage.** Medium.
-
----
-
-## WP-M — Batch Generation Mode (design)
-
-**Goal.** Design the dataset-scale runner: many documents per invocation with
-derived per-item seeds and aggregate reporting.
-
-**Why now.** The CLI does one document per run; producing a training corpus by
-hand-looping invocations loses seed discipline (the correlated-seed hazard,
-determinism-audit N4) and provenance. Scalability is a core pipeline goal
-(PLAN.md FF2/FF3).
-
-**Deliverables.** `docs/architecture/batch-mode-spec.md`: input manifest
-format, per-item seed derivation via `derive_seed` (WP-G), output layout (one
-run dir per item + batch-level manifest), failure isolation semantics, resume
-behaviour, and CLI surface (`injection-pipeline batch ...`).
-
-**Depends on.** WP-G implemented (derive_seed, injectable clock), WP-D done
-(stage functions callable without the CLI). **Leverage.** High for the
-research goal, later in sequence.
+**Abhängigkeiten.** WP-B-Modelle implementiert; WP-I-Harness. **Hebel.** Mittel
+bis hoch.
 
 ---
 
-## WP-N — Docstring & Comment Migration (implementation, mechanical)
+## WP-L — Multi-Frame-Injektionsrichtlinie (klein, Design)
 
-**Goal.** Reconcile the conflicting documentation conventions, then migrate
-production functions to the selected format.
+**Ziel.** Entscheiden und festhalten, wie Multi-Frame-DICOM (Cine-Loops)
+injiziert werden soll.
 
-**Why now.** `AGENTS.md` asks for Google-style docstrings, while the active
-`commenting-guidelines` skill requires `# Input:/# Output:` blocks. The code
-currently follows the skill in many modules, so a mechanical migration before
-choosing one source of truth would recreate the conflict.
+**Warum jetzt.** Nur Frame 0 wird injiziert (`applied_frame_indices: [0]` in
+`engine/injector.py`); ein Loop mit 47 Frames ist auf 46 Frames PII-frei. Für
+Detektor-Trainingsdaten ist dies eine Datensatzeigenschaft, die behoben oder als
+beabsichtigt dokumentiert werden muss.
 
-**Tasks.** Decide which convention is authoritative, update `AGENTS.md` and the
-skill so they agree, then migrate remaining functions in a standalone pass.
+**Ergebnisse.** Ein ADR (alle Frames injizieren versus nur Frame 0 als
+aufgezeichnete Eigenschaft versus Option pro Run) sowie die Ground-Truth-
+Auswirkungen (`frame_index`-Semantik in `BoxAnnotation`, Ecken pro Frame) als
+Nachtrag in die WP-B-Spezifikation übernehmen.
 
-**Scope / DoD.** One documented convention, no mixed requirement, ruff/mypy
-green, and no behaviour changes. **Depends on.** Documentation convention
-decision. **Leverage.** Low-medium (readability, consistency).
-
----
-
-## WP-O — Declarative CLI Parameter Spec (design, small)
-
-**Goal.** One parameter table driving both argparse and interactive mode.
-
-**Why now.** Interactive mode re-implements every default and validator by
-hand (`cli.py:174-234` vs `cli.py:255-319`); the two require manual sync
-today and a run-config file (future) would be a third copy.
-
-**Deliverables.** Short spec in `docs/architecture/` defining the parameter
-descriptor (name, type, default, choices, validator, prompt text, help),
-how argparse and the prompt loop are generated from it, and where it lives in
-`config/`. Include the migration mapping for all 11 current parameters.
-
-**Depends on.** WP-D step 1 (options module). **Leverage.** Medium — removes a
-standing sync hazard before the PDF subcommand (`compose-pdf`) adds more
-parameters.
+**Abhängigkeiten.** WP-B-Spezifikation (Annotationsformen). **Hebel.** Mittel.
 
 ---
 
-## WP-P — Engine Render-Pass Reuse (implementation, perf)
+## WP-M — Batch-Generierungsmodus (Design)
 
-**Goal.** Stop rendering every overlay twice.
+**Ziel.** Den Runner für Datensatzgröße entwerfen: viele Dokumente pro Aufruf
+mit abgeleiteten Seeds pro Element und aggregierter Berichterstattung.
 
-**Implemented 2026-07-13.** Placement now carries a private typed
-`PreparedOverlay` payload from the sizing pass into the final render pass, so
-font and handwriting overlays are prepared once per annotation. The cache lives
-only on internal positioned annotations and is not serialized into public
-records, schemas, annotations, or DCM/JPG artifacts. Focused tests count one
-prepare call per annotation for both renderer types; the DCM/JPG E2E harness
-keeps artifact hashes unchanged.
+**Warum jetzt.** Die CLI verarbeitet ein Dokument pro Run; das Erzeugen eines
+Trainingskorpus durch manuelle Aufrufschleifen verliert Seed-Disziplin (Gefahr
+korrelierter Seeds, Determinismus-Audit N4) und Provenienz. Skalierbarkeit ist
+ein zentrales Pipeline-Ziel (PLAN.md FF2/FF3).
 
-**Microbenchmark hint.** Reuse
+**Ergebnisse.** `docs/architecture/batch-mode-spec.md`: Eingabemanifestformat,
+Seed-Ableitung pro Element über `derive_seed` (WP-G), Ausgabelayout (ein
+Run-Verzeichnis pro Element plus Batch-Manifest), Semantik der
+Fehlerisolierung, Fortsetzungsverhalten und CLI-Oberfläche
+(`injection-pipeline batch ...`).
+
+**Abhängigkeiten.** WP-G implementiert (`derive_seed`, injizierbare Uhr), WP-D
+abgeschlossen (Stufenfunktionen ohne CLI aufrufbar). **Hebel.** Hoch für das
+Forschungsziel, in der Reihenfolge später.
+
+---
+
+## WP-N — Docstring- und Kommentar-Migration (mechanische Implementierung)
+
+**Ziel.** Die widersprüchlichen Dokumentationskonventionen abgleichen und
+anschließend Produktionsfunktionen in das ausgewählte Format migrieren.
+
+**Warum jetzt.** `AGENTS.md` verlangt Google-Style-Docstrings, während das
+aktive `commenting-guidelines`-Skill `# Input:/# Output:`-Blöcke verlangt. Der
+Code folgt dem Skill bereits in vielen Modulen; eine mechanische Migration vor
+der Wahl einer Quelle der Wahrheit würde den Konflikt wiederherstellen.
+
+**Aufgaben.** Entscheiden, welche Konvention maßgeblich ist, `AGENTS.md` und das
+Skill angleichen und anschließend die verbleibenden Funktionen in einem
+separaten Durchlauf migrieren.
+
+**Umfang / DoD.** Eine dokumentierte Konvention, keine gemischte Vorgabe,
+ruff/mypy erfolgreich und keine Verhaltensänderungen. **Abhängigkeiten.**
+Entscheidung zur Dokumentationskonvention. **Hebel.** Niedrig bis mittel
+(Lesbarkeit, Konsistenz).
+
+---
+
+## WP-O — Deklarative CLI-Parameterspezifikation (kleines Design)
+
+**Ziel.** Eine Parametertabelle, die sowohl argparse als auch den interaktiven
+Modus steuert.
+
+**Warum jetzt.** Der interaktive Modus implementiert jeden Standardwert und
+Validator manuell neu (`cli.py:174-234` gegenüber `cli.py:255-319`); beide
+Varianten müssen heute manuell synchron gehalten werden, und eine künftige
+Run-Konfigurationsdatei wäre eine dritte Kopie.
+
+**Ergebnisse.** Kurze Spezifikation in `docs/architecture/`, die den
+Parameter-Deskriptor (Name, Typ, Standard, Auswahl, Validator, Prompt-Text,
+Hilfe), die Erzeugung von argparse und Prompt-Schleife daraus sowie seinen Ort
+in `config/` definiert. Die Migrationszuordnung für alle 11 aktuellen
+Parameter aufnehmen.
+
+**Abhängigkeiten.** WP-D, Schritt 1 (Optionsmodul). **Hebel.** Mittel — beseitigt
+eine dauerhafte Synchronisationsgefahr, bevor der PDF-Subbefehl
+(`compose-pdf`) weitere Parameter hinzufügt.
+
+---
+
+## WP-P — Wiederverwendung des Engine-Render-Passes (Implementierung, Performance)
+
+**Ziel.** Nicht mehr jedes Overlay zweimal rendern.
+
+**Implementiert am 2026-07-13.** Die Platzierung übergibt nun eine private
+typisierte `PreparedOverlay`-Payload vom Größenbestimmungslauf an den finalen
+Render-Lauf, sodass Font- und Handschrift-Overlays einmal pro Annotation
+vorbereitet werden. Der Cache liegt nur auf intern positionierten Annotationen
+und wird nicht in öffentliche Records, Schemas, Annotationen oder DCM/JPG-
+Artefakte serialisiert. Fokussierte Tests zählen einen Vorbereitungslauf pro
+Annotation für beide Renderertypen; der DICOM/JPG-E2E-Harness hält die
+Artefakt-Hashes unverändert.
+
+**Hinweis zum Microbenchmark.** Wiederverwenden von
 `tests/unit/test_overlay_reuse.py::test_overlay_reuse_microbenchmark_fixture_is_reproducible`
-as the deterministic fixture for manual timing, e.g. run the same fixed
-`_inject_visible_text_into_frame` setup with `python -m timeit` and compare
-medians outside pytest. Do not add timing thresholds to CI.
+als deterministisches Fixture für manuelle Zeitmessung, zum Beispiel dasselbe
+feste `_inject_visible_text_into_frame`-Setup mit `python -m timeit` ausführen
+und Mediane außerhalb von pytest vergleichen. Keine Zeitschwellenwerte zur CI
+hinzufügen.
 
-**Original issue.** Placement rendered each overlay once for measurement and
-the render stage rendered it again. WP-P now reuses the prepared overlay;
-avoiding duplicate work matters more once batch mode (WP-M) exists.
+**Ursprüngliches Problem.** Die Platzierung renderte jedes Overlay einmal zur
+Messung, und die Render-Stufe renderte es erneut. WP-P verwendet nun das
+vorbereitete Overlay wieder; die Vermeidung doppelter Arbeit wird mit einem
+Batch-Modus (WP-M) noch wichtiger.
 
-**Tasks.** Cache the prepared overlay from the sizing pass (keyed by plan
-item) and reuse it in `_render_single_annotation`; byte-identity harness
-proves output is unchanged; micro-benchmark before/after in the PR
-description.
+**Aufgaben.** Das vorbereitete Overlay aus dem Größenbestimmungslauf (nach
+Plan-Element verschlüsselt) cachen und in `_render_single_annotation`
+wiederverwenden; der Byte-Identitäts-Harness weist unveränderte Ausgabe nach;
+Microbenchmark vorher/nachher in der PR-Beschreibung dokumentieren.
 
-**Scope / DoD.** Done for DCM/JPG: byte-identical outputs, no public API
-change, and focused reuse tests. Measurable speedup should be recorded in the
-future PR/release note with the deterministic fixture above. **Depends on.**
-WP-E split done, WP-I harness. **Leverage.** Low until WP-M, then medium.
-
----
-
-## WP-Q — Run-Manifest Provenance Split (design, small)
-
-**Goal.** Give `run_manifest.json` distinct provenance-only content instead of
-duplicating `ground_truth.json`.
-
-**Why now.** ADR-0004 documents the duplication as intentional-but-temporary;
-WP-B's `RunRecord` plus WP-G's `reproducibility` block provide the natural
-split (annotations → ground truth; parameters/environment → manifest).
-
-**Deliverables.** Superseding ADR for ADR-0004 defining both file contents,
-the schema-version bump (ADR-0008 lineage), and consumer migration notes.
-
-**Depends on.** WP-B and WP-G implemented. **Leverage.** Low-medium (clarity,
-smaller ground-truth files).
+**Umfang / DoD.** Für DCM/JPG erledigt: byteidentische Ausgaben, keine Änderung
+der öffentlichen API und fokussierte Tests zur Wiederverwendung. Messbare
+Beschleunigung sollte mit dem obigen deterministischen Fixture in einer
+künftigen PR-/Release-Notiz festgehalten werden. **Abhängigkeiten.** WP-E-
+Aufteilung abgeschlossen, WP-I-Harness. **Hebel.** Bis WP-M niedrig, danach
+mittel.
 
 ---
 
-## WP-R — Output & CLI Hygiene Bundle (implementation, small)
+## WP-Q — Provenienzaufteilung des Run-Manifests (kleines Design)
 
-**Goal.** Clear three small warts in reviewable passes.
+**Ziel.** `run_manifest.json` eigenständige, nur für Provenienz bestimmte Inhalte
+geben, statt `ground_truth.json` zu duplizieren.
 
-**Tasks.**
-1. **JPEG re-encode transparency.** Open. JPG runs still re-encode with
-   Pillow defaults. ADR-0008 has no emission version gate for additive
-   `render_metadata` fields, so this pass does not record partial encoder
-   settings. Configurable quality stays behind a later byte-compat ADR.
-2. **`identity_b` stdout noise.** Done 2026-07-13. The unused second identity
-   generation and its stdout output were removed. `derive_seed()` remains
-   available for real named random streams.
-3. **Preview writer hygiene.** Done 2026-07-13. The internal
-   `python -m injection_pipeline.writers.preview` CLI remains unregistered,
-   requires `--dicom`, has no patient-style default path, and opens a
-   Matplotlib window when the caller passes `--show`.
+**Warum jetzt.** ADR-0004 dokumentiert die Duplizierung als beabsichtigt, aber
+vorübergehend; WP-Bs `RunRecord` plus der `reproducibility`-Block aus WP-G
+ermöglichen die natürliche Aufteilung (Annotationen → Ground Truth;
+Parameter/Umgebung → Manifest).
 
-**Scope / DoD.** This pass covers identity and preview hygiene with tests; no
-hardcoded `DicomData` patient paths remain in `src/`. Remaining DoD: decide
-the ADR-0008 emission gate before adding JPEG encoder settings to
-`render_metadata`. **Depends on.** WP-I harness; the remaining JPEG point also
-depends on the ADR-0008 version decision. **Leverage.** Low.
+**Ergebnisse.** Ersetzendes ADR für ADR-0004, das beide Dateiinhalte, die
+Schema-Versionsanhebung (ADR-0008-Versionslinie) und Migrationshinweise für
+Konsumenten definiert.
+
+**Abhängigkeiten.** WP-B und WP-G implementiert. **Hebel.** Niedrig bis mittel
+(Klarheit, kleinere Ground-Truth-Dateien).
 
 ---
 
-## Suggested sequencing
+## WP-R — Ausgabe- und CLI-Hygiene-Bundle (kleine Implementierung)
+
+**Ziel.** Drei kleine Schwachstellen in überprüfbaren Durchläufen bereinigen.
+
+**Aufgaben.**
+1. **Transparenz der JPEG-Neukodierung.** Offen. JPG-Runs werden weiterhin mit
+   Pillow-Standards neu kodiert. ADR-0008 hat kein Ausgabeversions-Gate für
+   zusätzliche `render_metadata`-Felder, daher zeichnet dieser Durchlauf keine
+   unvollständigen Encoder-Einstellungen auf. Konfigurierbare Qualität bleibt
+   hinter einem späteren Bytekompatibilitäts-ADR.
+2. **stdout-Rauschen von `identity_b`.** Erledigt am 2026-07-13. Die ungenutzte
+   Generierung der zweiten Identität und ihre stdout-Ausgabe wurden entfernt.
+   `derive_seed()` bleibt für echte benannte Zufallsstreams verfügbar.
+3. **Hygiene des Preview-Writers.** Erledigt am 2026-07-13. Die interne
+   `python -m injection_pipeline.writers.preview`-CLI bleibt nicht registriert,
+   benötigt `--dicom`, hat keinen patientenähnlichen Standardpfad und öffnet ein
+   Matplotlib-Fenster, wenn der Aufrufer `--show` übergibt.
+
+**Umfang / DoD.** Dieser Durchlauf deckt Identitäts- und Preview-Hygiene mit
+Tests ab; in `src/` verbleiben keine hardcodierten Patientenpfade unter
+`DicomData/`. Verbleibende DoD: Das ADR-0008-Ausgabe-Gate entscheiden, bevor
+JPEG-Encoder-Einstellungen zu `render_metadata` hinzugefügt werden.
+**Abhängigkeiten.** WP-I-Harness; der verbleibende JPEG-Punkt hängt ebenfalls
+von der ADR-0008-Versionsentscheidung ab. **Hebel.** Niedrig.
+
+---
+
+## Empfohlene Reihenfolge
 
 ```text
-Architecture handoffs (docs/architecture/*, ADR review)   done for DICOM/JPG core
-WP-I  E2E harness + CI          done 2026-07-12
-WP-J  ScrabbleGAN + injection integration  implemented; ADR-0010 and full gates open
-  after WP-B..WP-G DICOM/JPG handoffs:
-WP-K  Validators & DICOM conformance
-WP-L  Multi-frame policy        open, pairs with WP-K
-WP-O  Declarative param spec    open, after WP-D stage split
-WP-N  Docstring migration       open, spotchecks only in current pass
-WP-Q  Manifest split            open, after ADR-0008 version decision
-WP-M  Batch mode                open, after WP-G seed/clock core
-WP-P  Render-pass reuse         done 2026-07-13
-WP-R  Hygiene bundle            partially implemented; JPEG point waits for ADR-0008
+Architekturübergaben (docs/architecture/*, ADR-Review)   für DICOM/JPG-Kern erledigt
+WP-I  E2E-Harness + CI                         erledigt 2026-07-12
+WP-J  ScrabbleGAN + Injektionsintegration      implementiert; ADR-0010 und vollständige Gates offen
+      nach den DICOM/JPG-Übergaben WP-B..WP-G:
+WP-K  Validatoren und DICOM-Konformität
+WP-L  Multi-Frame-Richtlinie                   offen, zusammen mit WP-K
+WP-O  Deklarative Parameterspezifikation       offen, nach WP-D-Stufenaufteilung
+WP-N  Docstring-Migration                      offen, im aktuellen Durchlauf nur Stichproben
+WP-Q  Manifestaufteilung                       offen, nach ADR-0008-Versionsentscheidung
+WP-M  Batch-Modus                              offen, nach WP-G-Seed-/Uhr-Kern
+WP-P  Wiederverwendung des Render-Passes       erledigt 2026-07-13
+WP-R  Hygiene-Bundle                           teilweise implementiert; JPEG-Punkt wartet auf ADR-0008
 ```
 
-## How to run a package
+## Ausführung eines Pakets
 
-Design packages: point a fresh Fable session at one package ("Execute WP-K
-from `docs/fable-work-packages.md`; read the referenced code, produce the
-deliverable docs, end with an implementation handoff; do not modify `src/`").
-Implementation packages: hand the package section plus its referenced spec to
-Opus/Codex directly. Keep one package per session.
+Design-Pakete: Eine neue Fable-Sitzung auf ein Paket ansetzen („WP-K aus
+`docs/fable-work-packages.md` ausführen; den referenzierten Code lesen, die
+Dokumente als Ergebnis erzeugen, mit einer Implementierungsübergabe enden;
+`src/` nicht ändern“). Implementierungspakete: Den Paketabschnitt samt
+referenzierter Spezifikation direkt an Opus/Codex übergeben. Ein Paket pro
+Sitzung bearbeiten.

@@ -1,9 +1,10 @@
-# Format Adapter Contract (WP-F)
+# Format-Adapter-Vertrag (WP-F)
 
-Status: implemented for DICOM/JPG and the dedicated PDF workflow, updated
-2026-07-14. ADR-0006 defines one loader/writer seam per injected modality.
+Status: für DICOM/JPG und den dedizierten PDF-Workflow implementiert, aktualisiert
+2026-07-14. ADR-0006 definiert eine Loader-/Writer-Schnittstelle pro
+Injektionsmodalität.
 
-## Contract
+## Vertrag
 
 ```python
 class DocumentLoader(Protocol):
@@ -20,67 +21,70 @@ class DocumentWriter(Protocol):
     def write(self, document: InjectedDocument, output_path: Path) -> None: ...
 ```
 
-`SourceDocument` and `InjectedDocument` are the typed seam models in
-`models/adapters.py`. DICOM and JPG use the contract directly. Their registry
-entries are resolved by source extension and the runner does not contain
-format-specific load/save branches.
+`SourceDocument` und `InjectedDocument` sind die typisierten
+Schnittstellenmodelle in `models/adapters.py`. DICOM und JPG verwenden den
+Vertrag direkt. Ihre Registry-Einträge werden über die Quellendung aufgelöst;
+der Runner enthält keine formatspezifischen Load-/Save-Zweige.
 
-## PDF modality
+## PDF-Modalität
 
-PDF is a first-class input modality, not a post-run composer. The PDF operation
-accepts an input PDF template, an already injected DICOM, and that DICOM run's
-JSON annotation. The PDF loader validates the input PDF and page geometry. The
-existing DICOM loader reads the injected frame, and the canonical run-record
-loader validates the annotation. The PDF writer places the preview associated
-with that frame on the
-selected page, maps image-space quads to PDF-space quads, merges a new layer
-onto a copy of the input PDF, and writes the PDF sidecar.
+PDF ist eine eigenständige Eingabemodalität und kein Composer nach dem Run. Die PDF-Operation
+akzeptiert ein PDF-Eingabe-Template, ein bereits injiziertes DICOM und die
+JSON-Annotation dieses DICOM-Runs. Der PDF-Loader validiert Eingabe-PDF und
+Seitengometrie. Der bestehende DICOM-Loader liest den injizierten Frame, der
+kanonische Run-Record-Loader validiert die Annotation. Der PDF-Writer platziert
+die zugehörige Preview auf der ausgewählten Seite, bildet Bildraum-Quads auf
+PDF-Raum-Quads ab, führt eine neue Ebene mit einer Kopie der Eingabe-PDF
+zusammen und schreibt den PDF-Sidecar.
 
-PDF-specific request/response models live in `injection_pipeline/pdf/`. They
-own page, slot, placement, and sidecar fields; shared `ImagePoint`, `PdfPoint`,
-and `Quad` remain in `models/geometry.py`. The PDF implementation must not add
-PDF branches to the DICOM/JPG injection engine.
+PDF-spezifische Request-/Response-Modelle liegen in
+`injection_pipeline/pdf/`. Sie besitzen Seiten-, Slot-, Platzierungs- und
+Sidecar-Felder; die gemeinsamen Modelle `ImagePoint`, `PdfPoint` und `Quad`
+bleiben in `models/geometry.py`. Die PDF-Implementierung darf dem DICOM/JPG-
+Injektions-Engine keine PDF-Zweige hinzufügen.
 
-Concrete entry points are `PdfLoader.load(path)` and
+Konkrete Einstiegspunkte sind `PdfLoader.load(path)` und
 `PdfWriterAdapter.write(template, dicom_path, annotation_path, output_root,
-slot, page_index)`. The writer returns typed PDF output artifacts.
+slot, page_index)`. Der Writer gibt typisierte PDF-Ausgabe-Artefakte zurück.
 
-| Concern | DICOM | JPG | PDF |
+| Aspekt | DICOM | JPG | PDF |
 |---|---|---|---|
-| Loader | pydicom dataset and frame | Pillow RGB image | PDF pages and page geometry |
-| Metadata injection | DICOM tag plan | none | none |
-| Write | DICOM pixel array and tags | JPEG pixels | reportlab overlay merged with input via pypdf |
-| Output | `.dcm` | `.jpg` | `.pdf` plus JSON sidecar |
+| Loader | pydicom-Dataset und Frame | Pillow-RGB-Bild | PDF-Seiten und Seitengeometrie |
+| Metadaten-Injektion | DICOM-Tag-Plan | keine | keine |
+| Schreiben | DICOM-Pixelarray und Tags | JPEG-Pixel | reportlab-Overlay, über pypdf mit Input zusammengeführt |
+| Ausgabe | `.dcm` | `.jpg` | `.pdf` plus JSON-Sidecar |
 
-The PDF source files are never modified. Output is written under
-`output/pdf/<run_id>/<template-stem>-<slot>/` so the source DICOM run remains
-byte-identical for the DICOM/JPG reproducibility harness.
+Die PDF-Quelldateien werden nie verändert. Die Ausgabe wird unter
+`output/pdf/<run_id>/<template-stem>-<slot>/` abgelegt, damit der Quell-Run von
+DICOM für den DICOM/JPG-Reproduzierbarkeitstest byteidentisch bleibt.
 
-The public `make_pdf` API keeps the same adapter boundary but composes
-multiple already injected images plus multiple text specs into one PDF. It
-reuses PDF loaders/writers and shared geometry where practical, while owning
-separate composition models for multi-item placement, seedable image rotation,
-page appending, and a `PdfMakeArtifacts` return object with generated PDF,
-annotated PDF, sidecar, and layout metadata.
+Die öffentliche `make_pdf`-API behält dieselbe Adaptergrenze bei, setzt aber
+mehrere bereits injizierte Bilder sowie mehrere Textspezifikationen in ein PDF.
+Sie verwendet PDF-Loader/Writer und gemeinsame Geometrie, wo dies sinnvoll ist,
+besitzt aber eigene Kompositionsmodelle für die Platzierung mehrerer Elemente,
+die geseedete Bildrotation, das Anhängen von Seiten und ein
+`PdfMakeArtifacts`-Rückgabeobjekt mit erzeugtem PDF, annotiertem PDF, Sidecar
+und Layout-Metadaten.
 
-## PDF implementation handoff
+## PDF-Implementierungsübergabe
 
-The approved scope and tests are maintained in
-`docs/pdf-template-injection-plan.md`. The implementation adds `reportlab` and
-`pypdf`, exposes a PDF loader/writer pair, and exposes a CLI operation that
-requires `--input-pdf`, `--input-dicom`, and `--dicom-annotation` (plus optional
-`--output-dir`, `--slot`, and `--page-index`). It must
-preserve all input PDF pages and source annotation/corner order.
+Der freigegebene Umfang und die Tests werden in
+`docs/pdf-template-injection-plan.md` gepflegt. Die Implementierung ergänzt
+`reportlab` und `pypdf`, stellt ein PDF-Loader/Writer-Paar bereit und bietet eine
+CLI-Operation, die `--input-pdf`, `--input-dicom` und `--dicom-annotation`
+benötigt (sowie optional `--output-dir`, `--slot` und `--page-index`). Alle
+Eingabe-PDF-Seiten sowie die Reihenfolge der Quell-Annotationen und -Ecken
+müssen erhalten bleiben.
 
-## Implementation status
+## Implementierungsstatus
 
-Implemented for DICOM/JPG:
+Für DICOM/JPG implementiert:
 
-- adapter models, protocols, and extension registry;
-- DICOM loader/writer with tag mutation and pixel persistence;
-- JPG loader/writer with RGB conversion and JPEG persistence; and
-- runner lookup and unit/integration coverage.
+- Adaptermodelle, Protokolle und Erweiterungsregistry;
+- DICOM-Loader/Writer mit Tagänderung und Pixelspeicherung;
+- JPG-Loader/Writer mit RGB-Konvertierung und JPEG-Speicherung; sowie
+- Runner-Auflösung und Unit-/Integrationsabdeckung.
 
-PDF loader/writer, sidecar models, and CLI are implemented. Broader
-operational fixture coverage remains open. Their schema version is
-`0.3.0-pdf-prototype` under ADR-0008.
+PDF-Loader/Writer, Sidecar-Modelle und CLI sind implementiert. Eine breitere
+Abdeckung mit operativen Fixtures bleibt offen. Ihre Schema-Version ist
+`0.3.0-pdf-prototype` gemäß ADR-0008.

@@ -1,24 +1,26 @@
-# Ground-truth schema changelog
+# Ground-Truth-Schema-Änderungsprotokoll
 
-This changelog is the single version history required by ADR-0008. Run
-records and PDF annotation sidecars have distinct `record_type` values but
-share the same version namespace.
+Dieses Änderungsprotokoll ist die von ADR-0008 geforderte einzige
+Versionshistorie. Run-Records und PDF-Annotations-Sidecars haben verschiedene
+`record_type`-Werte, teilen sich aber denselben Versionsnamensraum.
 
 ## 0.3.0-pdf-prototype — 2026-07-14
 
-Added the PDF modality sidecar. It links an input PDF template, an already
-injected DICOM, and the validated DICOM `ground_truth.json` to the generated
-PDF and transformed PDF-space annotation quads. PDF input/output is handled by
-the dedicated PDF loader/writer pair; source files are never modified.
+PDF-Modalitäts-Sidecar hinzugefügt. Er verknüpft ein PDF-Eingabe-Template, ein
+bereits injiziertes DICOM und das validierte DICOM-`ground_truth.json` mit der
+erzeugten PDF-Datei und transformierten PDF-Raum-Annotations-Quads. PDF-
+Eingabe/Ausgabe wird vom dedizierten PDF-Loader-/Writer-Paar verarbeitet;
+Quelldateien werden nie verändert.
 
-## 0.2.0-prototype — existing
+## 0.2.0-prototype — bestehend
 
-Current DICOM/JPG `RunRecord` schema. Existing parsers and byte-compatibility
-fixtures remain valid.
+Aktuelles DICOM/JPG-`RunRecord`-Schema. Bestehende Parser und
+Byte-Kompatibilitäts-Fixtures bleiben gültig.
 
-## Change policy
+## Änderungsregeln
 
-Additive fields require a minor version and a fixture. Breaking reads require a
-major (or pre-1.0 minor) bump, migration note, and a superseding ADR. Parsers
-must continue accepting every published version unless an explicit decision
-retires one.
+Zusätzliche Felder benötigen eine Minor-Version und ein Fixture. Breaking Reads
+benötigen einen Major- (oder vor 1.0 Minor-)Versionssprung, einen
+Migrationshinweis und ein ersetzendes ADR. Parser müssen weiterhin jede
+veröffentlichte Version akzeptieren, sofern eine explizite Entscheidung sie
+nicht außer Kraft setzt.

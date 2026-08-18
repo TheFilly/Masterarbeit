@@ -1,34 +1,39 @@
-# ADR-0010: Dynamic handwriting appearance from canonical masks
+# ADR-0010: Dynamisches Handschrift-Erscheinungsbild aus kanonischen Masken
 
 ## Status
 
 Accepted
 
-## Context
+## Kontext
 
-DICOM and JPG frames can contain both dark and bright regions. A handwriting
-asset with a generator-baked ink color is therefore not reliably readable, and
-creating separate black/white assets multiplies cache entries without changing
-the handwriting shape.
+DICOM- und JPG-Frames können sowohl dunkle als auch helle Bereiche enthalten.
+Ein Handschrift-Asset mit einer vom Generator fest eingebrannten Tintenfarbe
+ist daher nicht zuverlässig lesbar. Separate schwarze/weiße Assets würden die
+Cache-Einträge vervielfachen, ohne die Handschriftform zu verändern.
 
-## Decision
+## Entscheidung
 
-The separate handwriting mask is the canonical visual source. The renderer
-reconstructs the RGBA ink layer at the final position and samples the
-display-mapped RGB frame only under the rotated mask.
+Die separate Handschriftmaske ist die kanonische visuelle Quelle. Der Renderer
+rekonstruiert die RGBA-Tintenschicht an der finalen Position und sampelt den
+display-gemappten RGB-Frame nur unterhalb der rotierten Maske.
 
-- Auto mode selects white below median luminance `128` and black otherwise.
-- A p10-p90 spread above `96`, contrast below `64`, or fewer than eight valid
-  samples activates a two-pixel halo.
-- No valid samples use white ink with a black halo.
-- Explicit black, gray, or white overrides bypass automatic color selection.
-- The halo is visual only; ground truth continues to use the original ink mask.
-- Generator cache identity excludes legacy presentation fields `ink_color` and
-  `background`; the renderer version is bumped for incompatible old bundles.
+- Der Auto-Modus wählt bei einer mittleren Luminanz unter `128` Weiß und sonst
+  Schwarz.
+- Eine p10-p90-Spanne über `96`, ein Kontrast unter `64` oder weniger als acht
+  gültige Samples aktivieren einen Zwei-Pixel-Halo.
+- Ohne gültige Samples wird weiße Tinte mit schwarzem Halo verwendet.
+- Explizite Werte `black`, `gray` oder `white` umgehen die automatische
+  Farbauswahl.
+- Der Halo ist rein visuell; Ground Truth verwendet weiterhin die ursprüngliche
+  Tintenmaske.
+- Die Generator-Cache-Identität schließt die Legacy-Präsentationsfelder
+  `ink_color` und `background` aus; bei inkompatiblen alten Bundles wird die
+  Renderer-Version erhöht.
 
-## Consequences
+## Konsequenzen
 
-Color changes do not require regenerated handwriting assets. Render metadata
-records the selected color, actual contrast mode, luminance statistics, and
-decision reason. Legacy manifests remain readable, but their baked image color
-or background no longer controls the canonical render path.
+Farbänderungen erfordern keine neu erzeugten Handschrift-Assets. Render-
+Metadaten speichern die gewählte Farbe, den tatsächlichen Kontrastmodus,
+Luminanzstatistiken und den Entscheidungsgrund. Legacy-Manifeste bleiben
+lesbar, aber ihre eingebrannte Bildfarbe oder ihr Hintergrund steuern den
+kanonischen Render-Pfad nicht mehr.

@@ -1,119 +1,128 @@
-# Upstream Review: ScrabbleGAN Batch Tooling vs. amzn/convolutional-handwriting-gan
+# Upstream-Review: ScrabbleGAN-Batch-Tooling gegenüber amzn/convolutional-handwriting-gan
 
-Date: 2026-06-11. Compared the local v1 batch tooling against the official
+Datum: 2026-06-11. Das lokale v1-Batch-Tooling wurde mit dem offiziellen
 Amazon repository (`https://github.com/amzn/convolutional-handwriting-gan`,
-README and `environmentPytorch12.yml` on `master`).
+README und `environmentPytorch12.yml` auf `master`) verglichen.
 
-Implementation status update: the blockers below were addressed by the
-repository's single-text wrapper, Micromamba CPU image, checkpoint-option
-adapter, companion-checkpoint handling, and manifest compatibility changes.
-The real Docker/upstream path was verified with the local IAM checkpoint on
-2026-07-15. This file remains the historical review record; the current
-operational instructions are in `tools/handwriting/scrabblegan/README.md`.
+Aktualisierung des Implementierungsstatus: Die folgenden Blocker wurden durch
+den Einzeltext-Wrapper des Repositorys, das Micromamba-CPU-Image, den
+Checkpoint-Options-Adapter, die Verarbeitung von Begleit-Checkpoints und
+Änderungen an der Manifestkompatibilität behoben. Der echte Docker-/Upstream-
+Pfad wurde am 2026-07-15 mit dem lokalen IAM-Checkpoint verifiziert. Diese
+Datei bleibt der historische Review-Bericht; die aktuellen Betriebsanweisungen
+stehen in `tools/handwriting/scrabblegan/README.md`.
 
-## Verdict
+## Urteil
 
-The original review verdict was that the local code was only a batch scaffold.
-That verdict applied before the implementation work described above and is
-retained below as historical context.
+Das ursprüngliche Review-Urteil war, dass der lokale Code nur ein Batch-
+Grundgerüst darstellte. Dieses Urteil galt vor der oben beschriebenen
+Implementierungsarbeit und bleibt unten als historischer Kontext erhalten.
 
-## Findings
+## Befunde
 
-### 1. The assumed inference interface does not exist upstream (blocker)
+### 1. Die angenommene Inferenzschnittstelle existiert im Upstream nicht (Blocker)
 
 `render.py` defaults to calling
 `generate.py --text {text} --seed {seed} --checkpoint {checkpoint} --output {output}`
-inside the mounted source. The official repo has **no `generate.py`** and no
-script that renders one text string to one PNG. Generation upstream is
-`generate_wordsLMDB.py`, which:
+im eingebundenen Source-Verzeichnis auf. Das offizielle Repository besitzt
+**kein `generate.py`** und kein Skript, das eine Textzeichenfolge in eine PNG
+rendert. Die Upstream-Generierung erfolgt über
+`generate_wordsLMDB.py`, wobei:
 
-- samples words from a **lexicon** (no `--text`),
-- writes **LMDB databases of TIFF images** (no `--output <png>`),
-- has **no `--seed`** parameter,
-- loads the model via the pix2pix-style `TestOptions`/`create_model()`
-  machinery (`--name <experiment>`), not via a `--checkpoint <file>` flag.
+- sampelt Wörter aus einem **Lexikon** (kein `--text`),
+- schreibt **LMDB-Datenbanken mit TIFF-Bildern** (kein `--output <png>`),
+- besitzt keinen **`--seed`**-Parameter,
+- lädt das Modell über die Pix2pix-artige Mechanik
+  `TestOptions`/`create_model()` (`--name <experiment>`), nicht über ein
+  `--checkpoint <file>`-Flag.
 
-**Change needed:** write a small custom inference wrapper (e.g.
-`generate_single.py`) that lives in this repo and is copied into the image or
-mounted next to the source. It must: build the options object, load `netG`
-weights, encode the requested text with the dataset alphabet, set
-`torch.manual_seed`/`numpy.random.seed`/`random.seed` from the manifest seed,
-run the generator, and save a PNG to `--output`. Then make this wrapper the
-documented `--generator-command` (or the built-in default) instead of the
-fictional `generate.py`.
+**Erforderliche Änderung:** Einen kleinen eigenen Inferenz-Wrapper (z. B.
+`generate_single.py`) schreiben, der in diesem Repository liegt und in das
+Image kopiert oder neben dem Source eingebunden wird. Er muss das Options-
+Objekt aufbauen, `netG`-Gewichte laden, den angeforderten Text mit dem
+Datenalphabet kodieren, `torch.manual_seed`/`numpy.random.seed`/`random.seed`
+aus dem Manifest-Seed setzen, den Generator ausführen und eine PNG nach
+`--output` schreiben. Anschließend diesen Wrapper statt des fiktiven
+`generate.py` als dokumentierten `--generator-command` (oder eingebauten
+Standard) verwenden.
 
-### 2. The Docker image cannot run ScrabbleGAN (blocker)
+### 2. Das Docker-Image kann ScrabbleGAN nicht ausführen (Blocker)
 
-- **PyTorch is never installed.** The only Python dependency installed is
-  `Pillow<8`; the `PYTORCH_VERSION` ARG/ENV is dead code. Upstream needs
-  PyTorch 1.2.0, torchvision 0.2.1, numpy, lmdb, opencv, etc. (see
-  `environmentPytorch12.yml`).
-- **Wrong CUDA base.** The base image is `nvidia/cuda:9.0-...`. The upstream
-  README text says "CUDA 9.0", but the pinned conda environment uses
-  `cudatoolkit 10.0.130`, and PyTorch 1.2.0 binaries only exist for CUDA
-  9.2/10.0. Use a CUDA 10.0 + cuDNN 7 base.
-- **`apt-get install python3.6` fails on Ubuntu 16.04.** Xenial ships Python
-  3.5; 3.6 requires the deadsnakes PPA or (better) Miniconda. The cleanest fix
-  is to install Miniconda and create the env from upstream's
-  `environmentPytorch12.yml` (Python 3.6.8, PyTorch 1.2.0, cudatoolkit 10.0).
-- **Tag availability risk.** Old `nvidia/cuda` tags for CUDA 9/10 on
-  ubuntu16.04 have been pruned from Docker Hub over time; verify the chosen
-  tag still exists (or pull from `nvcr.io`) before relying on it.
+- **PyTorch wird nie installiert.** Die einzige installierte Python-
+  Abhängigkeit ist `Pillow<8`; das ARG/ENV `PYTORCH_VERSION` ist toter Code.
+  Upstream benötigt PyTorch 1.2.0, torchvision 0.2.1, numpy, lmdb, opencv usw.
+  (siehe `environmentPytorch12.yml`).
+- **Falsche CUDA-Basis.** Das Basis-Image ist `nvidia/cuda:9.0-...`. Der
+  Upstream-README-Text nennt „CUDA 9.0“, aber die festgelegte Conda-Umgebung
+  verwendet `cudatoolkit 10.0.130`, und PyTorch-1.2.0-Binaries existieren nur
+  für CUDA 9.2/10.0. Eine CUDA-10.0- plus cuDNN-7-Basis verwenden.
+- **`apt-get install python3.6` schlägt unter Ubuntu 16.04 fehl.** Xenial
+  liefert Python 3.5; 3.6 erfordert das deadsnakes-PPA oder (besser) Miniconda.
+  Die sauberste Korrektur ist, Miniconda zu installieren und die Umgebung aus
+  Upstreams `environmentPytorch12.yml` zu erzeugen (Python 3.6.8, PyTorch 1.2.0,
+  cudatoolkit 10.0).
+- **Risiko der Tag-Verfügbarkeit.** Alte `nvidia/cuda`-Tags für CUDA 9/10 auf
+  ubuntu16.04 wurden mit der Zeit aus Docker Hub entfernt; den gewählten Tag
+  vor der Verwendung prüfen (oder aus `nvcr.io` beziehen).
 
-### 3. Checkpoint contract does not match upstream (blocker)
+### 3. Der Checkpoint-Vertrag passt nicht zum Upstream (Blocker)
 
-The tooling expects a single mounted `model.pth`. Upstream saves weights as
-`<checkpoints_dir>/<experiment_name>/<epoch>_net_G.pth` and loads them through
-`model.setup(opt)`. Additionally, **no pretrained weights are published** -
-the model must be trained locally on IAM/RIMES/CVL (datasets must be obtained
-manually). Decide and document:
+Das Tooling erwartet einen einzelnen eingebundenen `model.pth`. Upstream speichert Gewichte als
+`<checkpoints_dir>/<experiment_name>/<epoch>_net_G.pth` und lädt sie über
+`model.setup(opt)`. Außerdem werden **keine vortrainierten Gewichte
+veröffentlicht** — das Modell muss lokal auf IAM/RIMES/CVL trainiert werden
+(Datensätze müssen manuell beschafft werden). Entscheiden und dokumentieren:
 
-- whether the custom wrapper loads a raw `net_G.pth` state dict directly
-  (then a single mounted file is fine; keep the SHA-256 pinning), and
-- that training a checkpoint is a prerequisite step (README currently implies
-  a checkpoint simply exists).
+- ob der eigene Wrapper direkt ein rohes `net_G.pth`-State-Dict lädt (dann ist
+  eine einzelne eingebundene Datei ausreichend; SHA-256-Festlegung beibehalten),
+  und
+- dass das Training eines Checkpoints eine Voraussetzung ist (das README
+  erweckt derzeit den Eindruck, ein Checkpoint existiere einfach).
 
-### 4. `transparent` background mode only works with the fake renderer (bug)
+### 4. Der Hintergrundmodus `transparent` funktioniert nur mit dem Fake-Renderer (Fehler)
 
-Real ScrabbleGAN output is grayscale with a white-ish background and **no
-alpha channel**. `masks._build_mask` uses the alpha channel when
-`background == "transparent"`; after `convert("RGBA")` every pixel has alpha
-255, so the mask becomes the full image and the normalized output is a solid
-ink rectangle.
+Die echte ScrabbleGAN-Ausgabe ist ein Graustufenbild mit weißlichem Hintergrund
+und **ohne Alphakanal**. `masks._build_mask` verwendet bei
+`background == "transparent"`; nach `convert("RGBA")` hat jedes Pixel den
+Alpha-Wert 255, daher wird die Maske zum vollständigen Bild und die normalisierte
+Ausgabe zu einem soliden Tintenrechteck.
 
-**Change needed:** always derive the ink mask from the white-distance
-threshold (or use alpha only when the raw image actually has a non-trivial
-alpha channel), and use `background` solely for compositing the normalized
-output.
+**Erforderliche Änderung:** Die Tintenmaske immer aus dem Abstand-zu-Weiß-
+Schwellenwert ableiten (oder Alpha nur verwenden, wenn das Rohbild tatsächlich
+einen nichttrivialen Alphakanal besitzt) und `background` ausschließlich für
+das Compositing der normalisierten Ausgabe verwenden.
 
-### 5. Text constraints are not validated against the model alphabet (gap)
+### 5. Textbeschränkungen werden nicht gegen das Modellalphabet validiert (Lücke)
 
-ScrabbleGAN generates with a fixed per-dataset alphabet (e.g.
-`IAMcharH32rmPunct` strips punctuation) at 32 px height and ~16 px width per
-character. Consequences for the v1 fields:
+ScrabbleGAN generiert mit einem festen Alphabet pro Datensatz (z. B. entfernt
+`IAMcharH32rmPunct` Satzzeichen) bei 32 px Höhe und etwa 16 px Breite pro
+Zeichen. Folgen für die v1-Felder:
 
-- `patient_id` / `accession_number` values with digits, hyphens, or other
-  symbols may be outside the trained alphabet and produce garbage glyphs.
-- `patient_name` with spaces/umlauts: spaces are not part of word-level
-  generation; multi-word names likely need per-word generation plus
-  compositing.
+- Werte von `patient_id` / `accession_number` mit Ziffern, Bindestrichen oder
+  anderen Symbolen können außerhalb des trainierten Alphabets liegen und
+  unbrauchbare Glyphen erzeugen.
+- `patient_name` mit Leerzeichen/Umlauten: Leerzeichen sind nicht Teil der
+  Generierung auf Wortebene; mehrteilige Namen benötigen wahrscheinlich
+  Generierung pro Wort und anschließendes Compositing.
 
-**Change needed:** validate manifest `text` against the checkpoint's alphabet
-in `manifest.py` (reject or transliterate), and decide a strategy for
-multi-word names.
+**Erforderliche Änderung:** `text` des Manifests in `manifest.py` gegen das
+Checkpoint-Alphabet validieren (ablehnen oder transliterieren) und eine
+Strategie für mehrteilige Namen entscheiden.
 
-### 6. Minor
+### 6. Kleinigkeit
 
-- `ink_color: "white"` with `background: "white"` passes validation but yields
-  an invisible asset (the mask still carries the shape; flag or reject the
-  combination).
-- The per-pixel Python loop in `masks._build_mask` is slow for large batches;
-  a numpy/`Image.point` formulation would be cheap to adopt inside the
-  container env (numpy is available once the upstream env is installed).
+- `ink_color: "white"` mit `background: "white"` besteht zwar die Validierung,
+  erzeugt aber ein unsichtbares Asset (die Maske enthält weiterhin die Form;
+  die Kombination markieren oder ablehnen).
+- Die Python-Pixel-Schleife in `masks._build_mask` ist für große Batches
+  langsam; eine numpy-/`Image.point`-Lösung wäre in der Container-Umgebung
+  leicht einzuführen (numpy ist nach Installation der Upstream-Umgebung
+  verfügbar).
 
-## What is already sound
+## Was bereits solide ist
 
-Container isolation from the Python 3.13 project, the JSONL manifest contract,
-checkpoint/image/mask SHA-256 pinning, relative-path enforcement, failure
-logging, the fake renderer for CI, and the post-run manifest validation all
-match the intended design and can stay as-is.
+Die Isolation des Containers vom Python-3.13-Projekt, der JSONL-Manifestvertrag,
+die SHA-256-Festlegung von Checkpoint/Bild/Maske, die Durchsetzung relativer
+Pfade, Fehlerprotokollierung, der Fake-Renderer für die CI und die
+Manifestvalidierung nach dem Run entsprechen alle dem vorgesehenen Design und
+können unverändert bleiben.

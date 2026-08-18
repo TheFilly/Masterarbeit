@@ -1,77 +1,83 @@
-# ScrabbleGAN Handwriting Batch Scaffold
+# ScrabbleGAN-Handwriting-Batch-Scaffold
 
-This directory contains isolated v1 batch tooling for handwriting assets used
-by the migrated injection pipeline. The batch interface remains the low-level
-generation contract; the runtime asset provider now calls the same contract
-after Faker identity generation when `--font-family handwriting` is selected.
+Dieses Verzeichnis enthält isolierte v1-Batch-Tools für Handschrift-Assets der
+migrierten Injektions-Pipeline. Die Batch-Schnittstelle bleibt der
+Low-Level-Generierungsvertrag; der Runtime-Asset-Provider ruft denselben
+Vertrag nach der Faker-Identitätsgenerierung auf, wenn `--font-family
+handwriting` ausgewählt ist.
 
-The tooling is useful for manifest validation, hashing, fake-renderer tests,
-PNG/mask postprocessing, and downstream injection contracts. The host-side
-provider/cache path, single-text wrapper command contract, option-sidecar
-contract, and hard prerequisite checks are implemented. The Docker/upstream
-path was verified locally on 2026-07-15 with the official source checkout and
-checkpoint under `DicomData/HandwritingAssets/`.
+Die Tools dienen der Manifest-Validierung, dem Hashing, Fake-Renderer-Tests,
+PNG-/Masken-Postprocessing und nachgelagerten Injektionsverträgen. Der
+Provider-/Cache-Pfad auf dem Host, der Befehlsvertrag des Single-Text-Wrappers,
+der Options-Sidecar-Vertrag und die harten Voraussetzungstests sind
+implementiert. Der Docker-/Upstream-Pfad wurde am 2026-07-15 lokal mit dem
+offiziellen Source-Checkout und dem Checkpoint unter
+`DicomData/HandwritingAssets/` verifiziert.
 
-## Scope
+## Umfang
 
-Version 1 supports a batch CLI workflow:
+Version 1 unterstützt einen Batch-CLI-Workflow:
 
-1. Read an input JSONL manifest.
-2. Render or fake-render assets.
-3. Write images, masks, hashes, bounding boxes, and an output manifest under
+1. Ein JSONL-Eingabemanifest lesen.
+2. Assets rendern oder mit dem Fake-Renderer erzeugen.
+3. Bilder, Masken, Hashes, Bounding-Boxen und ein Ausgabemanifest unter
    `DicomData/HandwritingAssets/`.
-4. Validate generated artifacts before injection.
+4. Erzeugte Artefakte vor der Injektion validieren.
 
-No HTTP API exists in v1. The integration adds a local cache lookup and
-generation-on-miss path to `uv run injection-pipeline`; it does not move the
-legacy ScrabbleGAN dependencies into the Python 3.13 environment.
+In v1 gibt es keine HTTP-API. Die Integration ergänzt in
+`uv run injection-pipeline` eine lokale Cache-Suche und Generierung bei einem
+Cache-Miss; die Legacy-ScrabbleGAN-Abhängigkeiten werden nicht in die
+Python-3.13-Umgebung verschoben.
 
-## Runtime Boundary
+## Runtime-Grenze
 
-ScrabbleGAN is legacy research code. Keep it outside the Python 3.13 project.
-The real upstream stack needs an old Python/PyTorch/CUDA environment; do not add
-those dependencies to the main environment.
+ScrabbleGAN ist Legacy-Forschungscode und bleibt außerhalb des Python-3.13-
+Projekts. Der reale Upstream-Stack benötigt eine alte
+Python-/PyTorch-/CUDA-Umgebung; diese Abhängigkeiten dürfen nicht zur
+Hauptumgebung hinzugefügt werden.
 
-Local generated assets, checkpoints, source clones, manifests, and logs belong
-under `DicomData/HandwritingAssets/` or another ignored local path.
+Lokal erzeugte Assets, Checkpoints, Source-Clones, Manifeste und Logs gehören
+unter `DicomData/HandwritingAssets/` oder einen anderen ignorierten lokalen
+Pfad.
 
-## Supported Prototype Fields
+## Unterstützte Prototype-Felder
 
 - `patient_name`
 - `patient_id`
 - `accession_number`
 
-These names describe the handwriting asset contract only. The production
-pipeline remains taxonomy-agnostic.
+Diese Namen beschreiben ausschließlich den Handschrift-Asset-Vertrag. Die
+Produktions-Pipeline bleibt taxonomieagnostisch.
 
-## Manifest Contract
+## Manifest-Vertrag
 
-Input JSONL records must include:
+Eingabe-JSONL-Datensätze müssen enthalten:
 
-- stable `asset_id`
+- stabile `asset_id`
 - `field`
 - `text`
-- `ink_color`: `black`, `gray`, or `white`
+- `ink_color`: `black`, `gray` oder `white`
 - `background`: `transparent` or `white`
-- deterministic `seed`
+- deterministischer `seed`
 
-Output records include:
+Ausgabe-Datensätze enthalten:
 
-- source `asset_id`
-- generated image path
-- ink mask path
-- image and mask SHA-256
-- checkpoint SHA-256
-- `generator_options_sha256` for the resolved options sidecar
-- ScrabbleGAN repository URL and commit
-- rendering options
-- ink bounding box
-- image size
+- Quell-`asset_id`
+- Pfad zum erzeugten Bild
+- Pfad zur Tintenmaske
+- SHA-256 von Bild und Maske
+- Checkpoint-SHA-256
+- `generator_options_sha256` für den aufgelösten Options-Sidecar
+- ScrabbleGAN-Repository-URL und Commit
+- Rendering-Optionen
+- Tinten-Bounding-Box
+- Bildgröße
 
-Use paths relative to the output manifest. Do not write absolute local paths or
-parent-directory traversal into committed fixtures.
+Pfade sind relativ zum Ausgabe-Manifest anzugeben. Absolute lokale Pfade oder
+Parent-Directory-Traversal dürfen nicht in versionierte Fixtures geschrieben
+werden.
 
-## Local Layout
+## Lokales Layout
 
 ```text
 DicomData/HandwritingAssets/
@@ -87,41 +93,44 @@ DicomData/HandwritingAssets/
 `-- logs/
 ```
 
-`source/.git_commit` must contain the pinned upstream commit when the mounted
-source directory is not a full Git checkout. If `.git_commit` is absent, the
-tool requires a real Git checkout and reads `git rev-parse HEAD`. Pass the
-checkpoint hash to each render and validate command.
+`source/.git_commit` muss den festgelegten Upstream-Commit enthalten, wenn das
+eingebundene Source-Verzeichnis kein vollständiger Git-Checkout ist. Fehlt
+`.git_commit`, benötigt das Tool einen echten Git-Checkout und liest
+`git rev-parse HEAD`. Den Checkpoint-Hash an jeden Render- und
+Validierungsbefehl übergeben.
 
-The options sidecar is required for real rendering. Pass it explicitly with
-`--options-json`/`--handwriting-options-json`, or place one of `options.json`,
-`test_opt.json`, `train_opt.json`, `test_opt.txt`, or `train_opt.txt` next to
-the checkpoint. The upstream `test_opt.txt`/`train_opt.txt` format is accepted;
-its hash is written as `generator_options_sha256` and participates in cache
-identity.
+Der Options-Sidecar ist für echtes Rendering erforderlich. Ihn explizit mit
+`--options-json`/`--handwriting-options-json` übergeben oder eine der Dateien
+`options.json`, `test_opt.json`, `train_opt.json`, `test_opt.txt` oder
+`train_opt.txt` neben dem Checkpoint ablegen. Das Upstream-Format von
+`test_opt.txt`/
+`train_opt.txt` wird akzeptiert; sein Hash wird als
+`generator_options_sha256` geschrieben und fließt in die Cache-Identität ein.
 
-## Commands
+## Befehle
 
-Build the image:
+Das Image bauen:
 
 ```powershell
 docker build --platform linux/amd64 -t injection-scrabblegan tools/handwriting/scrabblegan
 ```
 
-The image uses Micromamba to solve the historical Python 3.6/PyTorch 1.2
-environment. This keeps the upstream runtime contract while avoiding the
-memory-heavy legacy Conda solver. The ScrabbleGAN runtime is pinned to
-`linux/amd64` because those legacy Conda packages are not available for
-`linux-aarch64`. Linux and Windows x86_64 hosts run that image natively; Apple
-Silicon and Windows-on-ARM hosts use Docker's amd64 emulation. On Windows with
-the WSL2 backend, configure about 12 GB of WSL memory and 8 GB of swap for the
-initial build. Do not upgrade the pinned legacy Python/PyTorch stack inside the
-image.
+Das Image verwendet Micromamba für die historische Python-3.6-/PyTorch-1.2-
+Umgebung. Dadurch bleibt der Upstream-Runtime-Vertrag erhalten, ohne den
+speicherintensiven Legacy-Conda-Solver zu verwenden. Die ScrabbleGAN-Runtime
+ist auf `linux/amd64` festgelegt, weil diese Legacy-Conda-Pakete für
+`linux-aarch64` nicht verfügbar sind. Linux- und Windows-x86_64-Hosts führen
+das Image nativ aus; Apple-Silicon- und Windows-on-ARM-Hosts verwenden Docker-
+amd64-Emulation. Unter Windows mit WSL2 sollten für den initialen Build etwa
+12 GB WSL-Speicher und 8 GB Swap konfiguriert werden. Der festgelegte
+Legacy-Python-/PyTorch-Stack darf im Image nicht aktualisiert werden.
 
 ### macOS (zsh/bash)
 
-Docker Desktop must be running. On Apple Silicon, Docker uses amd64
-emulation for this legacy image; keep `--platform linux/amd64` on both build
-and run commands. The following commands use POSIX shell syntax:
+Docker Desktop muss ausgeführt werden. Auf Apple Silicon verwendet Docker für
+dieses Legacy-Image amd64-Emulation; `--platform linux/amd64` muss sowohl beim
+Build als auch beim Run angegeben werden. Die folgenden Befehle verwenden
+POSIX-Shell-Syntax:
 
 ```sh
 docker build --platform linux/amd64 -t injection-scrabblegan tools/handwriting/scrabblegan
@@ -138,20 +147,21 @@ docker run --rm \
     --checkpoint-sha256 PIN_CHECKPOINT_SHA256
 ```
 
-The integrated host commands are shell-independent:
+Die integrierten Host-Befehle sind unabhängig von der Shell:
 
 ```sh
 uv run injection-pipeline --seed 42 --font-family handwriting
 uv run injection-pipeline generate-handwriting --seed 42
 ```
 
-The tested CPU image is approximately 1.9 GB. Keep at least 5 GB free for the
-image, BuildKit layers/cache, local checkpoints, and generated assets. This is
-a practical planning value rather than a hard Docker limit; exact usage depends
-on the local Docker cache. IAM datasets and model training are outside the
-container and require additional storage.
+Das getestete CPU-Image ist ungefähr 1,9 GB groß. Für Image, BuildKit-Layer/
+Cache, lokale Checkpoints und erzeugte Assets sollten mindestens 5 GB frei
+bleiben. Das ist ein praktischer Planungswert und keine harte Docker-Grenze;
+der genaue Bedarf hängt vom lokalen Docker-Cache ab. IAM-Datensätze und
+Modelltraining liegen außerhalb des Containers und benötigen zusätzlichen
+Speicher.
 
-Run the fake renderer for local contract checks:
+Den Fake-Renderer für lokale Vertragsprüfungen ausführen:
 
 ```powershell
 $env:PYTHONPATH = "tools/handwriting/scrabblegan"
@@ -166,7 +176,7 @@ uv run python -m scrabblegan_tool.cli render `
   --fake-renderer
 ```
 
-Validate a run:
+Einen Lauf validieren:
 
 ```powershell
 docker run --rm `
@@ -179,7 +189,7 @@ docker run --rm `
     --checkpoint-sha256 PIN_CHECKPOINT_SHA256
 ```
 
-Use a generated manifest through the explicit compatibility path:
+Ein erzeugtes Manifest über den expliziten Kompatibilitätspfad verwenden:
 
 ```powershell
 uv run injection-pipeline `
@@ -187,41 +197,43 @@ uv run injection-pipeline `
   --handwriting-asset patient_name=patient-name-001
 ```
 
-Integrated commands are:
+Integrierte Befehle:
 
 ```powershell
 uv run injection-pipeline --seed 42 --font-family handwriting
 uv run injection-pipeline generate-handwriting --seed 42
 ```
 
-The integrated command generates the Faker identity before resolving the asset
-bundle for the visible fields `patient_name`, `patient_id`, and
-`accession_number`. A cache hit reuses compatible images and masks; a cache miss
-starts the configured Docker image, invokes the isolated renderer, and writes the bundle below
-`DicomData/HandwritingAssets/`, and continues with injection. The exact cache
-identity includes the seed, schema, field, generated text, checkpoint SHA-256,
-upstream commit, generator manifest hash, and `options_sha256`. The runtime
-starts automatically on cache miss; if the checkpoint, options sidecar,
-source metadata, Docker image, or runtime is unavailable, the command fails
-without a font fallback. `--handwriting-runtime-command` remains available as
-an explicit host-side override for tests or another isolated runtime.
+Der integrierte Befehl erzeugt die Faker-Identität, bevor er das Asset-Bundle
+für die sichtbaren Felder `patient_name`, `patient_id` und `accession_number`
+auflöst. Ein Cache-Hit verwendet kompatible Bilder und Masken erneut; ein
+Cache-Miss startet das konfigurierte Docker-Image, ruft den isolierten Renderer
+auf, schreibt das Bundle unter `DicomData/HandwritingAssets/` und setzt die
+Injektion fort. Die genaue Cache-Identität umfasst Seed, Schema, Feld,
+erzeugten Text, Checkpoint-SHA-256, Upstream-Commit, Generator-Manifest-Hash
+und `options_sha256`. Bei einem Cache-Miss startet die Runtime automatisch;
+fehlen Checkpoint, Options-Sidecar, Source-Metadaten, Docker-Image oder Runtime,
+schlägt der Befehl ohne Font-Fallback fehl. `--handwriting-runtime-command`
+bleibt als expliziter Host-Override für Tests oder eine andere isolierte Runtime
+verfügbar.
 
-The real render path uses the IAM English checkpoint options. The wrapper
-creates a minimal temporary lexicon for single-word inference, passes the
-matching IAM alphabet and OCR options, and copies companion `latest_net_D.pth`
-and `latest_net_OCR.pth` files when they are present beside the generator
-checkpoint. The output validator accepts both the low-level JSONL format and
-the pipeline's JSON object with an `assets` list. Grayscale ScrabbleGAN output
-is normalized from the model's `[-1, 1]` range and converted to a soft alpha
-mask, preserving anti-aliased handwriting edges. The provider records a
-renderer version in the cache identity, so assets from older rasterization
-logic are not silently reused.
+Der reale Render-Pfad verwendet die IAM-englischen Checkpoint-Optionen. Der
+Wrapper erstellt für Single-Word-Inferenz ein minimales temporäres Lexikon,
+übergibt das passende IAM-Alphabet und die OCR-Optionen und kopiert vorhandene
+Begleitdateien `latest_net_D.pth` und `latest_net_OCR.pth` neben dem Generator-
+Checkpoint. Der Ausgabe-Validator akzeptiert sowohl das Low-Level-JSONL-Format
+als auch das JSON-Objekt der Pipeline mit einer `assets`-Liste. Graustufen-
+ScrabbleGAN-Ausgabe wird aus dem Modellbereich `[-1, 1]` normalisiert und in
+eine weiche Alpha-Maske umgewandelt, wodurch antialiaste Handschriftränder
+erhalten bleiben. Der Provider schreibt eine Renderer-Version in die
+Cache-Identität, sodass Assets älterer Rasterisierungslogik nicht unbemerkt
+wiederverwendet werden.
 
-## Providing the official upstream source locally
+## Offizielle Upstream-Source lokal bereitstellen
 
-Do not copy IAM, checkpoints, generated images, or other external data into
-tracked repository paths. Keep the official source under the ignored asset
-root:
+IAM, Checkpoints, erzeugte Bilder oder andere externe Daten dürfen nicht in
+versionierte Repository-Pfade kopiert werden. Die offizielle Source unter dem
+ignorierten Asset-Stamm ablegen:
 
 ```powershell
 git clone https://github.com/amzn/convolutional-handwriting-gan `
@@ -234,19 +246,21 @@ $commit = git -C DicomData/HandwritingAssets/scrabblegan/source rev-parse HEAD
 )
 ```
 
-If you cannot keep the `.git` directory, copy only the source tree into
-`DicomData/HandwritingAssets/scrabblegan/source` and keep the `.git_commit`
-file with the exact commit hash. Place the trained generator checkpoint and
-its `test_opt`/`train_opt` sidecar under
-`DicomData/HandwritingAssets/scrabblegan/checkpoints/`; keep both untracked.
+Wenn das `.git`-Verzeichnis nicht erhalten werden kann, nur den Source-Baum nach
+`DicomData/HandwritingAssets/scrabblegan/source` kopieren und die Datei
+`.git_commit` mit dem exakten Commit-Hash beibehalten. Den trainierten
+Generator-Checkpoint und den `test_opt`-/`train_opt`-Sidecar unter
+`DicomData/HandwritingAssets/scrabblegan/checkpoints/` ablegen; beide Dateien
+unverfolgt lassen.
 
-## Failure Modes
+## Fehlerfälle
 
-The tool rejects missing manifests, source, checkpoint, options sidecar, source
-commit metadata, unknown fields, invalid colors or backgrounds, empty text,
-duplicate `asset_id`s, checkpoint hash mismatches, empty masks, image/mask size
-mismatch, invalid hashes, absolute paths, parent-directory traversal, text
-outside the checkpoint alphabet, and white ink on a white background.
+Das Tool weist fehlende Manifeste, Source, Checkpoints, Options-Sidecars,
+Source-Commit-Metadaten, unbekannte Felder, ungültige Farben oder Hintergründe,
+leeren Text, doppelte `asset_id`s, Checkpoint-Hash-Abweichungen, leere Masken,
+abweichende Bild-/Maskengrößen, ungültige Hashes, absolute Pfade,
+Parent-Directory-Traversal, Text außerhalb des Checkpoint-Alphabets und weiße
+Tinte auf weißem Hintergrund zurück.
 
-Individual render failures go to `failures.jsonl`; successful assets go to
-`manifest.jsonl`.
+Individuelle Render-Fehler werden in `failures.jsonl` geschrieben; erfolgreiche
+Assets in `manifest.jsonl`.
