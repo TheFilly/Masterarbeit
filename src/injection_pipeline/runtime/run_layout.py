@@ -9,8 +9,8 @@ _SAFE_RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 # Input: Laufparameter wie `filetype`, Zeitstempel, Seed und Renderoptionen.
 # Output: Stabiler Run-Identifier fuer Ausgabeordner und Manifest.
-# Die Funktion codiert die wichtigsten Reproduzierbarkeitsparameter in einen
-# menschenlesbaren Namen.
+# Die Funktion codiert die wichtigsten Reproduzierbarkeitsparameter einschliesslich
+# der sichtbaren Label- und Handwriting-Optionen in einen menschenlesbaren Namen.
 def build_run_id(
     *,
     filetype: str,
@@ -21,12 +21,17 @@ def build_run_id(
     font_size_pct: int,
     font_family: str,
     text_background: str | None,
+    show_label_boxes: str = "n",
+    handwriting_ink_color: str = "auto",
+    handwriting_contrast_mode: str = "none",
 ) -> str:
     text_background_label = text_background or "none"
     return (
         f"{filetype}-{run_timestamp.strftime('%d%m%Y')}-{run_timestamp.strftime('%H%M')}"
         f"-seed{seed:04d}-angle{rotation_degrees:03d}-{placement_mode}"
         f"-fs{font_size_pct}-{font_family}-{text_background_label}"
+        f"-labels{show_label_boxes}-ink{handwriting_ink_color}"
+        f"-contrast{handwriting_contrast_mode}"
     )
 
 

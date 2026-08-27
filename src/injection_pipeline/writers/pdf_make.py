@@ -89,7 +89,7 @@ def make_pdf_composition(
         annotated_pdf=output_dir / "pdf_make_annotated.pdf",
         annotation_json=output_dir / "pdf_make_annotations.json",
     )
-    _validate_output_aliases(template.source_file, outputs)
+    _validate_output_aliases(template.source_file, images, outputs)
     output_dir = _prepare_output_dir(output_dir)
     text_plans = _prepare_text_plans(texts, template.page_sizes[0])
     layout_decisions = build_make_pdf_layout(
@@ -148,23 +148,32 @@ def make_pdf_composition(
     )
 
 
-# Input: Templatequelle und die drei make_pdf-Ausgabepfade.
+# Input: Templatequelle, Bildquellen und die drei make_pdf-Ausgabepfade.
 # Output: Keine Rueckgabe; wirft bei einem Pfadalias.
 # Die Prüfung erfolgt vor dem ersten `mkdir` oder Schreibzugriff und schützt
 # auch Hardlink-/Symlink-Konstellationen, soweit das Betriebssystem sie meldet.
 def _validate_output_aliases(
     source_pdf: Path,
+    images: list[PdfMakeImageInput],
     outputs: PdfMakeOutputFiles,
 ) -> None:
-    for output_path in (
+    sources = [("PDF template", source_pdf)]
+    sources.extend(
+        (f"PDF make image source {index}", image.path)
+        for index, image in enumerate(images)
+    )
+    output_paths = (
         outputs.clean_pdf,
         outputs.annotated_pdf,
         outputs.annotation_json,
-    ):
-        if _paths_alias(source_pdf, output_path):
-            raise ValueError(
-                "PDF template and make_pdf output paths must be different."
-            )
+    )
+    for source_label, source_path in sources:
+        for output_path in output_paths:
+            if _paths_alias(source_path, output_path):
+                raise ValueError(
+                    f"{source_label} and make_pdf output paths must be different: "
+                    f"{source_path} and {output_path}."
+                )
 
 
 # Input: Zwei Datei- oder Zielpfade.

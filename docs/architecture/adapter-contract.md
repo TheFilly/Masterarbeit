@@ -57,6 +57,8 @@ slot, page_index)`. Der Writer gibt typisierte PDF-Ausgabe-Artefakte zurück.
 Die PDF-Quelldateien werden nie verändert. Die Ausgabe wird unter
 `output/pdf/<run_id>/<template-stem>-<slot>/` abgelegt, damit der Quell-Run von
 DICOM für den DICOM/JPG-Reproduzierbarkeitstest byteidentisch bleibt.
+Der Writer weist Aliase zwischen diesen Quellen und jedem erzeugten Ausgabe-
+pfad zurück, bevor das Ausgabeverzeichnis angelegt wird.
 
 Die öffentliche `make_pdf`-API behält dieselbe Adaptergrenze bei, setzt aber
 mehrere bereits injizierte Bilder sowie mehrere Textspezifikationen in ein PDF.

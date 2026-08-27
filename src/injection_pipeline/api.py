@@ -456,13 +456,15 @@ def _validate_make_pdf_images(
     return images
 
 
-# Input: `pdf` und `output_dir` aus der Public API.
+# Input: `pdf`, Bildquellen und `output_dir` aus der Public API.
 # Output: Normalisierte PDF- und Ausgabe-Pfade.
 # Die Funktion prueft die PDF vor jedem Schreibzugriff und stellt sicher, dass
+# keine PDF- oder Bildquelle einen vorgesehenen Ausgabe-Pfad aliasiert und
 # `output_dir` nicht auf eine bestehende Datei zeigt.
 def _validate_make_pdf_paths(
     pdf: str | PathLike[str],
     output_dir: str | PathLike[str],
+    images: Sequence[PdfMakeImageInput] = (),
 ) -> tuple[Path, Path]:
     try:
         pdf_path = Path(pdf)
@@ -484,8 +486,17 @@ def _validate_make_pdf_paths(
         output_dir_path / "pdf_make_annotated.pdf",
         output_dir_path / "pdf_make_annotations.json",
     )
-    if any(_paths_alias(pdf_path, target) for target in output_targets):
-        raise ValueError("PDF template and make_pdf output paths must be different.")
+    sources = [("PDF template", pdf_path)]
+    sources.extend(
+        (f"PDF make image source {index}", image.path)
+        for index, image in enumerate(images)
+    )
+    for source_label, source_path in sources:
+        if any(_paths_alias(source_path, target) for target in output_targets):
+            raise ValueError(
+                f"{source_label} and make_pdf output paths must be different: "
+                f"{source_path}."
+            )
     return pdf_path, output_dir_path
 
 
@@ -540,7 +551,11 @@ def make_pdf(
 ) -> PdfMakeArtifacts:
     validated_images = _validate_make_pdf_images(images)
     validated_texts = _validate_make_pdf_texts(texts)
-    pdf_path, output_dir_path = _validate_make_pdf_paths(pdf, output_dir)
+    pdf_path, output_dir_path = _validate_make_pdf_paths(
+        pdf,
+        output_dir,
+        validated_images,
+    )
     resolved_seed = _resolve_make_pdf_seed(seed)
     template = PdfLoader().load(pdf_path)
     make_pdf_composition = _load_make_pdf_composition()

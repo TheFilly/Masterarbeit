@@ -550,6 +550,74 @@ def test_make_pdf_rejects_template_output_alias_without_mutating_source(
     assert not (tmp_path / "pdf_make_annotations.json").exists()
 
 
+@pytest.mark.parametrize("use_absolute_paths", [False, True])
+def test_make_pdf_rejects_image_output_alias_without_writing_outputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    use_absolute_paths: bool,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    pdf = _write_pdf(Path("template.pdf"), (612.0, 792.0))
+    image_path = _write_image(Path("pdf_make.pdf"))
+    source_bytes = image_path.read_bytes()
+    image = _image_payload(image_path, 0)
+    pdf_input = pdf.resolve() if use_absolute_paths else pdf
+    image_input = image_path.resolve() if use_absolute_paths else image_path
+    output_dir = tmp_path if use_absolute_paths else Path(".")
+    image["path"] = image_input
+
+    with pytest.raises(ValueError, match="image source 0 and make_pdf output paths"):
+        make_pdf([image], [_text_payload(0)], pdf_input, output_dir, seed=4)
+
+    assert image_path.read_bytes() == source_bytes
+    assert not (tmp_path / "pdf_make_annotated.pdf").exists()
+    assert not (tmp_path / "pdf_make_annotations.json").exists()
+
+
+def test_make_pdf_composition_rejects_image_output_alias(
+    tmp_path: Path,
+) -> None:
+    template = _template(tmp_path / "template.pdf", (612.0, 792.0))
+    image_path = _write_image(tmp_path / "pdf_make.pdf")
+    image = PdfMakeImageInput.model_validate(_image_payload(image_path, 0))
+    text = PdfMakeTextInput.model_validate(_text_payload(0))
+
+    with pytest.raises(ValueError, match="image source 0 and make_pdf output paths"):
+        make_pdf_composition(
+            template=template,
+            images=[image],
+            texts=[text],
+            output_dir=tmp_path,
+            seed=4,
+        )
+
+    assert not (tmp_path / "pdf_make_annotated.pdf").exists()
+    assert not (tmp_path / "pdf_make_annotations.json").exists()
+
+
+def test_make_pdf_accepts_relative_sources_outside_output_dir(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    source_dir = Path("sources")
+    source_dir.mkdir()
+    pdf = _write_pdf(source_dir / "template.pdf", (612.0, 792.0))
+    image_path = _write_image(source_dir / "image.png")
+
+    artifacts = make_pdf(
+        [_image_payload(image_path, 0)],
+        [_text_payload(0)],
+        pdf,
+        Path("output"),
+        seed=4,
+    )
+
+    assert artifacts.clean_pdf.is_file()
+    assert artifacts.annotated_pdf.is_file()
+    assert artifacts.annotation_json.is_file()
+
+
 def test_make_pdf_writer_rejects_handwritten_without_asset_source(
     tmp_path: Path,
 ) -> None:

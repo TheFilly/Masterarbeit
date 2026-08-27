@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any
 
 import matplotlib
+import numpy as np
+import pydicom
 import pytest
 from PIL import Image
 
@@ -20,6 +22,7 @@ from injection_pipeline.runtime import runner
 from tests.fixtures.synthetic_documents import (
     write_synthetic_dicom,
     write_synthetic_jpg,
+    write_synthetic_multiframe_dicom,
 )
 
 _FIXED_RUN_TIMESTAMP = datetime(2026, 7, 10, 12, 0, 0)
@@ -89,8 +92,8 @@ _PREVIEW_REFERENCE_FINGERPRINTS: dict[
     },
 }
 _RECORD_REFERENCE_HASHES = {
-    "dcm": "a142a3bed9b1c0b96d494d7749fe2b127a4f18405a76ad6b9599abb2768eec07",
-    "jpg": "18837b47c05c7882a5177936de23c86a744306d39b87451d2677fb1d2a449300",
+    "dcm": "5fc7cf1f93e08fcd59765b1e79e7f0741d75fcc28906adae80189bbfcc729e41",
+    "jpg": "584edbab933002dbb224c10c63bf4305db5817da333c50057d2fa7f7fdf19a9c",
 }
 
 
@@ -387,3 +390,54 @@ def test_pipeline_accepts_toy_identifier_schema_without_code_changes(
     assert record["run_metadata"]["tag_only_identity_fields"] == []
     assert len(record["box_annotations"]) == 2
     assert record["dicom_tag_annotations"] == []
+
+
+def test_multiframe_pipeline_injects_only_frame_zero(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    font_path = _install_reference_font(Path("fixtures") / "fonts" / "DejaVuSans.ttf")
+    monkeypatch.setitem(pixel_injection._FONT_PATHS, "arial", font_path.as_posix())
+
+    input_dir = Path("fixtures")
+    input_dir.mkdir(exist_ok=True)
+    input_path = write_synthetic_multiframe_dicom(
+        input_dir / "synthetic_multiframe.dcm"
+    )
+    source_pixels = np.asarray(pydicom.dcmread(str(input_path)).pixel_array).copy()
+    args = Namespace(
+        input=str(input_path),
+        output_dir="output",
+        identifier_schema=str(DEFAULT_IDENTIFIER_SCHEMA_PATH),
+        seed=42,
+        rotation_angle=20,
+        font_size_pct=100,
+        placement_mode="corners",
+        font_family="arial",
+        text_background=None,
+        show_label_boxes="n",
+        handwriting_manifest=None,
+        handwriting_asset=[],
+    )
+
+    paths = runner.run(args, now=_FIXED_RUN_TIMESTAMP)
+    output_pixels = np.asarray(
+        pydicom.dcmread(str(paths["output_file"])).pixel_array
+    )
+    record = load_run_record(paths["output_json"])
+    ground_truth = json.loads(paths["output_json"].read_text(encoding="utf-8"))
+    manifest = json.loads(paths["output_manifest"].read_text(encoding="utf-8"))
+
+    assert output_pixels.shape == source_pixels.shape
+    assert not np.array_equal(output_pixels[0], source_pixels[0])
+    assert output_pixels[1:].tobytes() == source_pixels[1:].tobytes()
+    assert record.render_metadata.frame_count == 3
+    assert record.render_metadata.applied_frame_indices == [0]
+    assert record.run_metadata.source_dicom_context is not None
+    assert record.run_metadata.source_dicom_context.number_of_frames == 3
+    assert record.run_metadata.output_dicom_context is not None
+    assert record.run_metadata.output_dicom_context.number_of_frames == 3
+    assert record.box_annotations
+    assert {annotation.frame_index for annotation in record.box_annotations} == {0}
+    assert ground_truth == manifest == record.model_dump(mode="json")

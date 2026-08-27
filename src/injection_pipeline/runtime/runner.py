@@ -383,7 +383,8 @@ def _resolve_handwriting_render_plan(
 # Input: `args` with validated CLI or interactive run parameters, optional `now`.
 # Output: Pfad-Mapping der geschriebenen Run-Artefakte.
 # Die Funktion orchestriert die Stufen ueber registrierte Formatadapter; `now`
-# fixiert den Run-ID-Zeitstempel. CLI-Aufrufer ignorieren die Rueckgabe.
+# fixiert den Run-ID-Zeitstempel; ergebnisrelevante Renderoptionen werden in der
+# Run-ID beruecksichtigt. CLI-Aufrufer ignorieren die Rueckgabe.
 def run(args: Any, now: datetime | None = None) -> dict[str, Path]:
     run_timestamp = datetime.now() if now is None else now
     input_path, was_auto_selected = resolve_input_path(args.input, args.seed)
@@ -403,6 +404,11 @@ def run(args: Any, now: datetime | None = None) -> dict[str, Path]:
         font_size_pct=args.font_size_pct,
         font_family=args.font_family,
         text_background=args.text_background,
+        show_label_boxes=getattr(args, "show_label_boxes", "n"),
+        handwriting_ink_color=getattr(args, "handwriting_ink_color", "auto"),
+        handwriting_contrast_mode=getattr(
+            args, "handwriting_contrast_mode", "none"
+        ),
     )
     output_paths = build_output_paths(
         Path(args.output_dir),

@@ -285,6 +285,16 @@ Jeder Aufruf schreibt `pdf_make.pdf`, `pdf_make_annotated.pdf` und
 bereit, einschließlich Layout-Metadaten und Haupt-, Präfix- und Suffix-Quads,
 sofern die Quellannotation diese liefert.
 
+Vor dem Schreiben weist `make_pdf` Aliase zwischen jedem Eingabe-PDF/Bild und
+`pdf_make.pdf`, `pdf_make_annotated.pdf` oder
+`pdf_make_annotations.json` zurück. Das schützt relative und absolute
+Quellpfade sowie Dateisystem-Aliase; bei einer Kollision wird kein neues
+Ausgabeartefakt erzeugt.
+
+Run IDs include `show_label_boxes`, `handwriting_ink_color`, and
+`handwriting_contrast_mode` because they affect generated output. They remain
+deterministic and filesystem-safe without including source or output paths.
+
 Für die Handschrift-Integration muss das ScrabbleGAN-Docker-Image einmalig
 aus dem Projektstamm gebaut werden:
 

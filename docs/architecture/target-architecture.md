@@ -1,6 +1,6 @@
 # Zielarchitektur-Blueprint (WP-A)
 
-Status: aktiver Blueprint, aktualisiert am 2026-07-14.
+Status: aktiver Blueprint, aktualisiert am 2026-08-27.
 Referenzdokument für die Architekturabgleich-Pakete in
 `docs/fable-work-packages.md`. WP-B..WP-G wurden für die DICOM/JPG-Kernkette
 umgesetzt; die PDF-Adapterintegration ist implementiert, die versionssichere
@@ -196,6 +196,12 @@ Pakete.
   deterministisches `reference_date`.
 - WP-H-Bereinigung der Dokumentationsrealität und WP-R-Preview-/Identitäts-
   Hygiene.
+- PDF-Komposition weist Aliase zwischen Template-/Bildquellen und jedem
+  erzeugten Ausgabepfad vor dem Schreiben zurück.
+- Multi-Frame-DICOM ist derzeit bewusst auf Frame 0 beschränkt; die
+  End-to-End-Abdeckung prüft, dass spätere Frames unverändert bleiben.
+- Run-IDs enthalten die ausgaberelevanten Label-Box- und
+  Handschrift-Erscheinungsoptionen, aber keine Quell- oder Ausgabepfade.
 
 ### Verbleibend
 

@@ -43,8 +43,11 @@ Argument gesetzt ist und `--input` fehlt, wählt der Befehl mithilfe des
 seed-basierten Streams `input_selection` eine lokale Standarddatei aus den
 sortierten Kandidaten in `DicomData/Dicom-Files` und `DicomData/images`.
 Mit `--input` kann die aufgelöste Datei direkt erneut verwendet werden.
-`--run-timestamp` macht den Namen des Run-Verzeichnisses deterministisch. Der
-Der Modus `--font-family handwriting` erzeugt zunächst die Faker-Identität,
+`--run-timestamp` macht den Namen des Run-Verzeichnisses deterministisch. Die
+Run-ID enthält außerdem die ausgaberelevanten Optionen für Label-Boxen,
+Handschrift-Farbe und Handschrift-Kontrastmodus, aber keine Quell- oder
+Ausgabepfade. Der Modus `--font-family handwriting` erzeugt zunächst die
+Faker-Identität,
 sucht das zugehörige Asset-Bundle, erzeugt fehlende Assets über die isolierten
 ScrabbleGAN-Tools und injiziert anschließend die Assets. Der eigenständige
 Befehl `generate-handwriting --seed` führt dieselbe Asset-Erzeugung und
@@ -247,6 +250,10 @@ Transformation in PDF-Koordinaten, PDF-native Textannotation, Seitenindizes,
 Rotationen sowie die für die Reproduktion benötigten Seed-/Layout-Metadaten.
 Bildannotation enthalten Haupt-Quads und optionale Präfix-/Suffix-Quads,
 sofern die Quellannotation diese liefert.
+Vor dem Anlegen des Ausgabeverzeichnisses weist der Composer Aliase zwischen
+jeder PDF-/Bildquelle und allen drei Ausgabepfaden zurück, einschließlich
+relativer/absoluter, Hardlink- und Symlink-Aliase. Bei einer Kollision wird
+kein Ausgabe-Artefakt geschrieben.
 
 ## Parameter
 
@@ -378,7 +385,7 @@ es als pydantic-`RunRecord` auf und serialisiert es mit
 {
   "schema_version": "0.2.0-prototype",
   "record_type": "dcm_injection_run",
-  "run_id": "dcm-27052026-1435-seed0042-angle020-corners-fs100-arial-none",
+  "run_id": "dcm-27052026-1435-seed0042-angle020-corners-fs100-arial-none-labelsn-inkauto-contrastnone",
   "seed": 42,
   "rotation_degrees": 20,
   "document_type": "dcm",
@@ -526,7 +533,10 @@ byte-identisch, die Rohdatei-Bytes sind es jedoch nicht (`os.linesep` im JSON;
 PNG-Neukodierung durch plattformspezifische Pillow-/matplotlib-Builds). Siehe
 `docs/architecture/determinism-audit.md` N8/N9.
 
-Stand 2026-07-15 bestehen 44 fokussierte Handschrift-Tests, `uv run ruff check
-src/ tests/` und `uv run mypy src/` sind erfolgreich. Der vollständige
-Frozen-Hash-Test bleibt lokal nur wegen der bekannten Windows-JSON-/PNG-
-Byteunterschiede rot; die DCM/JPG-Pixelartefakte bleiben identisch.
+Stand 2026-08-27 besteht die vollständige Testsuite (`215 passed`) zusammen mit
+`uv run ruff check src/ tests/` und `uv run mypy src/`. Die bestehenden zwei
+pydicom-`DeprecationWarning`s aus dem testseitigen `FileDataset`-Aufbau bleiben
+als separates technisches To-do bestehen; sie wurden wegen des Review-Scopes
+nicht geändert. Bekannte Windows-Unterschiede bei JSON-/PNG-Rohbytes werden
+durch semantische bzw. Pixelprüfungen abgedeckt; DCM-/JPG-Pixelartefakte bleiben
+identisch.

@@ -42,6 +42,9 @@ DCM/JPG-Eingaben ohne reale oder aus MIMIC abgeleitete Daten.
 Seed, festem Input, festem Zeitstempel, Standardschema und deterministischer
 Testschrift aus und vergleicht anschließend alle Artefakt-Hashes. Die CI in
 `.github/workflows/ci.yml` führt uv sync, ruff, mypy und pytest aus.
+Zusätzlich prüft ein synthetischer Multi-Frame-DICOM-Test die vollständige
+Pipeline: Nur Frame 0 wird injiziert und annotiert, alle späteren Frames
+bleiben pixelidentisch.
 
 **Verbleibend.** Nichts für WP-I. Der Ein-Pixel-Nachweis aus dem Scratch-Branch
 wird nicht als Repository-Artefakt aufbewahrt.
@@ -200,10 +203,15 @@ bis hoch.
 **Ziel.** Entscheiden und festhalten, wie Multi-Frame-DICOM (Cine-Loops)
 injiziert werden soll.
 
-**Warum jetzt.** Nur Frame 0 wird injiziert (`applied_frame_indices: [0]` in
-`engine/injector.py`); ein Loop mit 47 Frames ist auf 46 Frames PII-frei. Für
-Detektor-Trainingsdaten ist dies eine Datensatzeigenschaft, die behoben oder als
-beabsichtigt dokumentiert werden muss.
+**Aktuelle Richtlinie.** Nur Frame 0 wird injiziert
+(`applied_frame_indices: [0]` in `engine/injector.py`), spätere Frames bleiben
+unverändert. Dies ist durch den WP-I-End-to-End-Test dokumentiert und abgedeckt;
+eine spätere Erweiterung auf alle Frames bleibt außerhalb des aktuellen
+Implementierungsumfangs und erfordert diese Richtlinienentscheidung.
+
+**Warum jetzt.** Ein Loop mit 47 Frames ist auf 46 Frames PII-frei. Für
+Detektor-Trainingsdaten ist dies eine Datensatzeigenschaft, die später ersetzt
+oder explizit konfigurierbar gemacht werden muss.
 
 **Ergebnisse.** Ein ADR (alle Frames injizieren versus nur Frame 0 als
 aufgezeichnete Eigenschaft versus Option pro Run) sowie die Ground-Truth-

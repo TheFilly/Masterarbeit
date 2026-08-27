@@ -58,6 +58,46 @@ def write_synthetic_dicom(path: Path) -> Path:
     return path
 
 
+# Input: `path` mit dem Ziel fuer ein synthetisches Multi-Frame-DICOM.
+# Output: Das Ziel nach dem Schreiben eines deterministischen Graustufenstacks.
+# Jeder Folgeframe enthaelt ein eigenes, unveraendertes Muster fuer E2E-Vergleiche.
+def write_synthetic_multiframe_dicom(path: Path) -> Path:
+    frame_count, rows, columns = 3, 256, 256
+    base = np.arange(rows * columns, dtype=np.uint16).reshape(rows, columns)
+    pixels = np.stack(
+        [
+            ((base + frame_index * 53) % 256).astype(np.uint8)
+            for frame_index in range(frame_count)
+        ]
+    )
+    file_meta = FileMetaDataset()
+    file_meta.MediaStorageSOPClassUID = SecondaryCaptureImageStorage
+    file_meta.MediaStorageSOPInstanceUID = _SOP_INSTANCE_UID + ".10"
+    file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+    file_meta.ImplementationClassUID = "1.2.826.0.1.3680043.10.543.10"
+
+    dataset = FileDataset(path.name, {}, file_meta=file_meta, preamble=b"\0" * 128)
+    dataset.SOPClassUID = SecondaryCaptureImageStorage
+    dataset.SOPInstanceUID = file_meta.MediaStorageSOPInstanceUID
+    dataset.StudyInstanceUID = _STUDY_INSTANCE_UID + ".10"
+    dataset.SeriesInstanceUID = _SERIES_INSTANCE_UID + ".10"
+    dataset.Modality = "OT"
+    dataset.PatientName = "SYNTHETIC^MULTIFRAME"
+    dataset.PatientID = "SYNTHETIC-MULTIFRAME"
+    dataset.Rows = rows
+    dataset.Columns = columns
+    dataset.NumberOfFrames = frame_count
+    dataset.SamplesPerPixel = 1
+    dataset.PhotometricInterpretation = "MONOCHROME2"
+    dataset.BitsAllocated = 8
+    dataset.BitsStored = 8
+    dataset.HighBit = 7
+    dataset.PixelRepresentation = 0
+    dataset.PixelData = pixels.tobytes()
+    dataset.save_as(path, enforce_file_format=True)
+    return path
+
+
 # Input: `path` with the destination for the generated JPEG fixture.
 # Output: The destination path after writing a deterministic synthetic image.
 # The function writes the fixture at test runtime and uses no external data.
