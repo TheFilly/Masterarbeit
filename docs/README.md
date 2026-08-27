@@ -19,10 +19,17 @@ Ordnernamen und externe Eigennamen bleiben unverändert.
   Implementierungsstatus. Abgeschlossene einmalige Übergabepläne werden
   entfernt, sobald ihre dauerhaften Entscheidungen und Ergebnisse an anderer
   Stelle festgehalten sind.
+- `agent-workflow.md`: aktueller Ablauf für Coding-Agenten, Review-Gate und
+  Korrekturschleife.
 - `archive/`: überholtes Material. Dieses Verzeichnis darf nicht als aktuelle
   Evidenz zitiert werden.
 
 ## Lesereihenfolge
+
+Die Evaluation für den Thesis-Ergebnisteil ist in
+[`thesis-results-evaluation.md`](thesis-results-evaluation.md) beschrieben.
+Die zugehörigen reproduzierbaren Skripte liegen unter
+`tools/thesis_results/`.
 
 1. Die relevante Architektur- oder Betriebsdokumentation lesen.
 2. Verknüpfte ADRs in `docs/decisions/` lesen.
@@ -33,3 +40,8 @@ Ordnernamen und externe Eigennamen bleiben unverändert.
 Angenommene Entscheidungen haben Vorrang vor Designnotizen. Wenn eine
 Architekturnotiz und ein ADR widersprechen, wird die Notiz aktualisiert oder
 ein ersetzendes ADR geschrieben; die beiden Zustände werden nicht vermischt.
+
+Für Änderungen am Code gilt zusätzlich der verbindliche Review-Gate-Ablauf in
+[`agent-workflow.md`](agent-workflow.md). Dieses Dokument beschreibt die
+Zusammenarbeit der Rollen; die fachlichen Projektentscheidungen bleiben in
+`architecture/` und `decisions/` maßgeblich.

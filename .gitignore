@@ -34,6 +34,10 @@ htmlcov/
 .vscode/
 .idea/
 .codex/
+!.codex/
+!.codex/agents/
+!.codex/agents/*.toml
+.codex/skills/
 .claude/
 .DS_Store
 *.orig

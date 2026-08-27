@@ -1,0 +1,26 @@
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+
+[agents.planner]
+description = "Plans features and architecture. Must not edit code."
+config_file = "agents/planner.toml"
+
+[agents.data-analyst]
+description = "Analyzes datasets, formats, schemas, and PII-bearing locations."
+config_file = "agents/data-analyst.toml"
+
+[agents.implementer]
+description = "Implements one scoped task with tests."
+config_file = "agents/implementer.toml"
+
+[agents.test]
+description = "Writes and improves pytest tests."
+config_file = "agents/test.toml"
+
+[agents.reviewer]
+description = "Reviews diffs for bugs, security, architecture, and maintainability."
+config_file = "agents/reviewer.toml"
+
+[agents.docs]
+description = "Updates README, docs, changelog, and release notes."
+config_file = "agents/docs.toml"

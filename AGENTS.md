@@ -42,6 +42,8 @@ InjectionPipeline/
 |-- DicomData/               # Lokale Eingabedaten, nicht einchecken
 |-- output/                  # Lokal erzeugte Ausgaben, nicht einchecken
 |-- .github/
+|-- .codex/
+|   `-- agents/             # Rollenprofile und Review-Gate
 |-- pyproject.toml
 |-- uv.lock
 |-- AGENTS.md
@@ -155,6 +157,29 @@ geseedeten Standard aus `DicomData/Dicom-Files` und `DicomData/images`.
 
 - Für alle geeigneten Arbeiten einen Subagenten mit `luna` und mittlerem Aufwand
   erstellen.
+- Coding-Aufgaben laufen durch das verbindliche Review-Gate in
+  `docs/agent-workflow.md`: `implementer` → `reviewer` → bei Befunden derselbe
+  `implementer` → erneuter `reviewer`.
+- Der `reviewer` ist read-only und koordiniert die Rückgabe konkreter Befunde
+  an den ursprünglichen Coding-Agenten. Wenn die Laufzeit keine direkte
+  Weiterleitung erlaubt, liefert er einen unveränderten Fix-Handoff an den
+  übergeordneten Orchestrator.
+- Eine Aufgabe darf erst als fertig markiert werden, wenn der `reviewer`
+  `APPROVED` meldet. `CHANGES_REQUESTED` bedeutet, dass die Befunde zu beheben
+  und die betroffenen Gates erneut auszuführen sind; nach höchstens drei
+  Korrekturrunden wird ein ungelöster Zustand als `BLOCKED / NOT READY`
+  zurückgegeben.
+
+## Definition of Done für Coding-Aufgaben
+
+- Die Akzeptanzkriterien sind erfüllt und der Diff bleibt auf den beauftragten
+  Umfang begrenzt.
+- Die für die Aufgabe relevanten Tests sowie `ruff` und `mypy` wurden ausgeführt
+  oder eine ausdrückliche Abweichung ist dokumentiert.
+- Der read-only `reviewer` hat den aktuellen Diff geprüft und `APPROVED`
+  zurückgegeben.
+- Offene Befunde, fehlende Validierung oder eine nicht belegte Ausnahme verhindern
+  den Abschluss.
 
 ## Dokumentationsregeln
 
@@ -189,7 +214,7 @@ geseedeten Standard aus `DicomData/Dicom-Files` und `DicomData/images`.
 
 ## Aktueller Projektstand
 
-Stand 2026-07-13:
+Stand 2026-08-27:
 
 - `src/injection_pipeline/` enthält die DICOM/JPG-Kernkette: pydantic-Domain-
   Modelle, Artefakt-Writer, Runtime-CLI-/Runner-Module, Laden des externen

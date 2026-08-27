@@ -291,6 +291,23 @@ Zeitstempel abgefragt. Normale Font-Auswahlen behalten den bestehenden
 Pillow-Pfad; `handwriting` wählt automatische Asset-Suche/-Generierung für die
 sichtbaren Felder `patient_name`, `patient_id` und `accession_number`.
 
+## YBR_FULL_422-Unterstützung
+
+8-Bit-DICOM mit `PhotometricInterpretation = YBR_FULL_422` wird beim Laden über
+pydicoms Default-`pixel_array` verwendet. Dieses Array liegt bei pydicom bereits
+in RGB vor; der Adapter führt deshalb keine zweite Farbraumkonvertierung aus.
+Der native Quellkontext bleibt für die Ground Truth als YBR erhalten. Beim
+Schreiben persistiert der DICOM-Writer sichtbare RGB-Pixel mit
+`PhotometricInterpretation = RGB`, `PlanarConfiguration = 0` und
+`ExplicitVRLittleEndian`.
+
+Unterstützt bleiben außerdem `MONOCHROME2` und `RGB`. Andere Photometric
+Interpretations sowie nicht unterstützte Bitbreiten oder Big-Endian-Pixelpfade
+werden weiterhin abgelehnt. Multi-Frame-DICOM behält seine bisherige
+Frame-0-Injektionspolicy; bei YBR-Farbframes wird nur das pydicom-Default-Array
+als RGB verwendet, ohne erneute Konvertierung. Weitere Frames werden beim
+Schreiben unverändert übernommen.
+
 ## Identifier-Schema und Determinismus
 
 Das Standardschema liegt unter `configs/identifier_schemas/dicom-prototype.json`.
@@ -337,12 +354,14 @@ Adapter anhand der Dateiendung auflöst. DICOM wird über `writers/dicom.py`, JP
 ein Loader-/Writer-Paar und einen Registry-Eintrag verwenden, nicht einen
 neuen Runner-Zweig.
 
-Der aktuelle DICOM-Writer-Vertrag akzeptiert nur little-endian-`uint8`-Eingaben
-mit `MONOCHROME2`- oder `RGB`-Photometrie. Nicht unterstützte 16-Bit-,
-Big-Endian- und andere photometrische Repräsentationen schlagen fehl, bevor
-ein Ausgabeordner erzeugt wird. Bei Multi-Frame-DICOM wird derzeit nur Frame 0
-injiziert und aufgezeichnet; die Injektion aller Frames bleibt einer künftigen
-expliziten Richtlinie vorbehalten.
+Der aktuelle DICOM-Adaptervertrag akzeptiert little-endian-`uint8`-Eingaben mit
+`MONOCHROME2`, `RGB` oder `YBR_FULL_422`. Beim Laden verarbeitet pydicoms
+Default-`pixel_array` `YBR_FULL_422` bereits als RGB; eine zweite Konvertierung
+findet nicht statt. Der Writer schreibt Farbausgaben als `RGB` mit
+`PlanarConfiguration = 0` und `ExplicitVRLittleEndian`. Nicht unterstützte
+16-Bit-, Big-Endian- und andere photometrische Repräsentationen schlagen fehl,
+bevor ein Ausgabeordner erzeugt wird. Bei Multi-Frame-DICOM wird derzeit nur
+Frame 0 injiziert und aufgezeichnet; weitere Frames bleiben unverändert.
 
 ## PDF-Injektion
 

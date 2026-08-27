@@ -22,15 +22,14 @@ class DicomLoader:
     # Die Methode laedt das Dataset einmal und behaelt den nativen Handle fuer
     # Tag- und Pixel-Writer-Schritte.
     def load(self, path: Path) -> SourceDocument:
-        from injection_pipeline.engine.frames import extract_preview_frame
-
         ds = load_dicom(path)
-        pixel_array = np.asarray(ds.pixel_array)
-        validate_supported_dicom_dataset(ds, pixel_array)
+        source_array = np.asarray(ds.pixel_array)
+        validate_supported_dicom_dataset(ds, source_array)
+        pixel_array = normalize_dicom_pixel_array(ds, source_array)
         return SourceDocument(
             format_id=self.format_id,
             path=path,
-            frame=extract_preview_frame(ds),
+            frame=_extract_preview_frame_from_array(ds, pixel_array),
             frame_count=resolve_dicom_frame_count(ds, pixel_array),
             native=ds,
             context=summarize_dicom(ds),
@@ -47,7 +46,7 @@ def load_dicom(path: Path) -> pydicom.Dataset:
 # Input: `ds` mit geladenem Dataset und optional dekodiertem Pixelarray.
 # Output: Keine Rueckgabe.
 # Die Funktion begrenzt den aktuellen Writervertrag auf uint8, Little Endian,
-# MONOCHROME2 und RGB, bevor ein Pipeline-Output angelegt wird.
+# MONOCHROME2, RGB und 8-Bit-YBR_FULL_422 vor der RGB-Normalisierung.
 def validate_supported_dicom_dataset(
     ds: pydicom.Dataset,
     pixel_array: np.ndarray | None = None,
@@ -63,12 +62,11 @@ def validate_supported_dicom_dataset(
     transfer_uid = None if transfer_syntax is None else UID(str(transfer_syntax))
     if transfer_uid is not None and transfer_uid.is_little_endian is False:
         raise ValueError(
-            "Unsupported DICOM transfer syntax: big-endian pixel data is not "
-            "supported."
+            "Unsupported DICOM transfer syntax: big-endian pixel data is not supported."
         )
 
     photometric = str(getattr(ds, "PhotometricInterpretation", "")).upper()
-    if photometric not in {"MONOCHROME2", "RGB"}:
+    if photometric not in {"MONOCHROME2", "RGB", "YBR_FULL_422"}:
         raise ValueError(
             "Unsupported DICOM photometric interpretation: "
             f"{photometric or '<missing>'}."
@@ -77,10 +75,44 @@ def validate_supported_dicom_dataset(
     samples_per_pixel = int(getattr(ds, "SamplesPerPixel", 1))
     if photometric == "RGB" and samples_per_pixel != 3:
         raise ValueError("RGB DICOM pixel data must declare SamplesPerPixel=3.")
-    if photometric == "MONOCHROME2" and samples_per_pixel != 1:
+    if photometric == "YBR_FULL_422" and samples_per_pixel != 3:
         raise ValueError(
-            "MONOCHROME2 DICOM pixel data must declare SamplesPerPixel=1."
+            "YBR_FULL_422 DICOM pixel data must declare SamplesPerPixel=3."
         )
+    if photometric == "MONOCHROME2" and samples_per_pixel != 1:
+        raise ValueError("MONOCHROME2 DICOM pixel data must declare SamplesPerPixel=1.")
+
+
+# Input: `ds` mit PhotometricInterpretation und optional dekodiertem Pixelarray.
+# Output: uint8-Pixelarray im RGB- oder unveränderten Quellfarbraum.
+# pydicom liefert bei `ds.pixel_array` standardmäßig bereits RGB für
+# YBR_FULL_422; eine zweite Farbkonvertierung wird daher bewusst vermieden.
+def normalize_dicom_pixel_array(
+    ds: pydicom.Dataset,
+    pixel_array: np.ndarray | None = None,
+) -> np.ndarray:
+    values = np.asarray(ds.pixel_array if pixel_array is None else pixel_array)
+    photometric = str(getattr(ds, "PhotometricInterpretation", "")).upper()
+    if photometric == "YBR_FULL_422" and values.dtype != np.uint8:
+        raise ValueError("YBR_FULL_422 requires 8-bit pixel data.")
+    return values
+
+
+# Input: `ds` und bereits normalisiertes Pixelarray.
+# Output: Erstes darstellbares Frame mit RGB-Normalisierung für YBR_FULL_422.
+# Die Shape-Entscheidung entspricht dem bisherigen Frame-Vertrag, vermeidet aber
+# den erneuten Zugriff auf `ds.pixel_array` mit dem ursprünglichen YBR-Farbraum.
+def _extract_preview_frame_from_array(
+    ds: pydicom.Dataset,
+    pixel_array: np.ndarray,
+) -> np.ndarray:
+    if pixel_array.ndim == 4:
+        return np.asarray(pixel_array[0])
+    if is_multiframe_grayscale(ds, pixel_array):
+        return np.asarray(pixel_array[0])
+    if pixel_array.ndim == 3 and pixel_array.shape[-1] in {3, 4}:
+        return np.asarray(pixel_array)
+    return np.asarray(pixel_array)
 
 
 # Input: `ds` mit geparstem DICOM-Dataset.

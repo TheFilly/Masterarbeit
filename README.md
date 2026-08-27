@@ -23,6 +23,8 @@ jeden injizierten Wert ein separates Ground-Truth-Artefakt.
   verifiziert.
 - Architekturstatus und offene Implementierungsgates stehen in
   `docs/architecture/` und `docs/fable-work-packages.md`.
+- Der verbindliche Ablauf für Coding-Agenten, Review und Korrekturschleifen
+  steht in [`docs/agent-workflow.md`](docs/agent-workflow.md).
 
 ## Stack
 
@@ -66,6 +68,7 @@ InjectionPipeline/
 |-- DicomData/                    # Lokale Eingabedaten, nicht versioniert
 |-- output/                       # Lokal erzeugte Ausgaben, nicht versioniert
 |-- .github/
+|-- .codex/agents/                  # Agentenrollen und Review-Gate
 |-- pyproject.toml
 |-- uv.lock
 |-- README.md
