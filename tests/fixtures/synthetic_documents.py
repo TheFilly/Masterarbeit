@@ -129,7 +129,7 @@ def write_synthetic_pdf_run(root: Path) -> tuple[Path, Path]:
 
     payload = {
         "schema_version": "0.2.0-prototype",
-        "record_type": "dicom_injection_run",
+        "record_type": "dcm_injection_run",
         "run_id": "synthetic-pdf-run",
         "seed": 42,
         "rotation_degrees": 0,
@@ -137,7 +137,7 @@ def write_synthetic_pdf_run(root: Path) -> tuple[Path, Path]:
         "output_file": "injected.dcm",
         "preview_file": preview_path.name,
         "annotated_preview_file": annotated_path.name,
-        "document_type": "dicom",
+        "document_type": "dcm",
         "example_type": "synthetic",
         "modality": "OT",
         "identity_id": "SYNTH-PDF-0001",

@@ -47,8 +47,8 @@ class PdfWriterAdapter:
             raise ValueError("PDF page_index is outside the input document.")
         record = load_run_record(annotation_path)
         if (
-            record.record_type != "dicom_injection_run"
-            or record.document_type != "dicom"
+            record.record_type != "dcm_injection_run"
+            or record.document_type != "dcm"
         ):
             raise ValueError("PDF injection requires a DICOM run record.")
         recorded_dicom = _resolve_record_path(annotation_path, record.output_file)

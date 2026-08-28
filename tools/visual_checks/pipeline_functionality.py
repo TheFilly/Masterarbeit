@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
@@ -111,7 +112,8 @@ def _display_argument(argument: str) -> str:
 # Input: Quelle und alle renderrelevanten CLI-Optionen.
 # Output: Die Pfade des erzeugten Run-Bundles.
 # Die Funktion fuehrt den normalen CLI-Pfad aus und berechnet anschliessend
-# denselben Run-Identifier wie der Runner fuer nachgelagerte PDF-Checks.
+# denselben Run-Identifier wie der Runner einschliesslich aller Renderoptionen
+# fuer nachgelagerte Artefakt- und PDF-Checks.
 def run_cli_scenario(
     scenario: CliScenario,
     output_root: Path,
@@ -163,6 +165,9 @@ def run_cli_scenario(
         font_size_pct=scenario.font_size_pct,
         font_family=scenario.font_family,
         text_background=scenario.text_background,
+        show_label_boxes=scenario.show_label_boxes,
+        handwriting_ink_color=scenario.handwriting_ink_color,
+        handwriting_contrast_mode=scenario.handwriting_contrast_mode,
     )
     run_dir = output_root / run_id
     output_suffix = ".dcm" if filetype == "dcm" else ".jpg"
@@ -430,7 +435,7 @@ def main() -> None:
     pdf_template = choose_pdf_template(pdf_dir, "Briefmarken.1Stk.17.03.2026_1345.pdf")
     dcm_sources = [
         choose_source(
-            dicom_dir, "5f683bbb-2313fd5d-86cbea5c-705ffd10-69cb9156.dcm", {".dcm"}, 0
+            dicom_dir, "91180014_0004.dcm", {".dcm"}, 0
         ),
         choose_source(dicom_dir, "91180014_0001.dcm", {".dcm"}, 1),
         choose_source(dicom_dir, "91180014_0020.dcm", {".dcm"}, 2),
@@ -606,6 +611,16 @@ def main() -> None:
         )
 
     if not args.skip_pdf:
+        # Ein kurzer, sitzungsspezifischer Geschwisterpfad haelt PDF-Artefakte
+        # auch bei langen Handschrift-Run-IDs unter Windows unter dem Limit.
+        pdf_session_id = hashlib.sha256(
+            output_root.name.encode("utf-8")
+        ).hexdigest()[:8]
+        pdf_output_root = (
+            output_root.parent.parent
+            / "pdfs"
+            / pdf_session_id
+        )
         pdf_runs = normal_runs + handwriting_runs
         dcm_run = next(
             run for run in pdf_runs if run.output_file.suffix.casefold() == ".dcm"
@@ -622,14 +637,14 @@ def main() -> None:
             "inject-pdf",
             dcm_run,
             pdf_template,
-            output_root / "pdf-cli-inject",
+            pdf_output_root,
             "top_left",
         )
         run_pdf_cli_check(
             "compose-pdf",
             handwriting_dcm,
             pdf_template,
-            output_root / "pdf-cli-compose",
+            pdf_output_root,
             "top_right",
         )
         run_make_pdf_checks(
