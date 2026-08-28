@@ -30,6 +30,22 @@ htmlcov/
 # Local git worktrees
 .worktrees/
 
+# Local agent, QA, review and temporary work data
+/.agents/
+/.cache-*/
+/.qa-*/
+/.review-*/
+/.test-*/
+/.tmp-*/
+/.uv-cache*/
+
+# Thesis benchmark and evaluation results
+/thesis-results/
+
+# Legacy/local scratch directory; tracked legacy files remain tracked until
+# they are deliberately migrated or removed from the Git index.
+/tmp/
+
 # Editors
 .vscode/
 .idea/

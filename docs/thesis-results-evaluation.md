@@ -124,8 +124,10 @@ ist nicht Bestandteil dieses Scopes.
 ## Reproduzierbarkeit und Grenzen
 
 Jeder Lauf verwendet einen expliziten Seed. Die Benchmarks schreiben ihre
-Rohdaten außerhalb des Quellcodes unter `output/thesis-results/`. Hardware,
-Betriebssystem, Python-Version, verwendete Testdaten und Laufparameter werden
+Rohdaten außerhalb des Quellcodes unter `thesis-results/benchmarks/`; abgeleitete
+Validierungsdaten liegen unter `thesis-results/validation/` und Diagramme unter
+`thesis-results/plots/`. Normale Pipeline-Run-Artefakte bleiben unter `output/`.
+Hardware, Betriebssystem, Python-Version, verwendete Testdaten und Laufparameter werden
 im jeweiligen Checkpoint festgehalten und bei der Thesis-Auswertung genannt.
 
 Eine nicht durchführbare Millioner-Stufe wird nicht durch eine unbelegte

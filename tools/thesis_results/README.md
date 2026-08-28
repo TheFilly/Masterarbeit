@@ -28,8 +28,12 @@ tools/thesis_results/
 ```
 
 Die erzeugten CSV-, JSON- und Bilddateien liegen standardmäßig unter
-`output/thesis-results/`. Dieser Ausgabeordner enthält Messdaten und
-Diagramme, nicht die versionierten Skripte.
+`thesis-results/`. Benchmarks schreiben nach
+`thesis-results/benchmarks/`, Validierungsergebnisse nach
+`thesis-results/validation/` und Diagramme nach `thesis-results/plots/`.
+Dieser Ausgabeordner enthält Messdaten und Diagramme, nicht die versionierten
+Skripte. Normale Pipeline-Run-Artefakte wie injizierte Dokumente bleiben unter
+`output/`.
 
 Für die PDF-Koordinatenprüfung wird zusätzlich ein vorhandener `pdftoppm`-
 Renderer aus Poppler benötigt. Der Pfad kann mit `--renderer` explizit gesetzt
@@ -99,10 +103,10 @@ Peak-Speicher und Seed nach `measurements.csv`.
 
 ```powershell
 uv run python -m tools.thesis_results.performance.plot_results `
-  --scalability-csv output/thesis-results/scalability/measurements.csv `
-  --pdf-csv output/thesis-results/pdf-scaling/measurements.csv
+  --scalability-csv thesis-results/benchmarks/scalability/measurements.csv `
+  --pdf-csv thesis-results/benchmarks/pdf-scaling/measurements.csv
 ```
 
-Die Diagramme werden unter `output/thesis-results/plots/` erzeugt. Die
+Die Diagramme werden unter `thesis-results/plots/` erzeugt. Die
 Auswertung der CSV-Dateien prüft die Linearität und den konstanten PDF-
 Grundaufwand; sie ersetzt nicht die qualitative Diskussion in der Thesis.

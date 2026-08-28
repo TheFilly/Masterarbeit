@@ -10,7 +10,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_OUTPUT = REPOSITORY_ROOT / "output" / "thesis-results" / "plots"
+DEFAULT_OUTPUT = REPOSITORY_ROOT / "thesis-results" / "plots"
 
 
 # Input: CSV-Pfad mit numerischen Messwerten.

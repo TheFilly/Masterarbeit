@@ -25,7 +25,7 @@ from .common import (
 )
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_OUTPUT = REPOSITORY_ROOT / "output" / "thesis-results" / "scalability"
+DEFAULT_OUTPUT = REPOSITORY_ROOT / "thesis-results" / "benchmarks" / "scalability"
 DEFAULT_TIMESTAMP = datetime(2026, 1, 1, 0, 0, 0)
 CSV_FIELDS = [
     "block_index",

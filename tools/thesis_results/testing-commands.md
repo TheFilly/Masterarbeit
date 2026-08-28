@@ -28,13 +28,13 @@ uv run python -m tools.thesis_results.coordinate_validation.coordinate_validatio
   --width 1016 `
   --height 708 `
   --tolerance 2 `
-  --output-csv "output/thesis-results/coordinates/dicom-bounds.csv"
+  --output-csv "thesis-results/validation/coordinates/dicom-bounds.csv"
 ```
 
 Ergebnis:
 
 ```text
-output\thesis-results\coordinates\dicom-bounds.csv
+thesis-results\validation\coordinates\dicom-bounds.csv
 ```
 
 ## 3. Pixelvergleich für alle fünf Annotationen
@@ -52,7 +52,7 @@ uv run python -m tools.thesis_results.coordinate_validation.coordinate_validatio
   --roi-padding 4 `
   --tolerance 2 `
   --difference-threshold 0 `
-  --pixel-output-json "output/thesis-results/coordinates/dicom-pixel-annotation-0.json"
+  --pixel-output-json "thesis-results/validation/coordinates/dicom-pixel-annotation-0.json"
 ```
 
 Annotation 1:
@@ -68,7 +68,7 @@ uv run python -m tools.thesis_results.coordinate_validation.coordinate_validatio
   --roi-padding 4 `
   --tolerance 2 `
   --difference-threshold 0 `
-  --pixel-output-json "output/thesis-results/coordinates/dicom-pixel-annotation-1.json"
+  --pixel-output-json "thesis-results/validation/coordinates/dicom-pixel-annotation-1.json"
 ```
 
 Annotation 2:
@@ -84,7 +84,7 @@ uv run python -m tools.thesis_results.coordinate_validation.coordinate_validatio
   --roi-padding 4 `
   --tolerance 2 `
   --difference-threshold 0 `
-  --pixel-output-json "output/thesis-results/coordinates/dicom-pixel-annotation-2.json"
+  --pixel-output-json "thesis-results/validation/coordinates/dicom-pixel-annotation-2.json"
 ```
 
 Annotation 3:
@@ -100,7 +100,7 @@ uv run python -m tools.thesis_results.coordinate_validation.coordinate_validatio
   --roi-padding 4 `
   --tolerance 2 `
   --difference-threshold 0 `
-  --pixel-output-json "output/thesis-results/coordinates/dicom-pixel-annotation-3.json"
+  --pixel-output-json "thesis-results/validation/coordinates/dicom-pixel-annotation-3.json"
 ```
 
 Annotation 4:
@@ -116,7 +116,7 @@ uv run python -m tools.thesis_results.coordinate_validation.coordinate_validatio
   --roi-padding 4 `
   --tolerance 2 `
   --difference-threshold 0 `
-  --pixel-output-json "output/thesis-results/coordinates/dicom-pixel-annotation-4.json"
+  --pixel-output-json "thesis-results/validation/coordinates/dicom-pixel-annotation-4.json"
 ```
 
 ## 4. Verteilung für `corners`
@@ -128,8 +128,8 @@ uv run python -m tools.thesis_results.coordinate_validation.coordinate_validatio
   --width 1016 `
   --height 708 `
   --bins 10 `
-  --distribution-output-json "output/thesis-results/coordinates/corners-distribution.json" `
-  --heatmap-png "output/thesis-results/coordinates/corners-heatmap.png"
+  --distribution-output-json "thesis-results/validation/coordinates/corners-distribution.json" `
+  --heatmap-png "thesis-results/validation/coordinates/corners-heatmap.png"
 ```
 
 ## 5. Neuen Lauf für `free` erzeugen
@@ -152,8 +152,8 @@ uv run python -m tools.thesis_results.coordinate_validation.coordinate_validatio
   --width 1016 `
   --height 708 `
   --bins 10 `
-  --distribution-output-json "output/thesis-results/coordinates/free-distribution.json" `
-  --heatmap-png "output/thesis-results/coordinates/free-heatmap.png"
+  --distribution-output-json "thesis-results/validation/coordinates/free-distribution.json" `
+  --heatmap-png "thesis-results/validation/coordinates/free-heatmap.png"
 ```
 
 ## 7. Skalierbarkeit: 10.000 Dokumente
@@ -165,7 +165,7 @@ uv run python -m tools.thesis_results.performance.scalability_benchmark `
   --block-size 1000 `
   --workers 1 `
   --seed 42 `
-  --output-dir "output/thesis-results/scalability-10000"
+  --output-dir "thesis-results/benchmarks/scalability-10000"
 ```
 
 ## 8. Skalierbarkeit: 25.000 Dokumente
@@ -177,7 +177,7 @@ uv run python -m tools.thesis_results.performance.scalability_benchmark `
   --block-size 1000 `
   --workers 1 `
   --seed 42 `
-  --output-dir "output/thesis-results/scalability-25000"
+  --output-dir "thesis-results/benchmarks/scalability-25000"
 ```
 
 ## 9. Skalierbarkeit: 50.000 Dokumente
@@ -189,7 +189,7 @@ uv run python -m tools.thesis_results.performance.scalability_benchmark `
   --block-size 1000 `
   --workers 1 `
   --seed 42 `
-  --output-dir "output/thesis-results/scalability-50000"
+  --output-dir "thesis-results/benchmarks/scalability-50000"
 ```
 
 ## 10. Skalierbarkeit: 100.000 Dokumente
@@ -201,7 +201,7 @@ uv run python -m tools.thesis_results.performance.scalability_benchmark `
   --block-size 1000 `
   --workers 1 `
   --seed 42 `
-  --output-dir "output/thesis-results/scalability-100000"
+  --output-dir "thesis-results/benchmarks/scalability-100000"
 ```
 
 ## 11. Skalierbarkeit: 250.000 Dokumente
@@ -213,7 +213,7 @@ uv run python -m tools.thesis_results.performance.scalability_benchmark `
   --block-size 1000 `
   --workers 1 `
   --seed 42 `
-  --output-dir "output/thesis-results/scalability-250000"
+  --output-dir "thesis-results/benchmarks/scalability-250000"
 ```
 
 ## 12. Skalierbarkeit: 500.000 Dokumente
@@ -225,7 +225,7 @@ uv run python -m tools.thesis_results.performance.scalability_benchmark `
   --block-size 1000 `
   --workers 1 `
   --seed 42 `
-  --output-dir "output/thesis-results/scalability-500000"
+  --output-dir "thesis-results/benchmarks/scalability-500000"
 ```
 
 ## 13. Skalierbarkeit: 1.000.000 Dokumente
@@ -237,7 +237,7 @@ uv run python -m tools.thesis_results.performance.scalability_benchmark `
   --block-size 1000 `
   --workers 1 `
   --seed 42 `
-  --output-dir "output/thesis-results/scalability-1000000"
+  --output-dir "thesis-results/benchmarks/scalability-1000000"
 ```
 
 In jedem Skalierbarkeitsordner werden geschrieben:
@@ -256,7 +256,7 @@ uv run python -m tools.thesis_results.performance.scalability_benchmark `
   --block-size 1000 `
   --workers 2 `
   --seed 42 `
-  --output-dir "output/thesis-results/scalability-10000-parallel"
+  --output-dir "thesis-results/benchmarks/scalability-10000-parallel"
 ```
 
 ## 15. PDF-Laufzeitmessung mit 1, 2, 4, 8 und 16 Bildern
@@ -268,13 +268,13 @@ uv run python -m tools.thesis_results.performance.pdf_scaling_benchmark `
   --max-images 16 `
   --repetitions 2 `
   --seed 42 `
-  --output-dir "output/thesis-results/pdf-scaling"
+  --output-dir "thesis-results/benchmarks/pdf-scaling"
 ```
 
 Ergebnis:
 
 ```text
-output\thesis-results\pdf-scaling\measurements.csv
+thesis-results\benchmarks\pdf-scaling\measurements.csv
 ```
 
 ## 16. PDF-Adapter ausführen
@@ -284,35 +284,35 @@ uv run injection-pipeline inject-pdf `
   --input-pdf "DicomData/PDF/Briefmarken.1Stk.17.03.2026_1345.pdf" `
   --input-dicom "output/thesis-input/dicom/dcm-27082026-1200-seed0042-angle000-corners-fs100-arial-none-labelsn-inkauto-contrastnone/91180014_0001_injected.dcm" `
   --dicom-annotation "output/thesis-input/dicom/dcm-27082026-1200-seed0042-angle000-corners-fs100-arial-none-labelsn-inkauto-contrastnone/ground_truth.json" `
-  --output-dir "output/thesis-results/pdf-input"
+  --output-dir "thesis-results/validation/pdf-input"
 ```
 
 Die Ergebnisse liegen anschließend unter:
 
 ```text
-output\thesis-results\pdf-input\pdf\dcm-27082026-1200-seed0042-angle000-corners-fs100-arial-none-labelsn-inkauto-contrastnone\Briefmarken.1Stk.17.03.2026_1345-top_left\
+thesis-results\validation\pdf-input\pdf\dcm-27082026-1200-seed0042-angle000-corners-fs100-arial-none-labelsn-inkauto-contrastnone\Briefmarken.1Stk.17.03.2026_1345-top_left\
 ```
 
 ## 17. PDF-Seite rendern: saubere PDF
 
 ```powershell
 uv run python -m tools.thesis_results.coordinate_validation.coordinate_validation `
-  --pdf "output/thesis-results/pdf-input/pdf/dcm-27082026-1200-seed0042-angle000-corners-fs100-arial-none-labelsn-inkauto-contrastnone/Briefmarken.1Stk.17.03.2026_1345-top_left/pdf_injected.pdf" `
+  --pdf "thesis-results/validation/pdf-input/pdf/dcm-27082026-1200-seed0042-angle000-corners-fs100-arial-none-labelsn-inkauto-contrastnone/Briefmarken.1Stk.17.03.2026_1345-top_left/pdf_injected.pdf" `
   --pdf-page-index 0 `
   --pdf-dpi 150 `
-  --pdf-output-png "output/thesis-results/pdf-validation/pdf-clean-page.png" `
-  --pdf-metadata-json "output/thesis-results/pdf-validation/pdf-clean-page.json"
+  --pdf-output-png "thesis-results/validation/pdf-validation/pdf-clean-page.png" `
+  --pdf-metadata-json "thesis-results/validation/pdf-validation/pdf-clean-page.json"
 ```
 
 ## 18. PDF-Seite rendern: annotierte PDF
 
 ```powershell
 uv run python -m tools.thesis_results.coordinate_validation.coordinate_validation `
-  --pdf "output/thesis-results/pdf-input/pdf/dcm-27082026-1200-seed0042-angle000-corners-fs100-arial-none-labelsn-inkauto-contrastnone/Briefmarken.1Stk.17.03.2026_1345-top_left/pdf_injected_annotated.pdf" `
+  --pdf "thesis-results/validation/pdf-input/pdf/dcm-27082026-1200-seed0042-angle000-corners-fs100-arial-none-labelsn-inkauto-contrastnone/Briefmarken.1Stk.17.03.2026_1345-top_left/pdf_injected_annotated.pdf" `
   --pdf-page-index 0 `
   --pdf-dpi 150 `
-  --pdf-output-png "output/thesis-results/pdf-validation/pdf-annotated-page.png" `
-  --pdf-metadata-json "output/thesis-results/pdf-validation/pdf-annotated-page.json"
+  --pdf-output-png "thesis-results/validation/pdf-validation/pdf-annotated-page.png" `
+  --pdf-metadata-json "thesis-results/validation/pdf-validation/pdf-annotated-page.json"
 ```
 
 ## 19. PDF-Pixelvergleich
@@ -321,18 +321,18 @@ Für das verwendete PDF-Template beträgt die gerenderte Seitengröße bei 150 D
 
 ```powershell
 uv run python -m tools.thesis_results.coordinate_validation.coordinate_validation `
-  --ground-truth "output/thesis-results/pdf-input/pdf/dcm-27082026-1200-seed0042-angle000-corners-fs100-arial-none-labelsn-inkauto-contrastnone/Briefmarken.1Stk.17.03.2026_1345-top_left/pdf_annotations.json" `
+  --ground-truth "thesis-results/validation/pdf-input/pdf/dcm-27082026-1200-seed0042-angle000-corners-fs100-arial-none-labelsn-inkauto-contrastnone/Briefmarken.1Stk.17.03.2026_1345-top_left/pdf_annotations.json" `
   --pdf-ground-truth `
   --pdf-page-index 0 `
   --pdf-dpi 150 `
-  --rendered-image "output/thesis-results/pdf-validation/pdf-annotated-page.png" `
-  --baseline-image "output/thesis-results/pdf-validation/pdf-clean-page.png" `
+  --rendered-image "thesis-results/validation/pdf-validation/pdf-annotated-page.png" `
+  --baseline-image "thesis-results/validation/pdf-validation/pdf-clean-page.png" `
   --width 1240 `
   --height 1754 `
   --roi-padding 4 `
   --tolerance 2 `
   --difference-threshold 0 `
-  --pixel-output-json "output/thesis-results/pdf-validation/pdf-pixel-comparison.json"
+  --pixel-output-json "thesis-results/validation/pdf-validation/pdf-pixel-comparison.json"
 ```
 
 ## 20. Diagramme erzeugen
@@ -341,13 +341,13 @@ Nach den Skalierbarkeits- und PDF-Messungen:
 
 ```powershell
 uv run python -m tools.thesis_results.performance.plot_results `
-  --scalability-csv "output/thesis-results/scalability-1000000/measurements.csv" `
-  --pdf-csv "output/thesis-results/pdf-scaling/measurements.csv" `
-  --output-dir "output/thesis-results/plots"
+  --scalability-csv "thesis-results/benchmarks/scalability-1000000/measurements.csv" `
+  --pdf-csv "thesis-results/benchmarks/pdf-scaling/measurements.csv" `
+  --output-dir "thesis-results/plots"
 ```
 
 Die Diagramme liegen dann unter:
 
 ```text
-output\thesis-results\plots\
+thesis-results\plots\
 ```

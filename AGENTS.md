@@ -31,6 +31,7 @@ InjectionPipeline/
 |   `-- writers/
 |-- tools/handwriting/       # Isolated handwriting tooling
 |-- configs/
+|-- thesis-results/          # Lokale Benchmark-/Evaluationsdaten, nicht einchecken
 |-- docs/
 |   |-- architecture/
 |   |-- archive/
@@ -40,7 +41,7 @@ InjectionPipeline/
 |   |-- integration/
 |   `-- unit/
 |-- DicomData/               # Lokale Eingabedaten, nicht einchecken
-|-- output/                  # Lokal erzeugte Ausgaben, nicht einchecken
+|-- output/                  # Normale lokale Pipeline-Ausgaben, nicht einchecken
 |-- .github/
 |-- .codex/
 |   `-- agents/             # Rollenprofile und Review-Gate
@@ -131,6 +132,33 @@ geseedeten Standard aus `DicomData/Dicom-Files` und `DicomData/images`.
 - Commits atomar halten.
 - Keine echten Patientendaten, aus MIMIC abgeleiteten Daten, erzeugten Assets,
   Modellgewichte oder Secrets einchecken.
+
+## Lokale Artefakte und Naming Convention
+
+- `output/` enthält normale Pipeline-Run-Artefakte wie injizierte Dokumente,
+  Vorschauen und Ground-Truth-Dateien.
+- `thesis-results/` enthält lokal erzeugte Benchmark-, Validierungs- und
+  Plot-Ergebnisse für die Thesis. Die empfohlene Struktur lautet
+  `thesis-results/benchmarks/<benchmark-name>/`,
+  `thesis-results/validation/<validation-name>/` und
+  `thesis-results/plots/`.
+- Beide Verzeichnisse sind Arbeitsdaten und werden nicht versioniert. Relevante
+  Ergebnisse für die Thesis werden in `docs/` zusammengefasst; Rohdaten bleiben
+  lokal oder werden außerhalb des Repositories archiviert.
+- Kurzlebige, tool-erzeugte Root-Ordner beginnen mit einem Punkt und einer
+  Zweckgruppe: `.cache-<tool>/`, `.tmp-<purpose>-<date>/`,
+  `.review-<purpose>/` oder `.qa-<purpose>-<date>/`. Neue lokale Agenten- und
+  Review-Daten müssen in diese Namensgruppen fallen, damit die Root-Regeln in
+  `.gitignore` sie erfassen.
+- Tool-standardisierte Ordner wie `.pytest_cache/`, `.mypy_cache/`,
+  `.ruff_cache/`, `.venv/`, `.worktrees/`, `.codex/skills/` und `__pycache__/`
+  bleiben entsprechend ihrer Tool-Namen ignoriert.
+- `.codex/agents/` ist eine Ausnahme: Die Rollenprofile und das Review-Gate
+  sind projektbezogene Konfiguration und werden versioniert.
+- Lokale Caches und leere temporäre Ordner dürfen nach abgeschlossenen Läufen
+  gelöscht werden; sie werden bei Bedarf neu erzeugt. `DicomData/`,
+  `output/` und `thesis-results/` dürfen nur nach Sicherung noch benötigter
+  Eingaben bzw. Ergebnisse gelöscht werden.
 
 ## Außerhalb des Umfangs
 

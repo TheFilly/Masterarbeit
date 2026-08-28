@@ -66,7 +66,8 @@ InjectionPipeline/
 |   |-- integration/
 |   `-- unit/
 |-- DicomData/                    # Lokale Eingabedaten, nicht versioniert
-|-- output/                       # Lokal erzeugte Ausgaben, nicht versioniert
+|-- thesis-results/               # Lokale Benchmark-/Evaluationsdaten
+|-- output/                       # Normale lokale Pipeline-Ausgaben
 |-- .github/
 |-- .codex/agents/                  # Agentenrollen und Review-Gate
 |-- pyproject.toml

@@ -21,7 +21,7 @@ from injection_pipeline.pdf.models import (
 from .common import environment_metadata, measure_call, peak_memory_bytes, write_csv
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_OUTPUT = REPOSITORY_ROOT / "output" / "thesis-results" / "pdf-scaling"
+DEFAULT_OUTPUT = REPOSITORY_ROOT / "thesis-results" / "benchmarks" / "pdf-scaling"
 CSV_FIELDS = [
     "image_count",
     "repetition",
