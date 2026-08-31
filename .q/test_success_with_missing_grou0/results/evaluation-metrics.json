@@ -1,6 +1,0 @@
-{
-  "output_volume_definition": "Summe der pro Fall erzeugten Dateien vor Evaluation-Cleanup",
-  "peak_memory_definition": "tracemalloc_process_peak; Worker-Speicher nicht aggregiert",
-  "output_bytes": 0,
-  "peak_memory_bytes": 31533
-}
