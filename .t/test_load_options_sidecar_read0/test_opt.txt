@@ -1,0 +1,3 @@
+----------------- Options ---------------
+                 alphabet: abc-123  	[default: alphabet]
+                    model: CharInterGAN                   

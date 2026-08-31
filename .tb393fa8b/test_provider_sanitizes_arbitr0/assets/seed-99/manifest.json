@@ -1,0 +1,59 @@
+{
+  "assets": [
+    {
+      "asset_id": "custom_category_age-e52fd0a3967ca4cf6991",
+      "background": "transparent",
+      "background_mode": "transparent",
+      "cache_identity": {
+        "cache_key": "e52fd0a3967ca4cf69910956f6b8f0f205c316a9b77e8db39b5e178d9535cb4c",
+        "checkpoint_sha256": "47320987f9a49d5b00119b960f247a956773f57543982b8bfcb6da5bb3afd9ef",
+        "field": "custom/category:age",
+        "generator_options": {
+          "alphabet": "abc",
+          "cpu_only": true,
+          "extra": {
+            "options_sidecar_name": "test_opt.txt"
+          },
+          "generator_name": "scrabblegan",
+          "options_sha256": "a793ab8fcc2afce5e42b3044090719ddaff19741697d93b3b7f36838dd5e825c",
+          "renderer_version": "scrabblegan-mask-render-v3",
+          "text_normalization": "none",
+          "word_gap_px": 12
+        },
+        "schema_id": "arbitrary-text",
+        "schema_version": "1.0.0",
+        "seed": 99,
+        "text": "abc",
+        "upstream_commit": "upstream-abc"
+      },
+      "checkpoint_sha256": "47320987f9a49d5b00119b960f247a956773f57543982b8bfcb6da5bb3afd9ef",
+      "field": "custom/category:age",
+      "generator_options_sha256": "a793ab8fcc2afce5e42b3044090719ddaff19741697d93b3b7f36838dd5e825c",
+      "identity_field": "custom/category:age",
+      "image_path": "images/custom_category_age-e52fd0a3967ca4cf6991.png",
+      "image_sha256": "96b465f19047c585a798dfc5b3b136f5f4fb32ed2d4147b4c5812792018ffc36",
+      "image_size": {
+        "height": 2,
+        "width": 2
+      },
+      "ink_bbox": {
+        "height": 2,
+        "width": 2,
+        "x": 0,
+        "y": 0
+      },
+      "ink_color": "black",
+      "mask_path": "masks/custom_category_age-e52fd0a3967ca4cf6991-mask.png",
+      "mask_sha256": "87741817f1b15ffe2f0efeec74b5f50612f09298b50f27d6e853926466bd5855",
+      "scrabblegan_commit": "upstream-abc",
+      "scrabblegan_repo_url": "local-test",
+      "seed": 99,
+      "source_text": "abc",
+      "text": "abc"
+    }
+  ],
+  "bundle": {
+    "seed": 99
+  },
+  "schema_version": "0.1.0-handwriting-assets"
+}

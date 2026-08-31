@@ -1,0 +1,1 @@
+{"schema_version": "0.1.0-handwriting-assets", "assets": [{"asset_id": "patient-name-001", "text": "Doe^Jane", "identity_field": "patient_name", "image_path": "C:outside/name.png", "mask_path": "name_mask.png", "ink_color": "black", "background_mode": "transparent", "hashes": {"image_sha256": "placeholder", "mask_sha256": "placeholder"}}]}

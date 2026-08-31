@@ -1,0 +1,653 @@
+{
+  "schema_version": "0.1.0-pdf-make",
+  "record_type": "pdf_make_run",
+  "source_pdf": "D:\\Dokumente\\Uni\\InjectionPipeline\\.t\\test_make_pdf_same_seed_repeat0\\template.pdf",
+  "output_dir": "D:\\Dokumente\\Uni\\InjectionPipeline\\.t\\test_make_pdf_same_seed_repeat0\\same-output",
+  "seed": 21,
+  "outputs": {
+    "clean_pdf": "D:\\Dokumente\\Uni\\InjectionPipeline\\.t\\test_make_pdf_same_seed_repeat0\\same-output\\pdf_make.pdf",
+    "annotated_pdf": "D:\\Dokumente\\Uni\\InjectionPipeline\\.t\\test_make_pdf_same_seed_repeat0\\same-output\\pdf_make_annotated.pdf",
+    "annotation_json": "D:\\Dokumente\\Uni\\InjectionPipeline\\.t\\test_make_pdf_same_seed_repeat0\\same-output\\pdf_make_annotations.json"
+  },
+  "template": {
+    "source_file": "D:\\Dokumente\\Uni\\InjectionPipeline\\.t\\test_make_pdf_same_seed_repeat0\\template.pdf",
+    "page_count": 1,
+    "page_sizes": [
+      [
+        612.0,
+        792.0
+      ]
+    ]
+  },
+  "images": [
+    {
+      "path": "D:\\Dokumente\\Uni\\InjectionPipeline\\.t\\test_make_pdf_same_seed_repeat0\\seeded_0.png",
+      "annotations": [
+        {
+          "category": "ImageIdentifier",
+          "value": "IMG-0",
+          "prefix": "Image ",
+          "suffix": " injected",
+          "rendered_text": "Image IMG-0 injected",
+          "image_corners": [
+            {
+              "x": 12.0,
+              "y": 12.0
+            },
+            {
+              "x": 76.0,
+              "y": 12.0
+            },
+            {
+              "x": 76.0,
+              "y": 34.0
+            },
+            {
+              "x": 12.0,
+              "y": 34.0
+            }
+          ],
+          "prefix_corners": null,
+          "suffix_corners": null
+        }
+      ]
+    },
+    {
+      "path": "D:\\Dokumente\\Uni\\InjectionPipeline\\.t\\test_make_pdf_same_seed_repeat0\\seeded_1.png",
+      "annotations": [
+        {
+          "category": "ImageIdentifier",
+          "value": "IMG-1",
+          "prefix": "Image ",
+          "suffix": " injected",
+          "rendered_text": "Image IMG-1 injected",
+          "image_corners": [
+            {
+              "x": 12.0,
+              "y": 12.0
+            },
+            {
+              "x": 76.0,
+              "y": 12.0
+            },
+            {
+              "x": 76.0,
+              "y": 34.0
+            },
+            {
+              "x": 12.0,
+              "y": 34.0
+            }
+          ],
+          "prefix_corners": null,
+          "suffix_corners": null
+        }
+      ]
+    },
+    {
+      "path": "D:\\Dokumente\\Uni\\InjectionPipeline\\.t\\test_make_pdf_same_seed_repeat0\\seeded_2.png",
+      "annotations": [
+        {
+          "category": "ImageIdentifier",
+          "value": "IMG-2",
+          "prefix": "Image ",
+          "suffix": " injected",
+          "rendered_text": "Image IMG-2 injected",
+          "image_corners": [
+            {
+              "x": 12.0,
+              "y": 12.0
+            },
+            {
+              "x": 76.0,
+              "y": 12.0
+            },
+            {
+              "x": 76.0,
+              "y": 34.0
+            },
+            {
+              "x": 12.0,
+              "y": 34.0
+            }
+          ],
+          "prefix_corners": null,
+          "suffix_corners": null
+        }
+      ]
+    }
+  ],
+  "texts": [
+    {
+      "category": "DirectText",
+      "value": "TXT-0",
+      "prefix": "Direct ",
+      "suffix": " value",
+      "handwritten": false
+    },
+    {
+      "category": "DirectText",
+      "value": "TXT-1",
+      "prefix": "Direct ",
+      "suffix": " value",
+      "handwritten": false
+    },
+    {
+      "category": "DirectText",
+      "value": "TXT-2",
+      "prefix": "Direct ",
+      "suffix": " value",
+      "handwritten": false
+    }
+  ],
+  "layout_decisions": [
+    {
+      "placement": {
+        "item_type": "image",
+        "source_index": 0,
+        "page_index": 0,
+        "x": 38.64410196535448,
+        "y": 671.9120495649595,
+        "width": 120.0,
+        "height": 80.0,
+        "rotation_degrees": 4.0,
+        "arrangement": "beside"
+      },
+      "page_size": [
+        612.0,
+        792.0
+      ],
+      "occupied_corners": [
+        {
+          "x": 41.58051789953004,
+          "y": 667.824099129919
+        },
+        {
+          "x": 161.28820393070896,
+          "y": 676.194875979214
+        },
+        {
+          "x": 155.70768603117892,
+          "y": 756.0
+        },
+        {
+          "x": 36.000000000000014,
+          "y": 747.629223150705
+        }
+      ]
+    },
+    {
+      "placement": {
+        "item_type": "text",
+        "source_index": 0,
+        "page_index": 0,
+        "x": 179.28820393070896,
+        "y": 701.1620495649595,
+        "width": 99.685,
+        "height": 21.5,
+        "rotation_degrees": 0.0,
+        "arrangement": "beside"
+      },
+      "page_size": [
+        612.0,
+        792.0
+      ],
+      "occupied_corners": [
+        {
+          "x": 179.28820393070896,
+          "y": 701.1620495649595
+        },
+        {
+          "x": 278.97320393070896,
+          "y": 701.1620495649595
+        },
+        {
+          "x": 278.97320393070896,
+          "y": 722.6620495649595
+        },
+        {
+          "x": 179.28820393070896,
+          "y": 722.6620495649595
+        }
+      ]
+    },
+    {
+      "placement": {
+        "item_type": "image",
+        "source_index": 1,
+        "page_index": 0,
+        "x": 296.97320393070896,
+        "y": 676.0,
+        "width": 120.0,
+        "height": 80.0,
+        "rotation_degrees": 0.0,
+        "arrangement": "stacked"
+      },
+      "page_size": [
+        612.0,
+        792.0
+      ],
+      "occupied_corners": [
+        {
+          "x": 296.97320393070896,
+          "y": 676.0
+        },
+        {
+          "x": 416.97320393070896,
+          "y": 676.0
+        },
+        {
+          "x": 416.97320393070896,
+          "y": 756.0
+        },
+        {
+          "x": 296.97320393070896,
+          "y": 756.0
+        }
+      ]
+    },
+    {
+      "placement": {
+        "item_type": "text",
+        "source_index": 1,
+        "page_index": 0,
+        "x": 307.13070393070893,
+        "y": 636.5,
+        "width": 99.685,
+        "height": 21.5,
+        "rotation_degrees": 0.0,
+        "arrangement": "stacked"
+      },
+      "page_size": [
+        612.0,
+        792.0
+      ],
+      "occupied_corners": [
+        {
+          "x": 307.13070393070893,
+          "y": 636.5
+        },
+        {
+          "x": 406.81570393070893,
+          "y": 636.5
+        },
+        {
+          "x": 406.81570393070893,
+          "y": 658.0
+        },
+        {
+          "x": 307.13070393070893,
+          "y": 658.0
+        }
+      ]
+    },
+    {
+      "placement": {
+        "item_type": "image",
+        "source_index": 2,
+        "page_index": 0,
+        "x": 437.61730589606344,
+        "y": 671.9120495649595,
+        "width": 120.0,
+        "height": 80.0,
+        "rotation_degrees": -4.0,
+        "arrangement": "stacked"
+      },
+      "page_size": [
+        612.0,
+        792.0
+      ],
+      "occupied_corners": [
+        {
+          "x": 434.97320393070896,
+          "y": 676.194875979214
+        },
+        {
+          "x": 554.6808899618879,
+          "y": 667.824099129919
+        },
+        {
+          "x": 560.2614078614179,
+          "y": 747.629223150705
+        },
+        {
+          "x": 440.553721830239,
+          "y": 756.0
+        }
+      ]
+    },
+    {
+      "placement": {
+        "item_type": "text",
+        "source_index": 2,
+        "page_index": 0,
+        "x": 447.7748058960634,
+        "y": 628.324099129919,
+        "width": 99.685,
+        "height": 21.5,
+        "rotation_degrees": 0.0,
+        "arrangement": "stacked"
+      },
+      "page_size": [
+        612.0,
+        792.0
+      ],
+      "occupied_corners": [
+        {
+          "x": 447.7748058960634,
+          "y": 628.324099129919
+        },
+        {
+          "x": 547.4598058960635,
+          "y": 628.324099129919
+        },
+        {
+          "x": 547.4598058960635,
+          "y": 649.824099129919
+        },
+        {
+          "x": 447.7748058960634,
+          "y": 649.824099129919
+        }
+      ]
+    }
+  ],
+  "image_annotations": [
+    {
+      "source_image_index": 0,
+      "source_annotation_index": 0,
+      "category": "ImageIdentifier",
+      "value": "IMG-0",
+      "prefix": "Image ",
+      "suffix": " injected",
+      "rendered_text": "Image IMG-0 injected",
+      "image_corners": [
+        {
+          "x": 12.0,
+          "y": 12.0
+        },
+        {
+          "x": 76.0,
+          "y": 12.0
+        },
+        {
+          "x": 76.0,
+          "y": 34.0
+        },
+        {
+          "x": 12.0,
+          "y": 34.0
+        }
+      ],
+      "pdf_corners": [
+        {
+          "x": 48.807846288047415,
+          "y": 736.4955322325166
+        },
+        {
+          "x": 112.65194550467616,
+          "y": 740.9599465521407
+        },
+        {
+          "x": 114.18658792704692,
+          "y": 719.0135374464245
+        },
+        {
+          "x": 50.34248871041817,
+          "y": 714.5491231268004
+        }
+      ],
+      "prefix_corners": null,
+      "prefix_pdf_corners": null,
+      "suffix_corners": null,
+      "suffix_pdf_corners": null,
+      "placement": {
+        "item_type": "image",
+        "source_index": 0,
+        "page_index": 0,
+        "x": 38.64410196535448,
+        "y": 671.9120495649595,
+        "width": 120.0,
+        "height": 80.0,
+        "rotation_degrees": 4.0,
+        "arrangement": "beside"
+      }
+    },
+    {
+      "source_image_index": 1,
+      "source_annotation_index": 0,
+      "category": "ImageIdentifier",
+      "value": "IMG-1",
+      "prefix": "Image ",
+      "suffix": " injected",
+      "rendered_text": "Image IMG-1 injected",
+      "image_corners": [
+        {
+          "x": 12.0,
+          "y": 12.0
+        },
+        {
+          "x": 76.0,
+          "y": 12.0
+        },
+        {
+          "x": 76.0,
+          "y": 34.0
+        },
+        {
+          "x": 12.0,
+          "y": 34.0
+        }
+      ],
+      "pdf_corners": [
+        {
+          "x": 308.97320393070896,
+          "y": 744.0
+        },
+        {
+          "x": 372.97320393070896,
+          "y": 744.0
+        },
+        {
+          "x": 372.97320393070896,
+          "y": 722.0
+        },
+        {
+          "x": 308.97320393070896,
+          "y": 722.0
+        }
+      ],
+      "prefix_corners": null,
+      "prefix_pdf_corners": null,
+      "suffix_corners": null,
+      "suffix_pdf_corners": null,
+      "placement": {
+        "item_type": "image",
+        "source_index": 1,
+        "page_index": 0,
+        "x": 296.97320393070896,
+        "y": 676.0,
+        "width": 120.0,
+        "height": 80.0,
+        "rotation_degrees": 0.0,
+        "arrangement": "stacked"
+      }
+    },
+    {
+      "source_image_index": 2,
+      "source_annotation_index": 0,
+      "category": "ImageIdentifier",
+      "value": "IMG-2",
+      "prefix": "Image ",
+      "suffix": " injected",
+      "rendered_text": "Image IMG-2 injected",
+      "image_corners": [
+        {
+          "x": 12.0,
+          "y": 12.0
+        },
+        {
+          "x": 76.0,
+          "y": 12.0
+        },
+        {
+          "x": 76.0,
+          "y": 34.0
+        },
+        {
+          "x": 12.0,
+          "y": 34.0
+        }
+      ],
+      "pdf_corners": [
+        {
+          "x": 451.6874127484274,
+          "y": 743.1921537119526
+        },
+        {
+          "x": 515.5315119650562,
+          "y": 738.7277393923285
+        },
+        {
+          "x": 513.9968695426854,
+          "y": 716.7813302866124
+        },
+        {
+          "x": 450.1527703260566,
+          "y": 721.2457446062365
+        }
+      ],
+      "prefix_corners": null,
+      "prefix_pdf_corners": null,
+      "suffix_corners": null,
+      "suffix_pdf_corners": null,
+      "placement": {
+        "item_type": "image",
+        "source_index": 2,
+        "page_index": 0,
+        "x": 437.61730589606344,
+        "y": 671.9120495649595,
+        "width": 120.0,
+        "height": 80.0,
+        "rotation_degrees": -4.0,
+        "arrangement": "stacked"
+      }
+    }
+  ],
+  "text_annotations": [
+    {
+      "source_text_index": 0,
+      "category": "DirectText",
+      "value": "TXT-0",
+      "prefix": "Direct ",
+      "suffix": " value",
+      "rendered_text": "Direct TXT-0 value",
+      "handwritten": false,
+      "pdf_corners": [
+        {
+          "x": 215.06720393070896,
+          "y": 705.3850495649594
+        },
+        {
+          "x": 245.62520393070895,
+          "y": 705.3850495649594
+        },
+        {
+          "x": 245.62520393070895,
+          "y": 715.5600495649595
+        },
+        {
+          "x": 215.06720393070896,
+          "y": 715.5600495649595
+        }
+      ],
+      "placement": {
+        "item_type": "text",
+        "source_index": 0,
+        "page_index": 0,
+        "x": 179.28820393070896,
+        "y": 701.1620495649595,
+        "width": 99.685,
+        "height": 21.5,
+        "rotation_degrees": 0.0,
+        "arrangement": "beside"
+      }
+    },
+    {
+      "source_text_index": 1,
+      "category": "DirectText",
+      "value": "TXT-1",
+      "prefix": "Direct ",
+      "suffix": " value",
+      "rendered_text": "Direct TXT-1 value",
+      "handwritten": false,
+      "pdf_corners": [
+        {
+          "x": 342.90970393070893,
+          "y": 640.723
+        },
+        {
+          "x": 373.4677039307089,
+          "y": 640.723
+        },
+        {
+          "x": 373.4677039307089,
+          "y": 650.898
+        },
+        {
+          "x": 342.90970393070893,
+          "y": 650.898
+        }
+      ],
+      "placement": {
+        "item_type": "text",
+        "source_index": 1,
+        "page_index": 0,
+        "x": 307.13070393070893,
+        "y": 636.5,
+        "width": 99.685,
+        "height": 21.5,
+        "rotation_degrees": 0.0,
+        "arrangement": "stacked"
+      }
+    },
+    {
+      "source_text_index": 2,
+      "category": "DirectText",
+      "value": "TXT-2",
+      "prefix": "Direct ",
+      "suffix": " value",
+      "rendered_text": "Direct TXT-2 value",
+      "handwritten": false,
+      "pdf_corners": [
+        {
+          "x": 483.5538058960634,
+          "y": 632.5470991299189
+        },
+        {
+          "x": 514.1118058960634,
+          "y": 632.5470991299189
+        },
+        {
+          "x": 514.1118058960634,
+          "y": 642.722099129919
+        },
+        {
+          "x": 483.5538058960634,
+          "y": 642.722099129919
+        }
+      ],
+      "placement": {
+        "item_type": "text",
+        "source_index": 2,
+        "page_index": 0,
+        "x": 447.7748058960634,
+        "y": 628.324099129919,
+        "width": 99.685,
+        "height": 21.5,
+        "rotation_degrees": 0.0,
+        "arrangement": "stacked"
+      }
+    }
+  ]
+}

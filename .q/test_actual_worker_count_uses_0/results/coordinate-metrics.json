@@ -1,0 +1,24 @@
+{
+  "cases": [],
+  "strata": {},
+  "total": {
+    "annotations": 0,
+    "invalid_positions": 0,
+    "clipping_errors": 0,
+    "geometry_errors": 0,
+    "center_error_mean_px": null,
+    "iou_mean": null,
+    "tolerance_violations": 0,
+    "tolerance_unknown": 0,
+    "pixel_sampled": 0,
+    "cases": 0
+  },
+  "block_size": 4,
+  "pixel_sampling": {
+    "seed": 42,
+    "rate": 1.0
+  },
+  "pixel_metric_status": "measured",
+  "pixel_metric_reason": null,
+  "blocks": {}
+}

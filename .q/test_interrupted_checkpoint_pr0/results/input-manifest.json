@@ -1,0 +1,23 @@
+{
+  "input_fingerprint": "3ef7a7013b57802cdaa74287ca92d66afeb57ac4b7b9d05b7be2afdc2da46f5c",
+  "cases": [
+    {
+      "case_id": "a",
+      "source": "D:\\Dokumente\\Uni\\InjectionPipeline\\.q\\test_interrupted_checkpoint_pr0\\source.jpg",
+      "source_fingerprint": "a",
+      "document_type": "jpg",
+      "profile": null,
+      "expected_rejection": false,
+      "planned_negative": false
+    },
+    {
+      "case_id": "b",
+      "source": "D:\\Dokumente\\Uni\\InjectionPipeline\\.q\\test_interrupted_checkpoint_pr0\\source.jpg",
+      "source_fingerprint": "b",
+      "document_type": "jpg",
+      "profile": null,
+      "expected_rejection": false,
+      "planned_negative": false
+    }
+  ]
+}

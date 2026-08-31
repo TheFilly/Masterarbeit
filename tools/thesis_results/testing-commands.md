@@ -351,3 +351,88 @@ Die Diagramme liegen dann unter:
 ```text
 thesis-results\plots\
 ```
+
+## Manifestbasierter Verifikationslauf
+
+```powershell
+uv run python -m tools.thesis_results.verification.evaluation_cli `
+  --manifest "configs/evaluation-manifest.json" `
+  --workspace "thesis-results/validation/qualitative-run" `
+  --callback "mein_modul:mein_callback" `
+  --seed 42 `
+  --block-size 100 `
+  --workers 1 `
+  --mode sequential
+```
+
+Fortsetzung nach kontrolliertem Abbruch:
+
+```powershell
+uv run python -m tools.thesis_results.verification.evaluation_cli `
+  --manifest "configs/evaluation-manifest.json" `
+  --workspace "thesis-results/validation/qualitative-run" `
+  --callback "mein_modul:mein_callback" `
+  --seed 42 `
+  --block-size 100 `
+  --workers 1 `
+  --mode sequential `
+  --resume
+```
+
+Das Manifest benötigt mindestens `cases` mit `case_id` und `source`; relative
+Pfade beziehen sich auf den Manifestordner. Ein optionales
+`identifier_schema` profiliert erwartete strukturierte DICOM-Felder. Weitere
+optionale Felder sind `document_type`, `placement_mode`, `rotation_degrees`,
+`font_family`, `font_or_renderer`, `handwriting_ink_color`,
+`handwriting_contrast_mode`, `expected_schema_fields` und
+`used_schema_fields`.
+
+Der Callback muss ein `CaseResult` zurückgeben. `expected_rejection` und ein
+freies `error_code`-Feld reichen nicht als Rejection-Evidenz. Die Invariante
+für jede Block- und Runbilanz lautet:
+
+```text
+planned = successful + rejected + unexpected_failed
+```
+
+Ground Truth vorhanden/fehlend, Parsability, ungültige Annotationen,
+Pfadkollisionen, Clipping und Geometrie werden separat gezählt. `unknown`
+heißt nicht bestimmbar, `unsupported` außerhalb des Vertrags und
+`unavailable` bezeichnet eine fehlende Ressource wie `pdftoppm`.
+
+Ein Lauf kann `input-manifest.json`, `checkpoint.json`, `run-summary.json`,
+`run-summary-interrupted.json`, `evaluation-results.json`,
+`evaluation-results.csv`, `profile-aggregate.json`, `coordinate-metrics.json`,
+`case-results/<case_id>.json` und `.commits/block-<nummer>/` enthalten.
+Orphan-Commitpakete werden beim Resume nur nach Fingerprint-, Sequenz- und
+Inhaltsprüfung übernommen; fremde Pakete werden abgewiesen. Abgebrochene
+Läufe nennen den letzten vollständigen Block und offene Fälle.
+
+## Verifikations- und Projektgates
+
+```powershell
+uv run pytest tests/unit/test_thesis_verification.py tests/unit/test_thesis_verification_extended.py -q
+uv run ruff check tools/thesis_results tests/unit/test_thesis_coordinate_validation.py tests/unit/test_thesis_performance.py
+uv run mypy --strict --explicit-package-bases tools/thesis_results/verification
+uv run ruff check src/ tests/
+uv run mypy src/
+uv run pytest tests/ -x
+```
+
+Bei `mode parallel` und `workers > 1` führt der Verifikationsharness die Fälle
+mit `ThreadPoolExecutor` aus. Der Report verwendet dafür
+`worker_execution_status: "thread_pool_measured"`, speichert
+`actual_worker_count` und liefert die Ergebnisse in deterministischer
+Planungsreihenfolge. Jeder Fall wird über einen getrennten Ausgabepfad
+verarbeitet.
+
+`execution_measurement_status: "thread_pool_tracemalloc_measured"` bedeutet,
+dass Python-Allokationen des laufenden Prozesses mit `tracemalloc` gemessen
+wurden. Native Prozess-/Worker-Speicheranteile werden nicht vollständig
+aggregiert; `peak_memory_bytes` ist deshalb keine vollständige native
+Peak-Memory-Messung des Workerbetriebs und muss als entsprechend limitierter
+Messwert berichtet werden. `single_process_measured` gilt für sequentielle
+Läufe beziehungsweise `workers = 1`.
+
+Die Befehle für 10.000 Fälle beschreiben eine geplante Messung und sind kein
+Nachweis eines bereits ausgeführten Laufs.

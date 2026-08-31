@@ -1,0 +1,41 @@
+{
+  "input_fingerprint": "38e064c278b40095cce8755d54f39a87815ebbd810719d22f8c9d3681668ffcc",
+  "cases": [
+    {
+      "case_id": "a",
+      "source": "D:\\Dokumente\\Uni\\InjectionPipeline\\.q\\test_parallel_abort_persists_s0\\source.jpg",
+      "source_fingerprint": "a",
+      "document_type": "jpg",
+      "profile": null,
+      "expected_rejection": false,
+      "planned_negative": false
+    },
+    {
+      "case_id": "b",
+      "source": "D:\\Dokumente\\Uni\\InjectionPipeline\\.q\\test_parallel_abort_persists_s0\\source.jpg",
+      "source_fingerprint": "b",
+      "document_type": "jpg",
+      "profile": null,
+      "expected_rejection": false,
+      "planned_negative": false
+    },
+    {
+      "case_id": "c",
+      "source": "D:\\Dokumente\\Uni\\InjectionPipeline\\.q\\test_parallel_abort_persists_s0\\source.jpg",
+      "source_fingerprint": "c",
+      "document_type": "jpg",
+      "profile": null,
+      "expected_rejection": false,
+      "planned_negative": false
+    },
+    {
+      "case_id": "d",
+      "source": "D:\\Dokumente\\Uni\\InjectionPipeline\\.q\\test_parallel_abort_persists_s0\\source.jpg",
+      "source_fingerprint": "d",
+      "document_type": "jpg",
+      "profile": null,
+      "expected_rejection": false,
+      "planned_negative": false
+    }
+  ]
+}

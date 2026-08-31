@@ -1,0 +1,2 @@
+run_id,document_type,label,region,frame_index,width,height,left,top,right,bottom,center_x,center_y,within_bounds,text_not_clipped,issues,normalized_left,normalized_top,normalized_right,normalized_bottom,normalized_center_x,normalized_center_y
+run-1,jpg,PatientID,top_left,0,100,100,10.0,10.0,30.0,20.0,20.0,15.0,True,True,,0.1,0.1,0.3,0.2,0.2,0.15

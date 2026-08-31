@@ -1,0 +1,1 @@
+{"schema_version": "0.1.0-handwriting-assets", "assets": [{"asset_id": "age-asset", "field": "age", "text": "Patient is 95 years old", "source_text": "Patient is 95 years old", "identity_field": "age", "image_path": "age.png", "mask_path": "age_mask.png", "ink_color": "black", "background_mode": "transparent"}]}

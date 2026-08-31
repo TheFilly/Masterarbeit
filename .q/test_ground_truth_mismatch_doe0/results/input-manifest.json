@@ -1,0 +1,23 @@
+{
+  "input_fingerprint": "16c47d6a5010265dd45348c1b8570e85f46d8e73ca2c3c1618eefd914b565454",
+  "cases": [
+    {
+      "case_id": "bad",
+      "source": "D:\\Dokumente\\Uni\\InjectionPipeline\\.q\\test_ground_truth_mismatch_doe0\\source.jpg",
+      "source_fingerprint": "bad",
+      "document_type": "jpg",
+      "profile": null,
+      "expected_rejection": false,
+      "planned_negative": false
+    },
+    {
+      "case_id": "later",
+      "source": "D:\\Dokumente\\Uni\\InjectionPipeline\\.q\\test_ground_truth_mismatch_doe0\\source.jpg",
+      "source_fingerprint": "later",
+      "document_type": "jpg",
+      "profile": null,
+      "expected_rejection": false,
+      "planned_negative": false
+    }
+  ]
+}

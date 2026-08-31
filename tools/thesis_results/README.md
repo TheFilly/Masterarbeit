@@ -110,3 +110,41 @@ uv run python -m tools.thesis_results.performance.plot_results `
 Die Diagramme werden unter `thesis-results/plots/` erzeugt. Die
 Auswertung der CSV-Dateien prüft die Linearität und den konstanten PDF-
 Grundaufwand; sie ersetzt nicht die qualitative Diskussion in der Thesis.
+
+## Manifestbasierte Verifikation
+
+```powershell
+uv run python -m tools.thesis_results.verification.evaluation_cli `
+  --manifest configs/evaluation-manifest.json `
+  --workspace thesis-results/validation/qualitative-run `
+  --callback mein_modul:mein_callback `
+  --seed 42 `
+  --block-size 100 `
+  --workers 1 `
+  --mode sequential
+```
+
+Das Manifest enthält `cases` mit `case_id` und `source`; relative Quellen
+werden relativ zum Manifest aufgelöst. Optional können Dokumenttyp,
+Platzierung, Rotation, Schrift-/Renderingmodus, Handschrift-/Kontrastoptionen
+und erwartete/verwendete Schemafelder angegeben werden. Der Callback wird als
+`modul:funktion` geladen und liefert ein `CaseResult` je Fall. Ein vollständiges
+Manifestbeispiel und die Bilanzregeln stehen in
+`docs/thesis-results-evaluation.md`.
+
+Die Verifikation erzeugt Run-/Blockbilanzen, Ground-Truth-/Parsability-,
+Kollisions-, Clipping- und Geometriezähler sowie Inputprofile und
+Fixture-Reuse-Statistiken. `unknown`, `unsupported` und `unavailable` sind
+getrennte Zustände. Bei `mode parallel` und `workers > 1` verarbeitet der
+Runner die Fälle mit `ThreadPoolExecutor`. Die tatsächliche Threadzahl wird
+als `actual_worker_count` gespeichert; die Ergebnisse werden trotz paralleler
+Ausführung in deterministischer Planungsreihenfolge und mit getrennten
+Fallausgabepfaden übernommen. Der Ausführungsstatus lautet
+`thread_pool_measured`. Die Peak-Memory-Zahl basiert auf
+`tracemalloc_process_peak` und erfasst Python-Allokationen des Prozesses,
+aber keine separat aggregierten nativen Speicheranteile; sie ist daher keine
+vollständige Prozess-/Worker-Peak-Memory-Messung. Ein 10.000-Dokumente-Lauf
+ist mit diesem Stand nicht belegt.
+
+PDF-Prüfungen benötigen `pdftoppm` aus Poppler. Fehlt das externe Tool, wird
+`unavailable` dokumentiert.

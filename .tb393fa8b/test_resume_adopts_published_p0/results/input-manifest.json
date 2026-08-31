@@ -1,0 +1,14 @@
+{
+  "input_fingerprint": "258318957357730f36fcd51a96eb46b3e961450f40da2eee9b47d54e1c0d1784",
+  "cases": [
+    {
+      "case_id": "a",
+      "source": "D:\\Dokumente\\Uni\\InjectionPipeline\\.tb393fa8b\\test_resume_adopts_published_p0\\source.jpg",
+      "source_fingerprint": "a",
+      "document_type": "jpg",
+      "profile": null,
+      "expected_rejection": false,
+      "planned_negative": false
+    }
+  ]
+}

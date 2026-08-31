@@ -1,0 +1,76 @@
+{
+  "schema_version": "0.2.0-prototype",
+  "record_type": "jpg_injection_run",
+  "run_id": "unit-run",
+  "seed": 42,
+  "rotation_degrees": 0,
+  "source_file": "input.jpg",
+  "output_file": "output.jpg",
+  "preview_file": "preview.png",
+  "annotated_preview_file": "preview_annotated.png",
+  "document_type": "jpg",
+  "example_type": "unit",
+  "modality": null,
+  "identity_id": "SYNTH-123456",
+  "span_annotations": [],
+  "box_annotations": [],
+  "dicom_tag_annotations": [],
+  "run_metadata": {
+    "rotation_degrees": 0,
+    "placement_mode": "corners",
+    "pixel_injection_status": "rendered",
+    "pixel_renderer": "unit",
+    "visible_identity_fields": [
+      "patient_id"
+    ],
+    "tag_only_identity_fields": []
+  },
+  "render_metadata": {
+    "rotation_degrees": 0,
+    "placement_mode": "corners",
+    "font_size_pct": 100,
+    "font_family": "arial",
+    "text_background": null,
+    "visible_render_plan": [
+      {
+        "label": "PatientID",
+        "category": "PatientID",
+        "text": "123456",
+        "text_segments": [
+          {
+            "kind": "pii",
+            "text": "123456"
+          }
+        ],
+        "identity_field": "patient_id",
+        "region": "corners",
+        "rotation_degrees": 0,
+        "line_index": 0
+      }
+    ],
+    "seed": 42,
+    "allowed_rotations_degrees": [
+      0,
+      20,
+      90,
+      180,
+      270
+    ],
+    "frame_count": 1,
+    "applied_frame_indices": [
+      0
+    ],
+    "effective_font_family": "arial",
+    "effective_font_size_px": 18,
+    "background_enabled": false,
+    "background_color": null,
+    "geometry_source": "mask_bbox_after_final_rotation",
+    "renderer_types": [
+      "font_text"
+    ],
+    "handwriting_assets": [],
+    "geometry_notes": "unit",
+    "mask_alpha_threshold": 8,
+    "visible_annotations": []
+  }
+}
