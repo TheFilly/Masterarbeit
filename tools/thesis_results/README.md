@@ -21,9 +21,9 @@ Artefakte oder Benchmarks. Der Parallelvergleich verwendet 10.000 Dokumente
 mit 2, 4, 6, 8 und 16 Workern. Die Stufe 6 ergänzt den Vergleich zwischen 4
 und 8 Workern; 16 entspricht den verfügbaren CPU-Kernen des PCs.
 
-PDF und Visual sind standardmäßig deaktiviert. Sie werden ausschließlich mit
-`--run-pdf` beziehungsweise `--run-visual` aktiviert. `--skip-pdf` und
-`--skip-visual` sind nur rückwärtskompatible redundante Optionen:
+Optionale Teile können übersprungen werden, sofern die lokale Suite sie
+aktiviert werden. `--skip-pdf` und `--skip-visual` bleiben hoechstens
+rueckwaertskompatible Redundanzen:
 
 ```powershell
 uv run python tools/thesis_results/pc_runtime_suite.py --run-pdf
@@ -69,7 +69,7 @@ Details zu V-001 bis V-011 stehen in `docs/thesis-results-evaluation.md`.
 
 ## Qualitätsprüfungen
 
-```powershell
+```powershells
 uv run pytest tests/unit/test_thesis_performance.py tests/unit/test_thesis_coordinate_validation.py -q
 uv run pytest tests/unit/test_thesis_verification.py tests/unit/test_thesis_verification_extended.py -q
 uv run ruff check src/ tests/ tools/thesis_results
