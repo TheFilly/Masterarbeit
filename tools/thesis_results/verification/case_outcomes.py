@@ -69,7 +69,12 @@ class EvaluationConfig:
     workers: int = 1
     mode: str = "sequential"
     block_size: int = 100
+    pixel_tolerance: int = 8
     render_parameters: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.pixel_tolerance < 0:
+            raise ValueError("pixel_tolerance darf nicht negativ sein.")
 
     # Input: Konfiguration.
     # Output: Stabiler Fingerprint ohne Pfad- oder Zeitabhaengigkeit.
@@ -131,6 +136,16 @@ class CaseResult:
     block_number: int | None = None
     input_output_status: str | None = None
     input_output_reason: str | None = None
+    input_output_warnings: tuple[str, ...] = ()
+    input_output_tolerance: int | None = None
+    input_output_max_absolute_difference: int | None = None
+    input_output_mean_absolute_difference: float | None = None
+    input_output_p99_absolute_difference: float | None = None
+    input_output_pixels_compared: int | None = None
+    input_output_pixels_exceeding_tolerance: int | None = None
+    input_output_pixels_exceeding_quality_limit: int | None = None
+    input_output_large_difference_fraction: float | None = None
+    input_output_quality_rule: dict[str, Any] = field(default_factory=dict)
     pixel_measurement_status: str = "not_executed"
     pixel_measurement_reason: str | None = (
         "Keine gerenderte BBox bzw. kein Pixel-Sampler bereitgestellt."
@@ -152,7 +167,8 @@ def has_valid_rejection_evidence(result: CaseResult) -> bool:
             profile is not None
             and profile.supported is False
             and evidence.get("callback_status") == "unsupported"
-            and evidence.get("reason_code") in {
+            and evidence.get("reason_code")
+            in {
                 "unsupported_format",
                 "unsupported_representation",
             }

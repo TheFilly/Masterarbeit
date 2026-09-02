@@ -62,7 +62,14 @@ def _record_paths(record: Any) -> list[tuple[Path, bool]]:
                 (Path(annotation.output_file), True),
             )
         )
-    return paths
+    unique: list[tuple[Path, bool]] = []
+    seen: set[tuple[str, bool]] = set()
+    for path, generated in paths:
+        key = (str(path), generated)
+        if key not in seen:
+            unique.append((path, generated))
+            seen.add(key)
+    return unique
 
 
 def _resolve_reference(path: Path, run_dir: Path) -> Path:

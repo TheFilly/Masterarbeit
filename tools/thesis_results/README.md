@@ -52,20 +52,58 @@ dokumentiert.
 
 ## Qualitative Verifikation
 
+## Deskriptive Platzierungsanalyse
+
+Die Ground-Truth-Dateien können rekursiv auf Box- und Run-Ebene ausgewertet
+werden. Bildabmessungen werden bevorzugt aus dem benachbarten `preview.png`
+(beziehungsweise `preview_file`) gelesen; `--width` und `--height` bilden einen
+gemeinsamen Fallback.
+
+```powershell
+uv run python -m tools.thesis_results.placement_analysis `
+  --input output `
+  --output-dir thesis-results/validation `
+  --analysis-name placement-analysis `
+  --bins 10
+```
+
+Erzeugt werden `box_metrics.csv`, `run_summary.csv`,
+`descriptive_summary.json`, `analysis_manifest.json` und Diagramme unter
+`plots/`. Die Heatmaps, Histogramme, Scatterplots, Boxplots und
+Eckbereichsbalken sind deskriptiv und verwenden gemeinsame Achsen/Bins. Das
+Manifest weist unbalancierte Konfigurationsgruppen (Rotation, Dokumenttyp,
+Bildgröße, Font und Fontgröße) aus. Es werden keine Hypothesentests,
+p-Werte oder kausalen Aussagen aus unbalancierten Modusgruppen erzeugt.
+
 ```powershell
 uv run python -m tools.thesis_results.verification.evaluation_cli `
   --manifest configs/evaluation-manifest.json `
-  --workspace thesis-results/validation/qualitative-run `
-  --callback mein_modul:mein_callback `
+  --workspace thesis-results/validation/qualitative-run-20260902-01 `
+  --callback tools.thesis_results.verification.evaluation_callback:run_case `
   --seed 42 `
   --block-size 100 `
   --workers 1 `
   --mode sequential
 ```
 
-Für einen neuen Lauf ist ein neuer Workspace zu verwenden. `--resume` ist nur
-für einen kontrolliert abgebrochenen Lauf im selben Workspace vorgesehen.
-Details zu V-001 bis V-011 stehen in `docs/thesis-results-evaluation.md`.
+Für jeden neuen Lauf ist ein neuer Workspace zu verwenden. Dadurch werden
+bestehende Ergebnisse nicht überschrieben. `--resume` ist ausschließlich für
+einen kontrolliert abgebrochenen Lauf im selben Workspace vorgesehen.
+Das Manifest enthält acht lokal erwartete Fälle: sieben DICOM-/JPG-Fixtures
+und einen PDF-Scope-Negativfall. Der Callback führt bei DICOM/JPG die im
+Manifest ausgewiesenen Runtime-Defaults (`corners`, `arial`, `100`, `none`)
+aus; die Rotation wird pro Fall durchgereicht. Der PDF-Fall wird wegen des
+expliziten DICOM/JPG-Scope-Vertrags kontrolliert abgelehnt. Das Manifest
+profiliert bewusst eine kleine heterogene Auswahl; daraus folgt keine
+10.000-Dokumente-Robustheitsaussage. Details zu V-001 bis V-011 stehen in
+`docs/thesis-results-evaluation.md`.
+
+Ein nichtleerer Fallordner wird nicht überschrieben. Für einen neuen Lauf ist
+ein neuer Workspace erforderlich; ein bestehender Workspace darf nur mit
+`--resume` fortgesetzt werden. Dieser qualitative Callback wird absichtlich
+nur mit `--mode sequential --workers 1` ausgeführt; ein paralleler
+ThreadPool-Lauf wird vom CLI abgewiesen und darf nicht als parallele
+Pipelineausführung interpretiert werden.
 
 ## Qualitätsprüfungen
 

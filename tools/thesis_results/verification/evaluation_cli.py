@@ -116,6 +116,7 @@ def _load_callback(reference: str) -> PipelineCallback:
 # Output: Vollstaendige Balance und Reports ausschliesslich im Evaluation-Root.
 # Der Callbackvertrag erlaubt die Verwendung bestehender Produktions-APIs,
 # waehrend die Evaluationsschicht keine Produktionslogik importseitig veraendert.
+# Callbacks koennen die Ausfuehrung explizit auf sequential/worker=1 begrenzen.
 def run_evaluation(
     manifest: Path,
     workspace: Path,
@@ -125,12 +126,25 @@ def run_evaluation(
     workers: int = 1,
     mode: str = "sequential",
     block_size: int = 100,
+    pixel_tolerance: int = 8,
     resume: bool = False,
 ) -> Any:
     """Fuehrt Manifest, Pipeline, Bundlepruefung und Report in einem Lauf aus."""
+    callback_module = importlib.import_module(callback.__module__)
+    if getattr(callback_module, "REQUIRES_SEQUENTIAL", False) and (
+        mode != "sequential" or workers != 1
+    ):
+        raise ValueError(
+            "Der konfigurierte Callback muss mit mode=sequential und workers=1 "
+            "ausgefuehrt werden."
+        )
     cases = load_cases(manifest)
     config = EvaluationConfig(
-        seed=seed, workers=workers, mode=mode, block_size=block_size
+        seed=seed,
+        workers=workers,
+        mode=mode,
+        block_size=block_size,
+        pixel_tolerance=pixel_tolerance,
     )
     runner = EvaluationRunner(workspace, config)
     balance = runner.run(cases, callback, resume=resume)
@@ -153,6 +167,7 @@ def main() -> int:
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument("--mode", default="sequential")
     parser.add_argument("--block-size", type=int, default=100)
+    parser.add_argument("--pixel-tolerance", type=int, default=8)
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
     run_evaluation(
@@ -163,6 +178,7 @@ def main() -> int:
         workers=args.workers,
         mode=args.mode,
         block_size=args.block_size,
+        pixel_tolerance=args.pixel_tolerance,
         resume=args.resume,
     )
     return 0

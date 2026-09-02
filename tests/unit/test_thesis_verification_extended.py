@@ -38,6 +38,8 @@ from tools.thesis_results.verification.semantic_comparison import (
     profile_source,
 )
 
+from tests.fixtures.synthetic_documents import write_synthetic_dicom
+
 
 def _case(case_id: str, source: Path, *, negative: bool = False) -> PlannedCase:
     return PlannedCase(case_id, source, case_id, "jpg", planned_negative=negative)
@@ -313,6 +315,7 @@ def test_input_output_raster_detects_change_outside_roi(tmp_path: Path) -> None:
     image.save(source)
     changed = image.copy()
     changed.putpixel((15, 15), (0, 0, 0))
+    changed.putpixel((14, 15), (0, 0, 0))
     changed.save(output)
     comparison = compare_input_output(source, output, roi=(0, 0, 4, 4))
     assert comparison["status"] == "different"
@@ -328,6 +331,105 @@ def test_input_output_raster_uses_same_for_unchanged_input(tmp_path: Path) -> No
     comparison = compare_input_output(source, output)
 
     assert comparison["status"] == "same"
+
+
+def test_input_output_raster_accepts_reencoding_with_warning_within_tolerance(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.png"
+    output = tmp_path / "output.png"
+    Image.new("RGB", (16, 16), (100, 100, 100)).save(source)
+    changed = Image.open(source).copy()
+    changed.putpixel((15, 15), (108, 100, 100))
+    changed.save(output)
+
+    comparison = compare_input_output(source, output, roi=(0, 0, 4, 4), tolerance=8)
+
+    assert comparison["status"] == "same_with_warnings"
+    assert comparison["warnings"]
+    assert comparison["max_absolute_difference"] == 8
+    assert comparison["pixels_exceeding_tolerance"] == 0
+
+
+def test_input_output_raster_rejects_difference_above_tolerance(tmp_path: Path) -> None:
+    source = tmp_path / "source.png"
+    output = tmp_path / "output.png"
+    image = Image.new("RGB", (16, 16), (100, 100, 100))
+    image.save(source)
+    changed = image.copy()
+    for x in range(8):
+        for y in range(8):
+            changed.putpixel((x, y), (200, 100, 100))
+    changed.save(output)
+
+    comparison = compare_input_output(source, output, roi=(0, 0, 4, 4), tolerance=8)
+
+    assert comparison["status"] == "different"
+    assert comparison["pixels_exceeding_tolerance"] == 48
+    assert comparison["p99_absolute_difference"] > 32
+
+
+def test_rgb_dicom_roi_masks_rows_columns_and_samples_without_mocking(
+    tmp_path: Path,
+) -> None:
+    source = write_synthetic_dicom(tmp_path / "source.dcm")
+    output = tmp_path / "output.dcm"
+    import pydicom
+
+    dataset = pydicom.dcmread(source)
+    pixels = dataset.pixel_array.copy()
+    pixels[0, 0, :] = 255
+    dataset.PixelData = pixels.tobytes()
+    dataset.save_as(output, enforce_file_format=True)
+
+    comparison = dicom_pixels_equal(source, output, roi=(0, 0, 1, 1), tolerance=8)
+
+    assert comparison["status"] == "same"
+    assert comparison["max_absolute_difference"] == 0
+    assert comparison["pixels_compared"] == (256 * 256 - 1) * 3
+
+
+def test_dicom_color_conversion_is_a_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import pydicom
+    from tools.thesis_results.verification import semantic_comparison
+
+    source = tmp_path / "source.dcm"
+    output = tmp_path / "output.dcm"
+    source_dataset = pydicom.Dataset()
+    output_dataset = pydicom.Dataset()
+    for dataset in (source_dataset, output_dataset):
+        dataset.Rows = 2
+        dataset.Columns = 2
+        dataset.SamplesPerPixel = 3
+        dataset.PhotometricInterpretation = "YBR_FULL_422"
+        dataset.PixelRepresentation = 0
+        dataset.BitsAllocated = 8
+        dataset.BitsStored = 8
+        dataset.HighBit = 7
+    output_dataset.PhotometricInterpretation = "RGB"
+
+    def read_dicom(path: Path, **_kwargs: object) -> pydicom.Dataset:
+        return source_dataset if Path(path) == source else output_dataset
+
+    monkeypatch.setattr(pydicom, "dcmread", read_dicom)
+    monkeypatch.setattr(
+        semantic_comparison,
+        "dicom_pixels_equal",
+        lambda *_args, **_kwargs: {
+            "status": "same",
+            "max_absolute_difference": 0,
+            "mean_absolute_difference": 0.0,
+            "pixels_compared": 6,
+            "pixels_exceeding_tolerance": 0,
+        },
+    )
+
+    comparison = compare_input_output(source, output, tolerance=8)
+
+    assert comparison["status"] == "same_with_warnings"
+    assert any("YBR_FULL_422 -> RGB" in item for item in comparison["warnings"])
 
 
 def test_profile_source_recognises_pdf(tmp_path: Path) -> None:
@@ -651,9 +753,7 @@ def test_interrupted_checkpoint_preserves_previous_commit_reference(
     with pytest.raises(KeyboardInterrupt, match="abbruch"):
         runner.run(cases, callback)
     checkpoint = json.loads(runner.checkpoint_path.read_text(encoding="utf-8"))
-    assert Path(checkpoint["commit_directory"]) == Path(
-        ".commits", "block-000001"
-    )
+    assert Path(checkpoint["commit_directory"]) == Path(".commits", "block-000001")
     assert checkpoint_consistency(workspace)["status"] == "consistent"
 
 

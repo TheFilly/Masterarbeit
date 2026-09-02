@@ -120,6 +120,7 @@ def reconstruct_case_result_balance(
         if result.input_output_status not in {
             None,
             "same",
+            "same_with_warnings",
             "different",
             "unsupported",
             "unavailable",
@@ -324,6 +325,16 @@ def write_report(
         "geometry_errors",
         "input_output_status",
         "input_output_reason",
+        "input_output_warnings",
+        "input_output_tolerance",
+        "input_output_max_absolute_difference",
+        "input_output_mean_absolute_difference",
+        "input_output_p99_absolute_difference",
+        "input_output_pixels_compared",
+        "input_output_pixels_exceeding_tolerance",
+        "input_output_pixels_exceeding_quality_limit",
+        "input_output_large_difference_fraction",
+        "input_output_quality_rule",
         "output_bytes",
     ]
     with csv_path.open("w", newline="", encoding="utf-8") as stream:
@@ -331,7 +342,20 @@ def write_report(
         writer.writeheader()
         for result in results:
             row = asdict(result)
-            writer.writerow({column: row.get(column) for column in columns})
+            writer.writerow(
+                {
+                    column: (
+                        json.dumps(row.get(column), ensure_ascii=False)
+                        if column
+                        in {
+                            "input_output_warnings",
+                            "input_output_quality_rule",
+                        }
+                        else row.get(column)
+                    )
+                    for column in columns
+                }
+            )
     (root / "profile-aggregate.json").write_text(
         json.dumps(aggregate_profiles(profiles), indent=2, default=str) + "\n",
         encoding="utf-8",

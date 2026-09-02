@@ -13,6 +13,16 @@ from pydicom.errors import InvalidDicomError
 
 from .case_outcomes import CaseProfile, ProfileStatus
 
+DEFAULT_INPUT_OUTPUT_TOLERANCE = 8
+_QUALITY_QUANTILE = 0.99
+_QUALITY_QUANTILE_FACTOR = 4
+_QUALITY_MAX_MEAN_FACTOR = 1
+_QUALITY_MAX_LARGE_PIXEL_FRACTION = 0.005
+_EXPECTED_DICOM_CONVERSIONS = {
+    ("YBR_FULL_422", "RGB"),
+    ("YBR_FULL", "RGB"),
+}
+
 
 def file_sha256(path: Path) -> str:
     """Berechnet einen Datei-Fingerprint."""
@@ -53,31 +63,89 @@ def decoded_raster_equal(left: Path, right: Path, tolerance: int = 0) -> bool:
         return difference.getbbox() is None or max(maxima) <= tolerance
 
 
-# Input: zwei Rasterbilder und eine erlaubte Injektions-ROI.
-# Output: Gleichheit aller Pixel ausserhalb der ROI.
+# Input: zwei Rasterbilder, erlaubte Injektions-ROI und Basisgrenze.
+# Output: Messwerte und Qualitätsstatus ausserhalb der ROI.
+def _raster_difference_metrics(
+    left: Path,
+    right: Path,
+    roi: tuple[int, int, int, int] | None,
+    tolerance: int,
+) -> dict[str, Any]:
+    """Ermittelt messbare Rasterabweichungen ausserhalb einer optionalen ROI."""
+    from PIL import Image
+
+    with Image.open(left) as first, Image.open(right) as second:
+        if first.size != second.size:
+            return {
+                "same": False,
+                "max_absolute_difference": None,
+                "mean_absolute_difference": None,
+                "pixels_compared": 0,
+                "pixels_exceeding_tolerance": 0,
+            }
+        import numpy as np
+
+        first_array = np.asarray(first.convert("RGB"), dtype=np.int16)
+        second_array = np.asarray(second.convert("RGB"), dtype=np.int16)
+        differences = np.max(np.abs(first_array - second_array), axis=-1)
+        if roi is not None:
+            mask = np.ones(differences.shape, dtype=bool)
+            x1, y1, x2, y2 = roi
+            mask[y1:y2, x1:x2] = False
+            differences = differences[mask]
+        else:
+            differences = differences.reshape(-1)
+        return _quality_metrics(differences, tolerance)
+
+
+# Input: eindimensionales Array maximaler Pixelkanalabweichungen und Basisgrenze.
+# Output: Messwerte, auditierbare Qualitätsgrenzen und Qualitätsstatus.
+# Die Regel toleriert seltene Rekodierungs-Ausreißer, aber keine flächige Änderung.
+def _quality_metrics(differences: Any, tolerance: int) -> dict[str, Any]:
+    import numpy as np
+
+    values = np.asarray(differences, dtype=np.float64).reshape(-1)
+    quantile_limit = tolerance * _QUALITY_QUANTILE_FACTOR
+    quantile = float(np.quantile(values, _QUALITY_QUANTILE)) if values.size else 0.0
+    mean = float(values.mean()) if values.size else 0.0
+    large_count = int((values > quantile_limit).sum())
+    large_fraction = large_count / int(values.size) if values.size else 0.0
+    within = (
+        mean <= tolerance * _QUALITY_MAX_MEAN_FACTOR
+        and quantile <= quantile_limit
+        and large_fraction <= _QUALITY_MAX_LARGE_PIXEL_FRACTION
+    )
+    return {
+        "same": within,
+        "max_absolute_difference": int(values.max()) if values.size else 0,
+        "mean_absolute_difference": mean,
+        "p99_absolute_difference": quantile,
+        "pixels_compared": int(values.size),
+        "pixels_exceeding_tolerance": int((values > tolerance).sum()),
+        "pixels_exceeding_quantile_limit": large_count,
+        "large_difference_fraction": large_fraction,
+        "quality_rule": {
+            "per_channel_tolerance": tolerance,
+            "mean_absolute_difference_max": tolerance * _QUALITY_MAX_MEAN_FACTOR,
+            "p99_absolute_difference_max": quantile_limit,
+            "large_difference_threshold": quantile_limit,
+            "large_difference_fraction_max": _QUALITY_MAX_LARGE_PIXEL_FRACTION,
+            "quantile": _QUALITY_QUANTILE,
+        },
+    }
+
+
+# Input: zwei Rasterbilder, optionale ROI und Basisgrenze.
+# Output: True, wenn die Rekodierungs-Qualitätsregel ausserhalb der ROI gilt.
 def decoded_raster_equal_outside_roi(
     left: Path, right: Path, roi: tuple[int, int, int, int], tolerance: int = 0
 ) -> bool:
     """Vergleicht Rasterdaten ausserhalb der erlaubten Region."""
-    from PIL import Image, ImageChops
-
-    with Image.open(left) as first, Image.open(right) as second:
-        if first.size != second.size:
-            return False
-        difference = ImageChops.difference(
-            first.convert("RGB"), second.convert("RGB")
-        ).convert("L")
-        mask = Image.new("L", difference.size, 255)
-        mask.paste(0, roi)
-        if tolerance:
-            difference = difference.point(
-                lambda value: 0 if value <= tolerance else value
-            )
-        return ImageChops.multiply(difference, mask).getbbox() is None
+    return bool(_raster_difference_metrics(left, right, roi, tolerance)["same"])
 
 
-# Input: DICOM-Dateien, Allowlist und optionale erlaubte Konvertierungen.
-# Output: Semantischer Pixelvergleich ausserhalb einer ROI.
+# Input: DICOM-Dateien, optionale ROI und Basisgrenze.
+# Output: Semantischer Pixelvergleich mit Qualitätsmesswerten ausserhalb der ROI.
 # Der Vergleich arbeitet auf dekodierten Frames und nicht auf Containerbytes.
 def dicom_pixels_equal(
     left: Path,
@@ -95,23 +163,43 @@ def dicom_pixels_equal(
         a, b = first.pixel_array, second.pixel_array
         if a.shape != b.shape:
             return {"status": "different", "reason": "Pixel-Shape unterscheidet sich"}
-        if roi is None:
-            equal = bool(
-                np.max(np.abs(a.astype(np.int64) - b.astype(np.int64))) <= tolerance
-            )
-        else:
+        differences = np.abs(a.astype(np.int64) - b.astype(np.int64))
+        if roi is not None:
             x1, y1, x2, y2 = roi
-            mask = np.ones(a.shape[-2:], dtype=bool)
-            mask[y1:y2, x1:x2] = False
-            equal = not mask.any() or bool(
-                np.max(
-                    np.abs(
-                        a[..., mask].astype(np.int64) - b[..., mask].astype(np.int64)
-                    )
-                )
-                <= tolerance
+            rows = int(first.Rows)
+            columns = int(first.Columns)
+            samples = int(getattr(first, "SamplesPerPixel", 1))
+            spatial_mask = np.ones((rows, columns), dtype=bool)
+            spatial_mask[max(0, y1) : min(rows, y2), max(0, x1) : min(columns, x2)] = (
+                False
             )
-        return {"status": "same" if equal else "different"}
+            if samples > 1:
+                if a.shape[-3:] != (rows, columns, samples):
+                    return {
+                        "status": "different",
+                        "reason": "Multichannel-Pixelshape passt nicht zu "
+                        "Rows/Columns/SamplesPerPixel",
+                    }
+                differences = differences[..., spatial_mask, :]
+            else:
+                if a.shape[-2:] != (rows, columns):
+                    return {
+                        "status": "different",
+                        "reason": "Pixelshape passt nicht zu Rows/Columns",
+                    }
+                differences = differences[..., spatial_mask]
+        else:
+            rows = int(first.Rows)
+            columns = int(first.Columns)
+            samples = int(getattr(first, "SamplesPerPixel", 1))
+            if samples > 1 and a.shape[-3:] != (rows, columns, samples):
+                return {
+                    "status": "different",
+                    "reason": "Multichannel-Pixelshape passt nicht zu "
+                    "Rows/Columns/SamplesPerPixel",
+                }
+        metrics = _quality_metrics(differences, tolerance)
+        return {"status": "same" if metrics.pop("same") else "different", **metrics}
     except (InvalidDicomError, OSError, EOFError, ValueError, AttributeError) as error:
         return {"status": "unavailable", "reason": str(error)}
 
@@ -124,9 +212,11 @@ def compare_input_output(
     *,
     roi: tuple[int, int, int, int] | dict[int, tuple[int, int, int, int]] | None = None,
     allowlist: set[int] | None = None,
-    tolerance: int = 0,
+    tolerance: int = DEFAULT_INPUT_OUTPUT_TOLERANCE,
 ) -> dict[str, Any]:
     """Prueft, dass nur erlaubte Injektionsaenderungen entstanden sind."""
+    if tolerance < 0:
+        raise ValueError("Die Input/Output-Toleranz darf nicht negativ sein.")
     suffix = source.suffix.casefold()
     if suffix != output.suffix.casefold():
         return {"status": "different", "reason": "Format unterscheidet sich"}
@@ -149,12 +239,53 @@ def compare_input_output(
                 return attributes
             if pixels_equal["status"] == "unavailable":
                 return pixels_equal
+            metadata_warnings = list(attributes.get("warnings", []))
+            pixel_warning = (
+                pixels_equal["status"] == "same"
+                and pixels_equal.get("max_absolute_difference", 0) > 0
+            )
+            if pixel_warning:
+                metadata_warnings.append(
+                    "DICOM-Pixelabweichungen ausserhalb der ROI liegen innerhalb "
+                    "der dokumentierten Rekodierungs-Qualitaetsregel."
+                )
+            exact_or_tolerated = (
+                attributes["status"] in {"same", "same_with_warnings"}
+                and pixels_equal["status"] == "same"
+            )
             return {
-                "status": "same"
-                if attributes["status"] == "same" and pixels_equal["status"] == "same"
-                else "different",
+                "status": (
+                    "same_with_warnings"
+                    if exact_or_tolerated and metadata_warnings
+                    else "same"
+                    if exact_or_tolerated
+                    else "different"
+                ),
                 "metadata_differences": attributes.get("metadata_differences", []),
+                "warnings": metadata_warnings,
                 "pixels_outside_roi_equal": pixels_equal["status"] == "same",
+                "tolerance": tolerance,
+                "max_absolute_difference": pixels_equal.get("max_absolute_difference"),
+                "mean_absolute_difference": pixels_equal.get(
+                    "mean_absolute_difference"
+                ),
+                "pixels_compared": pixels_equal.get("pixels_compared"),
+                "pixels_exceeding_tolerance": pixels_equal.get(
+                    "pixels_exceeding_tolerance"
+                ),
+                "p99_absolute_difference": pixels_equal.get("p99_absolute_difference"),
+                "pixels_exceeding_quantile_limit": pixels_equal.get(
+                    "pixels_exceeding_quantile_limit"
+                ),
+                "large_difference_fraction": pixels_equal.get(
+                    "large_difference_fraction"
+                ),
+                "quality_rule": pixels_equal.get("quality_rule", {}),
+                "reason": (
+                    "Nicht tolerierbare DICOM-Metadaten- oder Pixelabweichung."
+                    if not exact_or_tolerated
+                    else None
+                ),
             }
         if suffix in {".jpg", ".jpeg", ".png"}:
             if isinstance(roi, dict):
@@ -162,14 +293,32 @@ def compare_input_output(
                     "status": "unavailable",
                     "reason": "Raster-ROI ist nicht seitenbezogen",
                 }
-            equal = (
-                decoded_raster_equal(source, output, tolerance)
-                if roi is None
-                else decoded_raster_equal_outside_roi(source, output, roi, tolerance)
-            )
+            metrics = _raster_difference_metrics(source, output, roi, tolerance)
+            equal = bool(metrics["same"])
+            warnings = []
+            if equal and metrics["max_absolute_difference"] > 0:
+                warnings.append(
+                    "Raster-Rekodierungsabweichungen ausserhalb der ROI liegen "
+                    "innerhalb der vollstaendig dokumentierten Rekodierungs-"
+                    "Qualitaetsregel (Basisgrenze, Mittelwert, p99 und "
+                    "Ausreisserquote)."
+                )
             return {
-                "status": "same" if equal else "different",
+                "status": "same_with_warnings"
+                if equal and warnings
+                else "same"
+                if equal
+                else "different",
                 "roi_checked": roi is not None,
+                "warnings": warnings,
+                "tolerance": tolerance,
+                **{key: value for key, value in metrics.items() if key != "same"},
+                "reason": (
+                    "Rasterabweichungen ausserhalb der ROI verletzen die "
+                    "dokumentierte Rekodierungs-Qualitaetsregel."
+                    if not equal
+                    else None
+                ),
             }
         if suffix == ".pdf":
             equal = _compare_pdf_outputs(source, output, tolerance, roi=roi)
@@ -295,9 +444,27 @@ def compare_dicom_attributes(
             for tag in tags
             if int(tag) not in allowed and first.get(tag) != second.get(tag)
         )
+        first_photometry = str(getattr(first, "PhotometricInterpretation", "")).upper()
+        second_photometry = str(
+            getattr(second, "PhotometricInterpretation", "")
+        ).upper()
+        conversion = (first_photometry, second_photometry)
+        conversion_tag = 0x00280004
+        warnings: list[str] = []
+        if conversion in _EXPECTED_DICOM_CONVERSIONS and conversion_tag in differences:
+            differences.remove(conversion_tag)
+            warnings.append(
+                "Erwartete DICOM-Farbkonvertierung: "
+                f"{first_photometry} -> {second_photometry}."
+            )
         return {
-            "status": "same" if not differences else "different",
+            "status": "same_with_warnings"
+            if warnings and not differences
+            else "same"
+            if not differences
+            else "different",
             "metadata_differences": differences,
+            "warnings": warnings,
         }
     except (InvalidDicomError, OSError, EOFError, ValueError) as error:
         return {"status": "unavailable", "reason": str(error)}
@@ -597,10 +764,7 @@ def _compare_bundle_pair(left_run: Path, right_run: Path, tolerance: int) -> boo
         pixels = dicom_pixels_equal(
             left_output, right_output, roi=roi, tolerance=tolerance
         )
-        return (
-            str(attributes["status"]) == "same"
-            and str(pixels["status"]) == "same"
-        )
+        return str(attributes["status"]) == "same" and str(pixels["status"]) == "same"
     if suffix == ".pdf":
         return _compare_pdf_outputs(
             left_output,

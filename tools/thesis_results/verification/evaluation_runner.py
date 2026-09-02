@@ -255,6 +255,7 @@ class EvaluationRunner:
                 block_worker_lock = Lock()
                 abort_requested = threading.Event()
                 try:
+
                     def process_case(
                         case: PlannedCase,
                         current_block: int = block_number,
@@ -597,7 +598,9 @@ class EvaluationRunner:
                 validation.path_collisions,
                 profile=result.profile or case.profile,
             )
-        checked = _attach_input_output_status(case, result, output)
+        checked = _attach_input_output_status(
+            case, result, output, tolerance=self.config.pixel_tolerance
+        )
         if checked.input_output_status == "different":
             return replace(
                 checked,
@@ -967,15 +970,12 @@ class EvaluationRunner:
                 candidate = previous_checkpoint.get("commit_directory")
                 if isinstance(candidate, str) and candidate:
                     directory = self.workspace / candidate
-                    if (
-                        previous_checkpoint.get("block_status") == "completed"
-                        and all(
-                            (directory / name).is_file()
-                            for name in (
-                                "block.json",
-                                "checkpoint.json",
-                                "case-results.json",
-                            )
+                    if previous_checkpoint.get("block_status") == "completed" and all(
+                        (directory / name).is_file()
+                        for name in (
+                            "block.json",
+                            "checkpoint.json",
+                            "case-results.json",
                         )
                     ):
                         previous_commit_directory = candidate
@@ -1068,9 +1068,26 @@ class EvaluationRunner:
         loaded: list[CaseResult] = []
         for raw in checkpoint.get("results", []):
             payload = dict(raw)
+            payload["outcome"] = CaseOutcome(str(payload["outcome"]))
+            payload["artifact_status"] = ArtifactStatus(
+                str(payload.get("artifact_status", ArtifactStatus.MISSING.value))
+            )
             profile = payload.get("profile")
             if isinstance(profile, dict):
-                payload["profile"] = CaseProfile(**profile)
+                profile_payload = dict(profile)
+                if "profile_status" in profile_payload:
+                    profile_payload["profile_status"] = ProfileStatus(
+                        str(profile_payload["profile_status"])
+                    )
+                for key in (
+                    "expected_schema_fields",
+                    "present_structured_fields",
+                    "used_structured_fields",
+                    "missing_expected_fields",
+                ):
+                    if isinstance(profile_payload.get(key), list):
+                        profile_payload[key] = tuple(profile_payload[key])
+                payload["profile"] = CaseProfile(**profile_payload)
             loaded.append(CaseResult(**payload))
         return loaded
 
@@ -1088,7 +1105,11 @@ def _is_proven_rejection(result: CaseResult) -> bool:
 # Input: Erfolgreicher Fall und erzeugtes Bundle.
 # Output: Fallresultat mit explizitem Input/Output-Semantikstatus.
 def _attach_input_output_status(
-    case: PlannedCase, result: CaseResult, output: Path
+    case: PlannedCase,
+    result: CaseResult,
+    output: Path,
+    *,
+    tolerance: int = 8,
 ) -> CaseResult:
     from .semantic_comparison import (
         _annotation_roi,
@@ -1124,11 +1145,61 @@ def _attach_input_output_status(
             output_path,
             roi=roi,
             allowlist=allowlist,
+            tolerance=tolerance,
         )
+        reason = status.get("reason")
         return replace(
             result,
             input_output_status=str(status.get("status")),
-            input_output_reason=str(status.get("reason", "")) or None,
+            input_output_reason=str(reason) if reason else None,
+            input_output_warnings=tuple(
+                str(item) for item in status.get("warnings", [])
+            ),
+            input_output_tolerance=(
+                int(status["tolerance"])
+                if status.get("tolerance") is not None
+                else None
+            ),
+            input_output_max_absolute_difference=(
+                int(status["max_absolute_difference"])
+                if status.get("max_absolute_difference") is not None
+                else None
+            ),
+            input_output_mean_absolute_difference=(
+                float(status["mean_absolute_difference"])
+                if status.get("mean_absolute_difference") is not None
+                else None
+            ),
+            input_output_p99_absolute_difference=(
+                float(status["p99_absolute_difference"])
+                if status.get("p99_absolute_difference") is not None
+                else None
+            ),
+            input_output_pixels_compared=(
+                int(status["pixels_compared"])
+                if status.get("pixels_compared") is not None
+                else None
+            ),
+            input_output_pixels_exceeding_tolerance=(
+                int(status["pixels_exceeding_tolerance"])
+                if status.get("pixels_exceeding_tolerance") is not None
+                else None
+            ),
+            input_output_pixels_exceeding_quality_limit=(
+                int(status["pixels_exceeding_quantile_limit"])
+                if status.get("pixels_exceeding_quantile_limit") is not None
+                else None
+            ),
+            input_output_large_difference_fraction=(
+                float(status["large_difference_fraction"])
+                if status.get("large_difference_fraction") is not None
+                else None
+            ),
+            input_output_quality_rule=(
+                dict(status["quality_rule"])
+                if isinstance(status.get("quality_rule"), dict)
+                else {}
+            ),
         )
     except (
         OSError,

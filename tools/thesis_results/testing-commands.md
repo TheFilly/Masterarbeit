@@ -71,15 +71,40 @@ uv run python tools/visual_checks/pipeline_functionality.py --skip-handwriting
 uv run python -m tools.thesis_results.verification.evaluation_cli `
   --manifest configs/evaluation-manifest.json `
   --workspace thesis-results/validation/qualitative-run-<timestamp> `
-  --callback mein_modul:mein_callback `
+  --callback tools.thesis_results.verification.evaluation_callback:run_case `
   --seed 42 `
   --block-size 100 `
   --workers 1 `
   --mode sequential
 ```
 
-Für `--resume` wird derselbe Workspace eines kontrolliert abgebrochenen
-Laufs verwendet. Ein neuer Lauf erhält einen neuen Workspace.
+Der Workspace muss für jeden neuen Lauf neu gewählt werden, damit bestehende
+Ergebnisse und Benchmarks nicht überschrieben werden. Für `--resume` wird
+derselbe Workspace eines kontrolliert abgebrochenen Laufs verwendet.
+
+Das Manifest liegt unter `configs/evaluation-manifest.json`; der Callback
+`tools.thesis_results.verification.evaluation_callback:run_case` verwendet die
+lokale DICOM-/JPG-Auswahl aus `DicomData`, führt nur die ausgewiesenen
+Runtime-Defaults aus, schreibt nur in die Fallordner des Runners und validiert
+jedes erfolgreiche Bundle mit `validate_run_bundle`. Ein lokaler PDF-Fall wird
+als begründete Scope-Ablehnung mit `has_valid_rejection_evidence` erfasst.
+
+V-004 verwendet eine formatbewusste Toleranzpolitik. Die erwartete DICOM-
+Farbkonvertierung `YBR_FULL_422 -> RGB` sowie JPG-/JPEG-Rekodierungs-
+abweichungen innerhalb der vollständigen Qualitätsregel werden als Erfolg mit
+Warnung (`same_with_warnings`) ausgewiesen. Außerhalb der Injektions-ROI
+gelten eine Basisgrenze von `8`, ein Mittelwert von höchstens `8`, ein p99 von
+höchstens `32` und maximal `0,5 %` Pixel über `32`. JSON und CSV enthalten
+Status, Warnungen, alle Grenzwerte, maximale und mittlere Abweichung, p99,
+verglichene Pixel sowie die Anzahl der Überschreitungen. Nicht tolerierbare Abweichungen bleiben
+`unexpected_failed` und werden als `input_output_differences` bilanziert.
+
+Die auditierbare Rekodierungsregel lautet: per-channel 8, Mittelwert maximal 8,
+99%-Quantil maximal 32 und hoechstens 0,5 Prozent Pixel ueber 32. Diese
+Grenzwerte und die zugehoerigen Messwerte werden in JSON und CSV ausgegeben.
+Der Callback erzwingt außerdem `--mode sequential --workers 1`; der globale
+API-Staging-Pfad wird damit nicht als echte parallele Pipelineausführung
+missverstanden.
 
 Die manifestbasierte Verifikation weist V-001 bis V-011 nach. Wiederverwendete
 Fixtures bei 10.000 oder 25.000 Fällen sind als Endurance-/Stabilitätsmessung
