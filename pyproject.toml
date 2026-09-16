@@ -32,6 +32,9 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v"
+markers = [
+    "local_data: tests requiring local files under DicomData/",
+]
 
 [tool.coverage.run]
 source = ["src/injection_pipeline"]

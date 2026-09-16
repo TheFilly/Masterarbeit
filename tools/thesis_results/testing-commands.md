@@ -56,6 +56,15 @@ uv run mypy --strict --explicit-package-bases tools/thesis_results/verification
 git diff --check
 ```
 
+Die Tests mit dem Marker `local_data` benötigen die nicht versionierten,
+lokalen Dateien unter `DicomData/` und werden deshalb im GitHub-Actions-Lauf
+mit `-m "not local_data"` ausgeschlossen. Lokal können sie weiterhin mit den
+echten Daten ausgeführt werden:
+
+```powershell
+uv run pytest tests/ -m local_data
+```
+
 Diese Befehle sind keine PC/Mac-Laufzeitmessungen und können auf dem Mac
 nachgeholt werden.
 

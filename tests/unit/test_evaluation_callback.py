@@ -21,6 +21,7 @@ from tools.thesis_results.verification.semantic_comparison import profile_source
 from tests.fixtures.synthetic_documents import write_synthetic_dicom
 
 
+@pytest.mark.local_data
 def test_manifest_is_loadable_and_profiles_local_sources() -> None:
     from tools.thesis_results.verification.evaluation_cli import load_cases
 
@@ -98,6 +99,7 @@ def test_existing_case_folder_is_not_overwritten(tmp_path: Path) -> None:
     assert sentinel.read_text(encoding="utf-8") == "keep"
 
 
+@pytest.mark.local_data
 def test_pdf_scope_rejection_contains_valid_evidence() -> None:
     source = Path("DicomData/PDF/Briefmarken.1Stk.17.03.2026_1345.pdf")
     case = PlannedCase("pdf-scope", source, "source", "pdf", expected_rejection=True)
