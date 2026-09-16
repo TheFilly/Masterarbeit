@@ -37,4 +37,4 @@ jobs:
       - name: Test
         env:
           MPLBACKEND: Agg
-        run: uv run pytest tests/ -x
+        run: uv run pytest tests/ -x -m "not local_data"
