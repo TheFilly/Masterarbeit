@@ -3,6 +3,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+import pydicom
 import pytest
 from PIL import Image, ImageDraw
 from pydantic import ValidationError
@@ -28,6 +29,11 @@ from injection_pipeline.writers.pdf_make import (
     _text_annotation_quad,
     _TextRenderPlan,
     make_pdf_composition,
+)
+from tests.fixtures.synthetic_documents import (
+    write_synthetic_dicom,
+    write_synthetic_jpg,
+    write_synthetic_multiframe_dicom,
 )
 
 
@@ -123,6 +129,20 @@ def _make_inputs(
     ]
     texts = [_text_payload(index) for index in range(text_count)]
     return pdf, images, texts
+
+
+def _write_unsupported_dicom(path: Path) -> Path:
+    write_synthetic_dicom(path)
+    dataset = pydicom.dcmread(path)
+    dataset.Rows = 384
+    dataset.SamplesPerPixel = 1
+    dataset.PhotometricInterpretation = "MONOCHROME2"
+    del dataset.PlanarConfiguration
+    dataset.BitsAllocated = 16
+    dataset.BitsStored = 16
+    dataset.HighBit = 15
+    dataset.save_as(path, enforce_file_format=True)
+    return path
 
 
 def test_text_annotation_quad_is_tight_and_rotates_with_text() -> None:
@@ -266,6 +286,117 @@ def test_make_pdf_public_api_creates_artifacts_for_multiple_images_and_texts(
         artifacts.annotation_json.read_text(encoding="utf-8")
     )
     assert sidecar.model_dump(mode="json") == artifacts.record.model_dump(mode="json")
+
+
+def test_make_pdf_accepts_supported_single_frame_dicom_and_preserves_coordinates(
+    tmp_path: Path,
+) -> None:
+    pdf = _write_pdf(tmp_path / "template.pdf", (612.0, 792.0))
+    dicom_path = write_synthetic_dicom(tmp_path / "scan.dcm")
+    image = _image_payload(dicom_path, 0)
+
+    artifacts = make_pdf(
+        [image],
+        [_text_payload(0)],
+        pdf,
+        tmp_path / "output",
+        seed=4,
+    )
+
+    assert artifacts.clean_pdf.is_file()
+    assert PdfReader(str(artifacts.clean_pdf)).pages[0].extract_text()
+    assert artifacts.record.images[0].path == dicom_path
+    placement = artifacts.record.image_annotations[0].placement
+    assert placement.width == pytest.approx(placement.height)
+    expected = [
+        (
+            placement.x + 12 / 256 * placement.width,
+            placement.y + placement.height - 12 / 256 * placement.height,
+        ),
+        (
+            placement.x + 76 / 256 * placement.width,
+            placement.y + placement.height - 12 / 256 * placement.height,
+        ),
+        (
+            placement.x + 76 / 256 * placement.width,
+            placement.y + placement.height - 34 / 256 * placement.height,
+        ),
+        (
+            placement.x + 12 / 256 * placement.width,
+            placement.y + placement.height - 34 / 256 * placement.height,
+        ),
+    ]
+    actual = [
+        (point.x, point.y)
+        for point in artifacts.record.image_annotations[0].pdf_corners.root
+    ]
+    assert actual == pytest.approx(expected)
+
+
+def test_make_pdf_accepts_mixed_png_jpg_and_dicom_inputs(tmp_path: Path) -> None:
+    pdf = _write_pdf(tmp_path / "template.pdf", (612.0, 792.0))
+    png_path = _write_image(tmp_path / "image.png")
+    jpg_path = write_synthetic_jpg(tmp_path / "image.jpg")
+    dicom_path = write_synthetic_dicom(tmp_path / "scan.dcm")
+    images = [
+        _image_payload(png_path, 0),
+        _image_payload(jpg_path, 1),
+        _image_payload(dicom_path, 2),
+    ]
+
+    artifacts = make_pdf(
+        images,
+        [_text_payload(0)],
+        pdf,
+        tmp_path / "output",
+        seed=4,
+    )
+
+    assert len(PdfReader(str(artifacts.clean_pdf)).pages) >= 1
+    assert [image.path for image in artifacts.record.images] == [
+        png_path,
+        jpg_path,
+        dicom_path,
+    ]
+    assert len(artifacts.record.image_annotations) == 3
+
+
+def test_make_pdf_rejects_multiframe_dicom_before_creating_outputs(
+    tmp_path: Path,
+) -> None:
+    pdf = _write_pdf(tmp_path / "template.pdf", (612.0, 792.0))
+    dicom_path = write_synthetic_multiframe_dicom(tmp_path / "multiframe.dcm")
+    output_dir = tmp_path / "output"
+
+    with pytest.raises(ValueError, match="multi-frame DICOM"):
+        make_pdf(
+            [_image_payload(dicom_path, 0)],
+            [_text_payload(0)],
+            pdf,
+            output_dir,
+            seed=4,
+        )
+
+    assert not output_dir.exists()
+
+
+def test_make_pdf_rejects_unsupported_dicom_before_creating_outputs(
+    tmp_path: Path,
+) -> None:
+    pdf = _write_pdf(tmp_path / "template.pdf", (612.0, 792.0))
+    dicom_path = _write_unsupported_dicom(tmp_path / "unsupported.dcm")
+    output_dir = tmp_path / "output"
+
+    with pytest.raises(ValueError, match="Unsupported DICOM pixel representation"):
+        make_pdf(
+            [_image_payload(dicom_path, 0)],
+            [_text_payload(0)],
+            pdf,
+            output_dir,
+            seed=4,
+        )
+
+    assert not output_dir.exists()
 
 
 def test_make_pdf_draws_values_red_and_image_labels_blue(

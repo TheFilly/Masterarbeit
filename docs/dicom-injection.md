@@ -161,6 +161,14 @@ DICOM/JPG-Injektion, während `make_pdf` bereits injizierte Bildartefakte und
 PDF-Textspezifikationen erhält und eine kompositions-PDF samt Annotationen
 schreibt.
 
+`images` akzeptiert PNG-, JPG- und unterstützte `.dcm`-Dateien auch gemischt.
+Für jeden Eintrag bleiben `annotations` verpflichtend. DICOM-Eingaben werden
+über den bestehenden `DicomLoader` einschließlich seiner Validierungslogik
+geladen. Für `make_pdf` sind ausschließlich Single-Frame-DICOMs zulässig;
+Multi-Frame-DICOMs und nicht unterstützte DICOMs werden vor dem Schreiben von
+Ausgabedateien mit einem eindeutigen Fehler abgelehnt. Die ursprünglichen
+Bildpfade bleiben im PDF-Sidecar erhalten.
+
 ```python
 from injection_pipeline import (
     PdfMakeArtifacts,
@@ -223,7 +231,7 @@ Parameter:
 
 | Parameter | Beschreibung |
 |---|---|
-| `images` | Erforderliche Liste bereits injizierter Bilder mit Bildraum-Annotationen. Der Composer bindet die Bilder ein und bildet jede Annotation auf finale PDF-Seitenkoordinaten ab. Dictionaries im Stil von `BoxAnnotation` werden akzeptiert: `label` -> `category`, `text` -> `value` und `corners` -> `image_corners`; Legacy-Präfix- und -Suffix-Ecken bleiben erhalten, sofern vorhanden. |
+| `images` | Erforderliche Liste von PNG-, JPG- oder unterstützten `.dcm`-Bildern mit verpflichtenden Bildraum-Annotationen. Der Composer bindet die Bilder ein und bildet jede Annotation auf finale PDF-Seitenkoordinaten ab. Dictionaries im Stil von `BoxAnnotation` werden akzeptiert: `label` -> `category`, `text` -> `value` und `corners` -> `image_corners`; Legacy-Präfix- und -Suffix-Ecken bleiben erhalten, sofern vorhanden. |
 | `texts` | Erforderliche Liste von PDF-Textinjektionen. Jeder Eintrag hat dieselbe Bedeutung wie `category`, `value`, `prefix`, `suffix` und `handwritten` von `inject_function`, jedoch keinen Ausgabepfad. |
 | `pdf` | Erforderliches PDF-Eingabe-Template. Quellseiten bleiben erhalten; bei Bedarf können zusätzliche Seiten angehängt werden. |
 | `output_dir` | Erforderliches Verzeichnis für erzeugte PDF, annotierte PDF und Annotation-Sidecar. |

@@ -16,6 +16,8 @@ from reportlab.lib.utils import ImageReader  # type: ignore[import-untyped]
 from reportlab.pdfbase import pdfmetrics  # type: ignore[import-untyped]
 from reportlab.pdfgen.canvas import Canvas  # type: ignore[import-untyped]
 
+from injection_pipeline.engine.frames import frame_to_image
+from injection_pipeline.loaders.dicom import DicomLoader
 from injection_pipeline.models.geometry import ImagePoint, PdfPoint, Quad
 from injection_pipeline.pdf.make_layout import (
     PAGE_MARGIN,
@@ -64,6 +66,15 @@ class _TextRenderPlan:
     value_end: int | None = None
 
 
+@dataclass(frozen=True)
+class _ResolvedImageSource:
+    """Image source resolved for PDF rendering without changing API inputs."""
+
+    path: Path
+    image: Image.Image | None
+    size: tuple[int, int]
+
+
 # Input: PDF-Template, bereits injizierte Bilder, Text-Inputs, Ausgabeordner und Seed.
 # Output: `PdfMakeArtifacts` mit clean PDF, annotated PDF und JSON-Sidecar.
 # Die Funktion validiert alle Eingaben vor dem ersten Schreibzugriff, schreibt
@@ -80,7 +91,8 @@ def make_pdf_composition(
     _validate_template(template)
     _validate_make_inputs(images, texts)
     _ensure_pdf_native_texts(texts)
-    image_sizes = _load_image_sizes(images)
+    resolved_images = _resolve_image_sources(images)
+    image_sizes = [resolved.size for resolved in resolved_images]
     for image_input, image_size in zip(images, image_sizes, strict=True):
         _validate_image_annotations(image_input, image_size)
 
@@ -121,6 +133,7 @@ def make_pdf_composition(
     _write_composed_pdf(
         template,
         images,
+        resolved_images,
         text_plans,
         layout_decisions,
         outputs.clean_pdf,
@@ -130,6 +143,7 @@ def make_pdf_composition(
     _write_composed_pdf(
         template,
         images,
+        resolved_images,
         text_plans,
         layout_decisions,
         outputs.annotated_pdf,
@@ -287,11 +301,33 @@ def _ensure_pdf_native_texts(texts: list[PdfMakeTextInput]) -> None:
 
 
 # Input: Bild-Inputs mit existierenden Pfaden.
-# Output: Bildgroessen als Pixel-Tupel.
-# Die Funktion liest nur Metadaten ueber PIL und veraendert die Bilddateien nicht.
-def _load_image_sizes(images: list[PdfMakeImageInput]) -> list[tuple[int, int]]:
-    sizes: list[tuple[int, int]] = []
+# Output: Fuer den PDF-Writer aufgeloeste Bildquellen mit Groessen.
+# DICOMs werden ueber den bestehenden Loader validiert und nur in-memory fuer
+# ReportLab konvertiert; Rasterdateien behalten ihren bisherigen Pfad bei.
+def _resolve_image_sources(
+    images: list[PdfMakeImageInput],
+) -> list[_ResolvedImageSource]:
+    resolved: list[_ResolvedImageSource] = []
     for image_input in images:
+        if image_input.path.suffix.casefold() == ".dcm":
+            document = DicomLoader().load(image_input.path)
+            if document.frame_count > 1:
+                raise ValueError(
+                    "make_pdf does not support multi-frame DICOM input: "
+                    f"{image_input.path} ({document.frame_count} frames detected)."
+                )
+            image = frame_to_image(document.frame)
+            width, height = image.size
+            if width <= 0 or height <= 0:
+                raise ValueError("PDF make image dimensions must be positive.")
+            resolved.append(
+                _ResolvedImageSource(
+                    path=image_input.path,
+                    image=image,
+                    size=(width, height),
+                )
+            )
+            continue
         try:
             with Image.open(image_input.path) as image:
                 width, height = image.size
@@ -301,8 +337,14 @@ def _load_image_sizes(images: list[PdfMakeImageInput]) -> list[tuple[int, int]]:
             ) from exc
         if width <= 0 or height <= 0:
             raise ValueError("PDF make image dimensions must be positive.")
-        sizes.append((width, height))
-    return sizes
+        resolved.append(
+            _ResolvedImageSource(
+                path=image_input.path,
+                image=None,
+                size=(width, height),
+            )
+        )
+    return resolved
 
 
 # Input: Ausgabeordner.
@@ -835,6 +877,7 @@ def _image_point_to_pdf(
 def _write_composed_pdf(
     template: PdfTemplate,
     images: list[PdfMakeImageInput],
+    resolved_images: list[_ResolvedImageSource],
     text_plans: list[_TextRenderPlan],
     layout_decisions: list[PdfMakeLayoutDecision],
     output_path: Path,
@@ -846,6 +889,7 @@ def _write_composed_pdf(
     overlay_reader = _build_overlay_pdf(
         page_sizes,
         images,
+        resolved_images,
         text_plans,
         layout_decisions,
         image_annotations,
@@ -883,6 +927,7 @@ def _output_page_count(
 def _build_overlay_pdf(
     page_sizes: list[tuple[float, float]],
     images: list[PdfMakeImageInput],
+    resolved_images: list[_ResolvedImageSource],
     text_plans: list[_TextRenderPlan],
     layout_decisions: list[PdfMakeLayoutDecision],
     image_annotations: list[PdfMakeImageAnnotation],
@@ -898,6 +943,7 @@ def _build_overlay_pdf(
             canvas,
             page_index,
             images,
+            resolved_images,
             text_plans,
             layout_decisions,
             image_annotations,
@@ -915,6 +961,7 @@ def _draw_page_overlay(
     canvas: Canvas,
     page_index: int,
     images: list[PdfMakeImageInput],
+    resolved_images: list[_ResolvedImageSource],
     text_plans: list[_TextRenderPlan],
     layout_decisions: list[PdfMakeLayoutDecision],
     image_annotations: list[PdfMakeImageAnnotation],
@@ -925,7 +972,10 @@ def _draw_page_overlay(
             continue
         if decision.placement.item_type == "image":
             _draw_image(
-                canvas, images[decision.placement.source_index], decision.placement
+                canvas,
+                images[decision.placement.source_index],
+                resolved_images[decision.placement.source_index],
+                decision.placement,
             )
         else:
             _draw_text(
@@ -941,6 +991,7 @@ def _draw_page_overlay(
 def _draw_image(
     canvas: Canvas,
     image_input: PdfMakeImageInput,
+    resolved_image: _ResolvedImageSource,
     placement: PdfMakeLayoutPlacement,
 ) -> None:
     canvas.saveState()
@@ -950,7 +1001,11 @@ def _draw_image(
     )
     canvas.rotate(placement.rotation_degrees)
     canvas.drawImage(
-        ImageReader(str(image_input.path)),
+        ImageReader(
+            resolved_image.image
+            if resolved_image.image is not None
+            else str(image_input.path)
+        ),
         -placement.width / 2.0,
         -placement.height / 2.0,
         width=placement.width,

@@ -56,6 +56,35 @@ und direkten PDF-nativen Text. Eine direkte PDF-Texteingabe mit
 `handwritten=True` bleibt absichtlich nicht unterstützt und ist nicht als
 erfolgreiche Visual Check enthalten.
 
+## Echte DICOM-Daten mit `make_pdf`
+
+Der folgende manuelle Check verwendet ausschliesslich vorhandene lokale
+Single-Frame-DICOMs aus `DicomData/Dicom-Files` sowie zwei JPG/JPEG-Dateien pro
+Fall aus `DicomData/images`. Alle drei Bildquellen werden vor `make_pdf` ueber
+die oeffentliche `inject_function` injiziert. Die roten Boxen in der
+annotierten PDF stammen aus den jeweiligen Ground-Truth-Annotationen; der
+zweite Fall verwendet eine DICOM-Textrotation von 90 Grad:
+
+```bash
+uv run python tools/visual_checks/dicom_make_pdf_real_data.py
+```
+
+Mit `--cases 1` bis `--cases 3` kann die Anzahl der Faelle begrenzt werden.
+Die Artefakte werden standardmäßig unter einem Zeitstempel-Unterordner von
+`output/visual-checks/dicom-make-pdf-real-data/` geschrieben. Mit
+`--output-root` kann das Ziel weiterhin explizit festgelegt werden.
+Der Basis-Seed ist standardmäßig `9100`; pro Fall wird `seed + case_number`
+verwendet. Die beiden JPG-Dateien werden pro Fall ab einem fallabhängigen
+Index ausgewaehlt und bei zu wenigen Dateien zyklisch wiederverwendet. Die
+JPG-Injektionen verwenden jeweils Rotation `0` und eigene Run-IDs.
+Für vollständig reproduzierbare Run-IDs zusätzlich einen festen ISO-8601-
+Zeitstempel setzen, zum Beispiel:
+
+```bash
+uv run python tools/visual_checks/dicom_make_pdf_real_data.py \
+  --cases 3 --seed 9100 --run-timestamp 2026-09-16T12:00:00
+```
+
 ## Einzelne Handschrift-Alphabetprüfung
 
 Für die kleinere Prüfung der Zeichenqualität:
