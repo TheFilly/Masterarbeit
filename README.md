@@ -162,6 +162,8 @@ def inject_function(
     input_path: str | PathLike[str] | None = None,
     rotation_degrees: int | None = None,
     run_timestamp: datetime | None = None,
+    font_size_pct: int = 100,
+    placement_mode: str = "corners",
 ) -> tuple[Path, Path]: ...
 ```
 
@@ -359,7 +361,7 @@ Pipeline einen seed-basierten Standard aus `DicomData/Dicom-Files` und
 | `--identifier-schema` | `configs/identifier_schemas/dicom-prototype.json` | Vorhandener JSON-Schema-Pfad | Externes Identifier-Schema für Identitätsfelder und Routen |
 | `--rotation-angle` | `0` | `0`, `20`, `90`, `180`, `270` | Rotationswinkel des sichtbar injizierten Texts |
 | `--font-size-pct` | `100` | Ganzzahl `>= 1` | Sichtbare Textgröße als Prozentsatz des Prototype-Standards |
-| `--placement-mode` | `corners` | `corners`, `free` | Platzierungsstrategie für sichtbar injizierten Text |
+| `--placement-mode` | `corners` | `corners`, `free`, `center` | Platzierungsstrategie für sichtbar injizierten Text |
 | `--font-family` | `arial` | `arial`, `calibri`, `tahoma`, `consolas`, `handwriting` | Gemeinsame Font-/Renderer-Auswahl |
 | `--text-background` | none | `white` | Optionaler weißer Hintergrund hinter sichtbarem Text |
 | `--handwriting-ink-color` | `auto` | `auto`, `black`, `gray`, `white` | Handschriftfarbe; `auto` wählt anhand der lokalen Luminanz Schwarz oder Weiß |

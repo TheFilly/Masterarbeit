@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import random
 from pathlib import Path
 
 from injection_pipeline import inject_function
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-IMAGE_ROOT = REPOSITORY_ROOT / "DicomData" / "images"
+TEST_IMAGE = REPOSITORY_ROOT / "DicomData" / "images" / "blank_1600x1200.jpg"
 OUTPUT_ROOT = REPOSITORY_ROOT / "output" / "handwriting-alphabet-test"
 
 TEST_BLOCKS = (
@@ -21,18 +20,13 @@ TEST_BLOCKS = (
 
 
 # Input: Keine Parameter.
-# Output: Ein zufaellig ausgewaehlter JPG-/JPEG-Pfad.
-# Die Funktion waehlt die Bildquelle fuer den manuellen visuellen Check aus und
-# bricht mit einer klaren Meldung ab, wenn keine geeignete Quelle vorhanden ist.
+# Output: Der feste JPG-/JPEG-Pfad fuer den manuellen visuellen Check.
+# Die Funktion prueft, ob die konfigurierte Bildquelle vorhanden ist, und
+# bricht mit einer klaren Meldung ab, wenn sie fehlt.
 def choose_test_image() -> Path:
-    candidates = sorted(
-        path
-        for path in IMAGE_ROOT.iterdir()
-        if path.is_file() and path.suffix.lower() in {".jpg", ".jpeg"}
-    )
-    if not candidates:
-        raise FileNotFoundError(f"No JPG/JPEG files found in {IMAGE_ROOT}.")
-    return random.choice(candidates)
+    if not TEST_IMAGE.is_file():
+        raise FileNotFoundError(f"Test image not found: {TEST_IMAGE}.")
+    return TEST_IMAGE
 
 
 # Input: Bildquelle, Blockname, Testtext und deterministischer Seed.
@@ -53,8 +47,10 @@ def run_visual_check(image_path: Path, block_name: str, text: str, seed: int) ->
         output_dir=output_dir,
         seed=seed,
         rotation_degrees=0,
-        handwriting_ink_color="auto",
-        handwriting_contrast_mode="halo",
+        font_size_pct=300,
+        placement_mode="center",
+        handwriting_ink_color="black",
+        handwriting_contrast_mode="none",
     )
     print(f"{block_name}: {text}")
     print(f"  Bild: {injected_path}")

@@ -139,6 +139,34 @@ def test_materialize_positions_rejects_oversized_font(
         )
 
 
+def test_materialize_positions_centers_overlay() -> None:
+    frame = np.zeros((120, 200, 3), dtype=np.uint8)
+    injection = {
+        "label": "PatientID",
+        "text": "123456",
+        "text_segments": [{"kind": "pii", "text": "123456"}],
+        "rotation_degrees": 0,
+    }
+
+    positioned = _materialize_positions(
+        [injection],
+        frame,
+        font_family="arial",
+        font_size_px=18,
+        placement_mode="center",
+        rng=random.Random(42),
+    )
+
+    annotation = positioned[0]
+    overlay = annotation["_injection_pipeline_prepared_overlay"]
+    expected_position = (
+        (frame.shape[1] - overlay["rotated_size"][0]) // 2,
+        (frame.shape[0] - overlay["rotated_size"][1]) // 2,
+    )
+    assert annotation["position"] == expected_position
+    assert annotation["region"] == "center"
+
+
 def test_split_prefix_and_pii_text_for_prefixed_identifier() -> None:
     prefix_text, pii_text = _split_prefix_and_pii_text(
         [

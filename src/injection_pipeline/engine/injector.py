@@ -211,6 +211,7 @@ def _inject_visible_text_into_frame(
         frame,
         font_family=font_family,
         font_size_px=font_size_px,
+        font_size_pct=font_size_pct,
         placement_mode=placement_mode,
         text_background=text_background,
         rng=rng,

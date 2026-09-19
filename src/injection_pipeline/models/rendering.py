@@ -110,6 +110,7 @@ class AnnotationRenderDetail(BaseModel):
     asset_id: str | None = None
     asset_path: Path | None = None
     mask_path: Path | None = None
+    asset_scale_pct: int | None = None
     ink_color: str | None = None
     background_mode: str | None = None
     selected_ink_color: str | None = None

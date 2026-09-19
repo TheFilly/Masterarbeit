@@ -297,7 +297,11 @@ def _compose_handwriting_layer(
 # Output: Gerenderter Handschrift-Layer samt transformierter Ink-Maske.
 # Die Funktion laedt PNG und Maske aus dem Asset-Paket, erzeugt segmentierte
 # Masken fuer Ground Truth und rotiert alle Masken synchron zum Bild.
-def _prepare_handwriting_asset_overlay(annotation: dict[str, Any]) -> PreparedOverlay:
+def _prepare_handwriting_asset_overlay(
+    annotation: dict[str, Any],
+    *,
+    scale_pct: int = 100,
+) -> PreparedOverlay:
     asset = annotation.get("asset")
     if not isinstance(asset, dict):
         raise ValueError("Handwriting annotation requires an asset mapping.")
@@ -310,6 +314,15 @@ def _prepare_handwriting_asset_overlay(annotation: dict[str, Any]) -> PreparedOv
     mask = Image.open(mask_path).convert("L")
     if layer.size != mask.size:
         raise ValueError("Handwriting image and mask must have the same size.")
+    if scale_pct < 1:
+        raise ValueError("scale_pct must be >= 1.")
+    if scale_pct != 100:
+        scaled_size = (
+            max(1, round(layer.width * scale_pct / 100)),
+            max(1, round(layer.height * scale_pct / 100)),
+        )
+        layer = layer.resize(scaled_size, resample=Image.Resampling.LANCZOS)
+        mask = mask.resize(scaled_size, resample=Image.Resampling.LANCZOS)
 
     rotated_layer = layer.rotate(
         rotation, expand=True, resample=Image.Resampling.BICUBIC
@@ -374,6 +387,7 @@ def _prepare_handwriting_asset_overlay(annotation: dict[str, Any]) -> PreparedOv
             "asset_id": asset.get("asset_id"),
             "asset_path": str(image_path),
             "mask_path": str(mask_path),
+            "asset_scale_pct": scale_pct,
             "ink_color": asset.get("ink_color"),
             "background_mode": asset.get("background_mode"),
             "geometry_source": "transformed_ink_mask",

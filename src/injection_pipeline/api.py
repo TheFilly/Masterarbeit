@@ -23,6 +23,7 @@ from injection_pipeline.config.identifier_schema import (
     load_identifier_schema,
 )
 from injection_pipeline.engine.pixel_injection import ALLOWED_ROTATIONS_DEGREES
+from injection_pipeline.engine.placement import _VALID_PLACEMENT_MODES
 from injection_pipeline.loaders.pdf import PdfLoader
 from injection_pipeline.models.identity import Identity
 from injection_pipeline.pdf.models import (
@@ -230,6 +231,7 @@ def _build_api_render_plan(
     prefix: str,
     suffix: str,
     rotation_degrees: int,
+    placement_mode: str,
 ) -> list[dict[str, object]]:
     full_text = f"{prefix}{value}{suffix}"
     return [
@@ -243,7 +245,7 @@ def _build_api_render_plan(
                 {"kind": "generic", "text": suffix},
             ],
             "identity_field": field_name,
-            "region": "corners",
+            "region": placement_mode,
             "rotation_degrees": rotation_degrees,
             "line_index": 0,
         }
@@ -266,6 +268,8 @@ def _build_runner_args(
     visible_render_plan: list[dict[str, object]],
     rotation_degrees: int,
     handwritten: bool,
+    font_size_pct: int = 100,
+    placement_mode: str = "corners",
     handwriting_ink_color: str = "auto",
     handwriting_contrast_mode: str = "none",
 ) -> Namespace:
@@ -292,8 +296,8 @@ def _build_runner_args(
         handwriting_container_image=DEFAULT_HANDWRITING_CONTAINER_IMAGE,
         handwriting_generator_command=None,
         rotation_angle=rotation_degrees,
-        font_size_pct=100,
-        placement_mode="corners",
+        font_size_pct=font_size_pct,
+        placement_mode=placement_mode,
         font_family=HANDWRITING_FONT_FAMILY if handwritten else "arial",
         text_background=None,
         handwriting_ink_color=handwriting_ink_color,
@@ -590,6 +594,8 @@ def inject_function(
     input_path: str | PathLike[str] | None = None,
     rotation_degrees: int | None = None,
     run_timestamp: datetime | None = None,
+    font_size_pct: int = 100,
+    placement_mode: str = "corners",
 ) -> tuple[Path, Path]:
     category, value, prefix, suffix, handwritten, document_type = _validate_api_inputs(
         category,
@@ -620,6 +626,15 @@ def inject_function(
     )
     if not isinstance(resolved_seed, int) or isinstance(resolved_seed, bool):
         raise ValueError("seed must be an integer.")
+    if not isinstance(font_size_pct, int) or isinstance(font_size_pct, bool):
+        raise ValueError("font_size_pct must be an integer.")
+    if font_size_pct < 1:
+        raise ValueError("font_size_pct must be >= 1.")
+    if placement_mode not in _VALID_PLACEMENT_MODES:
+        raise ValueError(
+            "placement_mode must be one of: "
+            f"{', '.join(_VALID_PLACEMENT_MODES)}."
+        )
     if rotation_degrees is None:
         if seed is None:
             resolved_rotation = random.SystemRandom().choice(
@@ -649,6 +664,7 @@ def inject_function(
         prefix=prefix,
         suffix=suffix,
         rotation_degrees=resolved_rotation,
+        placement_mode=placement_mode,
     )
     identity = Identity(
         identity_id=value, seed=resolved_seed, fields={field_name: value}
@@ -672,6 +688,8 @@ def inject_function(
             visible_render_plan=visible_render_plan,
             rotation_degrees=resolved_rotation,
             handwritten=handwritten,
+            font_size_pct=font_size_pct,
+            placement_mode=placement_mode,
             handwriting_ink_color=handwriting_ink_color,
             handwriting_contrast_mode=handwriting_contrast_mode,
         ),

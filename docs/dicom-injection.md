@@ -97,6 +97,8 @@ def inject_function(
     input_path: str | PathLike[str] | None = None,
     rotation_degrees: int | None = None,
     run_timestamp: datetime | None = None,
+    font_size_pct: int = 100,
+    placement_mode: str = "corners",
 ) -> tuple[Path, Path]: ...
 ```
 
@@ -117,6 +119,8 @@ Parameter:
 | `input_path` | Optionaler expliziter DICOM-/JPG-Quellpfad. Ohne Pfad wird die Legacy-Zufallsauswahl verwendet. |
 | `rotation_degrees` | Optionaler expliziter Winkel aus `0`, `20`, `90`, `180`, `270`. |
 | `run_timestamp` | Optionaler Timestamp für reproduzierbare Run-IDs. |
+| `font_size_pct` | Relative sichtbare Schrift-/Handschriftgröße; `100` ist der Standard. |
+| `placement_mode` | `corners`, `free` oder `center`; bestimmt die Position sichtbarer Overlays. |
 
 Der sichtbare Text wird als `prefix + value + suffix` gerendert; die API fügt
 keine Leerzeichen oder Trennzeichen hinzu. Der Aufruf erzeugt genau diese eine
@@ -273,7 +277,7 @@ kein Ausgabe-Artefakt geschrieben.
 | `--identifier-schema` | `configs/identifier_schemas/dicom-prototype.json` | Externes Identifier-Schema als JSON |
 | `--rotation-angle` | `0` | Einer aus `0`, `20`, `90`, `180`, `270` |
 | `--font-size-pct` | `100` | Font-Größe in Prozent, mindestens `1` |
-| `--placement-mode` | `corners` | `corners` oder `free` |
+| `--placement-mode` | `corners` | `corners`, `free` oder `center` |
 | `--font-family` | `arial` | `arial`, `calibri`, `tahoma`, `consolas`, `handwriting` |
 | `--text-background` | none | Optionaler `white`-Hintergrund |
 | `--handwriting-ink-color` | `auto` | `auto`, `black`, `gray`, `white`; Handschriftfarbe beim Rendern |

@@ -200,6 +200,8 @@ def test_inject_function_accepts_optional_deterministic_parameters(
         "seed": 42,
         "rotation_degrees": 90,
         "run_timestamp": fixed_time,
+        "font_size_pct": 250,
+        "placement_mode": "center",
     }
 
     api.inject_function(**kwargs)
@@ -210,6 +212,8 @@ def test_inject_function_accepts_optional_deterministic_parameters(
     assert first_args.seed == second_args.seed == 42
     assert first_args.input == second_args.input == str(source_path)
     assert first_args.rotation_angle == second_args.rotation_angle == 90
+    assert first_args.font_size_pct == second_args.font_size_pct == 250
+    assert first_args.placement_mode == second_args.placement_mode == "center"
     assert first_now == second_now == fixed_time
 
 

@@ -9,6 +9,7 @@ from typing import Any
 
 from injection_pipeline.config import DEFAULT_IDENTIFIER_SCHEMA_PATH
 from injection_pipeline.engine.pixel_injection import ALLOWED_ROTATIONS_DEGREES
+from injection_pipeline.engine.placement import _VALID_PLACEMENT_MODES
 from injection_pipeline.loaders.pdf import PdfLoader
 from injection_pipeline.pdf.models import PdfCompositionArtifacts
 from injection_pipeline.runtime.inputs import DEFAULT_INPUT_EXTENSIONS
@@ -277,9 +278,11 @@ def _collect_interactive_args() -> argparse.Namespace:
     placement_mode = _prompt_for_value(
         parameter_name="placement-mode",
         purpose="Placement strategy for visible injected text.",
-        expected_inputs="free or corners",
+        expected_inputs="one of " + ", ".join(_VALID_PLACEMENT_MODES),
         default_value="corners",
-        parser=lambda raw: _validate_choice("placement-mode", raw, ("free", "corners")),
+        parser=lambda raw: _validate_choice(
+            "placement-mode", raw, _VALID_PLACEMENT_MODES
+        ),
     )
     text_background = _prompt_for_text_background(default_value=None)
     handwriting_ink_color = "auto"
@@ -536,10 +539,11 @@ def main() -> None:
         "--placement-mode",
         type=str,
         default="corners",
-        choices=["free", "corners"],
+        choices=list(_VALID_PLACEMENT_MODES),
         help=(
             "Placement mode: 'corners' picks a random corner, "
-            "'free' picks a fully random position."
+            "'free' picks a fully random position, and 'center' centers the "
+            "visible overlays."
         ),
     )
     parser.add_argument(

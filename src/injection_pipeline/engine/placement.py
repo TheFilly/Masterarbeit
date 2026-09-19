@@ -13,7 +13,7 @@ from injection_pipeline.engine.prepared_overlay import (
     with_prepared_overlay,
 )
 
-_VALID_PLACEMENT_MODES: tuple[str, ...] = ("free", "corners")
+_VALID_PLACEMENT_MODES: tuple[str, ...] = ("free", "corners", "center")
 _HANDWRITING_FONT_FAMILY = "handwriting"
 
 
@@ -28,6 +28,7 @@ def _materialize_positions(
     frame: np.ndarray,
     font_family: str = "arial",
     font_size_px: int = _DEFAULT_FONT_SIZE_PX,
+    font_size_pct: int = 100,
     placement_mode: str = "corners",
     text_background: str | None = None,
     rng: random.Random | None = None,
@@ -60,6 +61,7 @@ def _materialize_positions(
             font=font,
             font_family=font_family,
             text_background=text_background,
+            font_size_pct=font_size_pct,
         )
         prepared_overlays.append(overlay)
         sizes.append(overlay["rotated_size"])
@@ -134,6 +136,32 @@ def _materialize_positions(
                 )
             )
 
+    elif placement_mode == "center":
+        total_height = sum(rot_h for _, rot_h in sizes) + vertical_gap * max(
+            0, len(sizes) - 1
+        )
+        current_y = max(v_margin, (image_height - total_height) // 2)
+        for injection, (rot_w, rot_h), overlay in zip(
+            visible_injections,
+            sizes,
+            prepared_overlays,
+            strict=True,
+        ):
+            x = max(h_margin, (image_width - rot_w) // 2)
+            positioned_annotations.append(
+                with_prepared_overlay(
+                    {
+                        **injection,
+                        "position": (x, current_y),
+                        "region": "center",
+                        "padding": padding,
+                        "stroke_width": 1,
+                    },
+                    overlay,
+                )
+            )
+            current_y += rot_h + vertical_gap
+
     return positioned_annotations
 
 
@@ -186,9 +214,10 @@ def _prepare_overlay_for_placement(
     font: Any | None,
     font_family: str,
     text_background: str | None,
+    font_size_pct: int,
 ) -> PreparedOverlay:
     if annotation.get("renderer_type") == "handwriting_asset":
-        return _prepare_handwriting_asset_overlay(annotation)
+        return _prepare_handwriting_asset_overlay(annotation, scale_pct=font_size_pct)
     if font is None:
         raise ValueError("Font renderer placement requires a loaded font.")
     return _prepare_annotation_overlay(

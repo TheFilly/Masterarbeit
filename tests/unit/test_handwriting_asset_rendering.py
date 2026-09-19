@@ -609,6 +609,42 @@ def test_frame_renderer_reports_handwriting_assets_in_metadata(tmp_path: Path) -
     ]
 
 
+def test_frame_renderer_scales_and_centers_handwriting_assets(tmp_path: Path) -> None:
+    manifest = load_handwriting_manifest(_write_asset(tmp_path))
+    asset = manifest["patient-name-001"]
+    frame = np.full((80, 100, 3), 255, dtype=np.uint8)
+
+    result = _inject_visible_text_into_frame(
+        frame=frame,
+        visible_injections=[
+            {
+                "label": "PatientName",
+                "text": "Doe^Jane",
+                "identity_field": "patient_name",
+                "renderer_type": "handwriting_asset",
+                "asset_id": "patient-name-001",
+                "asset": asset,
+                "region": "center",
+                "rotation_degrees": 0,
+            }
+        ],
+        preview_path=tmp_path / "preview.png",
+        seed=42,
+        rotation_degrees=0,
+        font_size_pct=200,
+        placement_mode="center",
+        font_family="arial",
+        text_background=None,
+        frame_count=1,
+    )
+
+    annotation = result["render_metadata"]["visible_annotations"][0]
+    metadata = annotation["render_metadata"]
+    assert metadata["asset_scale_pct"] == 200
+    assert metadata["text_box_size"] == {"width": 16, "height": 12}
+    assert metadata["position"] == {"x": 42, "y": 34}
+
+
 def test_build_record_serializes_handwriting_asset_paths(tmp_path: Path) -> None:
     manifest = load_handwriting_manifest(_write_asset(tmp_path))
     visible_render_plan = [
