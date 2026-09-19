@@ -140,10 +140,12 @@ def test_handwriting_overlay_is_prepared_once_per_annotation(
     original_prepare = handwriting._prepare_handwriting_asset_overlay
     prepare_calls = 0
 
-    def counting_prepare(annotation: dict[str, Any]) -> PreparedOverlay:
+    def counting_prepare(
+        annotation: dict[str, Any], *, scale_pct: int = 100
+    ) -> PreparedOverlay:
         nonlocal prepare_calls
         prepare_calls += 1
-        return original_prepare(annotation)
+        return original_prepare(annotation, scale_pct=scale_pct)
 
     monkeypatch.setattr(
         placement,
