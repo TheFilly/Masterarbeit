@@ -175,6 +175,7 @@ class AnnotationRenderDetail(BaseModel):
                 "asset_id",
                 "asset_path",
                 "mask_path",
+                "asset_scale_pct",
                 "ink_color",
                 "background_mode",
                 "selected_ink_color",
